@@ -1,26 +1,140 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colores principales de Atajo */
+  --primary: #2563eb; /* Azul Confianza */
+  --secondary: #10b981; /* Verde Progreso */
+  --background: #f3f4f6; /* Gris Cálido */
+  --foreground: #1f2937; /* Gris oscuro para texto principal */
+  --foreground-secondary: #9ca3af; /* Gris medio para texto secundario */
+
+  /* Colores adicionales de la marca */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
 }
 
 @theme inline {
+  /* Colores de marca para Tailwind */
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+
+  /* Colores adicionales para uso común */
+  --color-white: #ffffff;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-700: #374151;
+  --color-primary-hover: #1d4ed8; /* Versión más oscura de primary para hover */
+  --color-primary-light: #dbeafe; /* Versión muy clara de primary para fondos */
+  --color-primary-lighter: #eff6ff; /* Versión aún más clara */
+  
+  /* Mapeo de colores para Tailwind */
+  --color-primary-600: var(--color-primary-hover);
+
+  /* Fuentes */
+  --font-sans: var(--font-lexend);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Modo dark desactivado - Mantenemos solo el tema light para la marca */
+/* Si quieres activar el modo dark en el futuro, puedes usar:
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
 }
+*/
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-lexend), system-ui, -apple-system, sans-serif;
+  font-weight: 300; /* font-light como peso por defecto */
+  line-height: 1.6;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Scroll reveal (animaciones sutiles al entrar en viewport) */
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  transition: opacity 600ms ease, transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.reveal[data-direction='down'] {
+  transform: translate3d(0, -14px, 0);
+}
+
+.reveal[data-direction='left'] {
+  transform: translate3d(-14px, 0, 0);
+}
+
+.reveal[data-direction='right'] {
+  transform: translate3d(14px, 0, 0);
+}
+
+.reveal[data-direction='none'] {
+  transform: none;
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Flotación sutil para ilustraciones */
+@keyframes floatSlow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.float-slow {
+  animation: floatSlow 4.5s ease-in-out infinite;
+}
+
+/* Animación para toasts */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .float-slow {
+    animation: none;
+  }
 }
