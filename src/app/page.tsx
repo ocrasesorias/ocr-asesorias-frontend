@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
+import { LandingAuthNav } from "@/components/LandingAuthNav";
 
 export default function Home() {
   return (
@@ -51,20 +52,7 @@ export default function Home() {
                 Contacto
               </a>
             </nav>
-            <div className="flex items-center space-x-4">
-              <Link
-                href="/login"
-                className="text-foreground hover:text-primary transition-colors font-medium"
-              >
-                Iniciar sesión
-              </Link>
-              <Link
-                href="/registro"
-                className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
-              >
-                Probar gratis
-              </Link>
-            </div>
+            <LandingAuthNav />
           </div>
         </div>
       </StickyHeader>
