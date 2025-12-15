@@ -10,6 +10,7 @@ export interface Cliente {
 export interface SubidaFacturas {
   id: string;
   clienteId: string;
+  tipo: 'gasto' | 'ingreso';
   nombre: string;
   fechaCreacion: string;
   estado: 'pendiente' | 'procesando' | 'completada';

@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [subidasFacturas, setSubidasFacturas] = useState<SubidaFacturas[]>([]);
   const [subidaActual, setSubidaActual] = useState<SubidaFacturas | null>(null);
   const [archivosSubidos, setArchivosSubidos] = useState<ArchivoSubido[]>([]);
+  const [isChoosingTipoSubida, setIsChoosingTipoSubida] = useState(false);
   const [subidaEditandoId, setSubidaEditandoId] = useState<string | null>(null);
   const [subidaEditandoNombre, setSubidaEditandoNombre] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -121,6 +122,7 @@ export default function DashboardPage() {
     // (por ahora no cargamos nada aquí; solo reseteamos la selección)
     setSubidaActual(null);
     setArchivosSubidos([]);
+    setIsChoosingTipoSubida(false);
     setSubidaEditandoId(null);
     setSubidaEditandoNombre('');
   }, [clientes, orgId]);
@@ -204,19 +206,30 @@ export default function DashboardPage() {
   const handleCrearSubida = useCallback(() => {
     if (!clienteSeleccionado) return;
 
-    const nuevaSubida: SubidaFacturas = {
-      id: Date.now().toString(),
-      clienteId: clienteSeleccionado.id,
-      nombre: getNombreSubidaPorDefecto(),
-      fechaCreacion: new Date().toISOString(),
-      estado: 'pendiente',
-      archivos: [],
-    };
-
-    setSubidasFacturas(prev => [...prev, nuevaSubida]);
-    setSubidaActual(nuevaSubida);
-    setArchivosSubidos([]);
+    setIsChoosingTipoSubida(true);
   }, [clienteSeleccionado]);
+
+  const handleCrearSubidaConTipo = useCallback(
+    (tipo: 'gasto' | 'ingreso') => {
+      if (!clienteSeleccionado) return;
+
+      const nuevaSubida: SubidaFacturas = {
+        id: Date.now().toString(),
+        clienteId: clienteSeleccionado.id,
+        tipo,
+        nombre: getNombreSubidaPorDefecto(),
+        fechaCreacion: new Date().toISOString(),
+        estado: 'pendiente',
+        archivos: [],
+      };
+
+      setSubidasFacturas(prev => [...prev, nuevaSubida]);
+      setSubidaActual(nuevaSubida);
+      setArchivosSubidos([]);
+      setIsChoosingTipoSubida(false);
+    },
+    [clienteSeleccionado]
+  );
 
   const handleGuardarNombreSubida = (subidaId: string) => {
     const nuevoNombre = subidaEditandoNombre.trim();
@@ -249,23 +262,16 @@ export default function DashboardPage() {
       showError('Por favor, crea o selecciona una subida primero');
       return;
     }
-    if (!orgId) {
-      showError('No se ha podido determinar la organización');
-      return;
-    }
-
-    const supabase = createClient();
-    const bucket = 'invoices';
 
     const nuevosArchivos: ArchivoSubido[] = files.map((file, index) => ({
       id: `${Date.now()}-${index}`,
       nombre: file.name,
       tamaño: file.size,
       tipo: file.type,
-      url: '', // se completará con URL firmada tras el upload
-      bucket,
+      // MVP sin backend: usamos una URL local para previsualización
+      url: URL.createObjectURL(file),
       fechaSubida: new Date().toISOString(),
-      estado: 'procesando',
+      estado: 'pendiente',
     }));
 
     const archivosActualizados = [...archivosSubidos, ...nuevosArchivos];
@@ -280,75 +286,7 @@ export default function DashboardPage() {
       )
     );
     setSubidaActual(prev => prev ? { ...prev, archivos: archivosActualizados } : null);
-
-    // Subir archivos a Storage y generar URL firmada
-    await Promise.all(
-      nuevosArchivos.map(async (archivoMeta, idx) => {
-        const file = files[idx];
-        const safeName = file.name.replace(/[^\w.\-() ]+/g, '_');
-        const storagePath = `${orgId}/${clienteSeleccionado?.id || 'unknown-client'}/${subidaActual.id}/${archivoMeta.id}-${safeName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .upload(storagePath, file, { upsert: false, contentType: file.type });
-
-        if (uploadError) {
-          console.error('Error subiendo archivo:', uploadError);
-          setArchivosSubidos(prev =>
-            prev.map(a => (a.id === archivoMeta.id ? { ...a, estado: 'error' } : a))
-          );
-          return;
-        }
-
-        const { data: signed, error: signedErr } = await supabase.storage
-          .from(bucket)
-          .createSignedUrl(storagePath, 60 * 60);
-
-        if (signedErr || !signed?.signedUrl) {
-          console.error('Error creando URL firmada:', signedErr);
-          setArchivosSubidos(prev =>
-            prev.map(a => (a.id === archivoMeta.id ? { ...a, storagePath, estado: 'error' } : a))
-          );
-          return;
-        }
-
-        setArchivosSubidos(prev =>
-          prev.map(a =>
-            a.id === archivoMeta.id
-              ? { ...a, storagePath, url: signed.signedUrl, estado: 'pendiente' }
-              : a
-          )
-        );
-
-        // Mantener subidaActual y subidasFacturas sincronizadas
-        setSubidasFacturas(prev =>
-          prev.map(s => {
-            if (s.id !== subidaActual.id) return s;
-            return {
-              ...s,
-              archivos: s.archivos.map(a =>
-                a.id === archivoMeta.id
-                  ? { ...a, storagePath, url: signed.signedUrl, estado: 'pendiente' }
-                  : a
-              ),
-            };
-          })
-        );
-        setSubidaActual(prev =>
-          prev
-            ? {
-                ...prev,
-                archivos: prev.archivos.map(a =>
-                  a.id === archivoMeta.id
-                    ? { ...a, storagePath, url: signed.signedUrl, estado: 'pendiente' }
-                    : a
-                ),
-              }
-            : prev
-        );
-      })
-    );
-  }, [subidaActual, archivosSubidos, showError, orgId, clienteSeleccionado?.id]);
+  }, [subidaActual, archivosSubidos, showError]);
 
   // Eliminar archivo
   const handleRemoveFile = useCallback(async (fileId: string) => {
@@ -367,10 +305,13 @@ export default function DashboardPage() {
       setSubidaActual(prev => prev ? { ...prev, archivos: archivosActualizados } : null);
     }
 
-    // Si el archivo estaba subido a Storage, intentamos borrarlo
-    if (fileToRemove?.bucket && fileToRemove.storagePath) {
-      const supabase = createClient();
-      await supabase.storage.from(fileToRemove.bucket).remove([fileToRemove.storagePath]);
+    // MVP sin backend: revocar URL local si aplica
+    if (fileToRemove?.url?.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(fileToRemove.url);
+      } catch {
+        // noop
+      }
     }
   }, [archivosSubidos, subidaActual]);
 
@@ -721,7 +662,8 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <div className="py-10 text-center">
+                {!isChoosingTipoSubida ? (
+                  <div className="py-10 text-center">
                     <svg
                       className="w-16 h-16 text-foreground-secondary mx-auto mb-4"
                       fill="none"
@@ -748,6 +690,70 @@ export default function DashboardPage() {
                       Crear nueva subida
                     </Button>
                   </div>
+                ) : (
+                  <div className="py-6">
+                    <h4 className="text-lg font-semibold text-foreground mb-2 text-center">
+                      ¿Esta subida es de gasto o de ingreso?
+                    </h4>
+                    <p className="text-foreground-secondary mb-6 text-center">
+                      Elige una opción para continuar.
+                    </p>
+
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => handleCrearSubidaConTipo('ingreso')}
+                        className="group text-left border border-gray-200 rounded-xl p-5 hover:border-secondary hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-secondary group-hover:bg-white transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16m0 0l-6-6m6 6l-6 6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-foreground">Ingreso</div>
+                            <div className="text-sm text-foreground-secondary">Venta / emitida</div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-foreground-secondary">
+                          Ej.: servicios facturados, ventas, abonos.
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCrearSubidaConTipo('gasto')}
+                        className="group text-left border border-gray-200 rounded-xl p-5 hover:border-primary hover:bg-primary-lighter transition-colors"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-lg bg-primary-lighter flex items-center justify-center text-primary group-hover:bg-white transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4m0 0l6-6m-6 6l6 6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-foreground">Gastos</div>
+                            <div className="text-sm text-foreground-secondary">Compra / proveedor</div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-foreground-secondary">
+                          Ej.: suministros, servicios, alquiler, materiales.
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="mt-6 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setIsChoosingTipoSubida(false)}
+                        className="text-sm text-foreground-secondary hover:text-foreground transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -757,6 +763,12 @@ export default function DashboardPage() {
                   </h3>
                   <p className="text-sm text-foreground-secondary">
                     Cliente: {clienteSeleccionado.name}
+                  </p>
+                  <p className="text-sm text-foreground-secondary">
+                    Tipo:{' '}
+                    <span className="font-medium text-foreground">
+                      {subidaActual.tipo === 'gasto' ? 'Gasto' : 'Ingreso'}
+                    </span>
                   </p>
                 </div>
 

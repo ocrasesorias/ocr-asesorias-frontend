@@ -97,22 +97,8 @@ export default function ValidarFacturaPage() {
         try {
           const archivosRaw: ArchivoSubido[] = JSON.parse(archivosStr);
           const cliente = clienteStr ? JSON.parse(clienteStr) : null;
-
-          // Regenerar URLs firmadas si vienen de Storage (para evitar expiración)
-          const archivos: ArchivoSubido[] = await Promise.all(
-            archivosRaw.map(async (a) => {
-              if (a.bucket && a.storagePath) {
-                const { data: signed, error: signedErr } = await supabase.storage
-                  .from(a.bucket)
-                  .createSignedUrl(a.storagePath, 60 * 60);
-
-                if (!signedErr && signed?.signedUrl) {
-                  return { ...a, url: signed.signedUrl };
-                }
-              }
-              return a;
-            })
-          );
+          // MVP sin backend: usamos las URLs tal cual vienen del dashboard (blob/local)
+          const archivos: ArchivoSubido[] = archivosRaw;
 
           if (archivos.length > 0) {
             const facturasConvertidas = convertirArchivosAFacturas(

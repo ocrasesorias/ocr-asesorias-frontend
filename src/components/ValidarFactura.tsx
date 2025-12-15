@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import Image from 'next/image';
 import { FacturaData } from '@/types/factura';
 import { Card } from './Card';
 import { Button } from './Button';
@@ -118,11 +117,38 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const porcentajesRetencion = ['15%', '17%', '19%'];
   const tiposRetencion = ['AUTÓNOMO', 'PROFESIONAL'];
 
+  const FieldRow = ({
+    label,
+    widthClass = 'w-20',
+    alignTop = false,
+    children,
+  }: {
+    label: string
+    widthClass?: string
+    alignTop?: boolean
+    children: React.ReactNode
+  }) => (
+    <div className={`flex ${alignTop ? 'items-start' : 'items-center'} gap-2`}>
+      <span
+        className={`text-xs font-medium text-foreground shrink-0 ${widthClass} ${
+          alignTop ? 'pt-0.5' : ''
+        }`}
+      >
+        {label}
+      </span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
+
   return (
-    <div className="bg-background p-1 flex flex-col min-h-0">
-      <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-2 gap-1 min-h-0">
+    <div className="bg-background p-1 flex flex-col min-h-0 h-full">
+      <form
+        ref={formRef}
+        onSubmit={handleSubmit}
+        className="grid grid-cols-2 gap-1 min-h-0 h-full"
+      >
         {/* Columna izquierda: Imagen/PDF de la factura */}
-        <div className="overflow-hidden">
+        <div className="overflow-hidden h-full">
           <Card variant="elevated" className="p-1 h-full flex flex-col">
             <h2 className="text-[10px] font-semibold text-foreground mb-0.5">
               Factura
@@ -138,23 +164,11 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
               ) : (
                 <div className="w-full h-full border border-gray-200 rounded overflow-hidden bg-gray-50 relative">
-                  {factura.archivo?.url ? (
-                    <Image
-                      src={factura.archivo.url}
-                      alt="Factura"
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
-                  ) : (
-                    <Image
-                      src="/img/placeholder-invoice.png"
-                      alt="Placeholder factura"
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
-                  )}
+                  <img
+                    src={factura.archivo?.url || '/img/placeholder-invoice.png'}
+                    alt="Factura"
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
                 </div>
               )}
             </div>
@@ -162,195 +176,187 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
         </div>
 
         {/* Columna derecha: Campos editables */}
-        <div className="overflow-hidden flex flex-col space-y-0.5">
-          {/* Empresa */}
-          <Card variant="outlined" className="p-1">
-            <h3 className="text-[10px] font-semibold text-foreground mb-0.5">
-              EMPRESA
-            </h3>
-            <div className="grid grid-cols-[2fr_2fr_0.5fr] gap-0.5">
+        <div className="overflow-hidden h-full">
+          <Card variant="elevated" className="h-full p-1 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden space-y-1">
+              {/* Empresa */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <h3 className="text-xs font-semibold text-foreground mb-1">
+                  EMPRESA
+                </h3>
+                <div className="grid grid-cols-[2fr_2fr_0.7fr] gap-1">
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  CIF
-                </label>
-                <input
-                  type="text"
-                  value={factura.empresa.cif}
-                  onChange={(e) => handleChange('empresa.cif', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="CIF" widthClass="w-10">
+                  <input
+                    type="text"
+                    value={factura.empresa.cif}
+                    onChange={(e) => handleChange('empresa.cif', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  ACTIVIDAD
-                </label>
-                <input
-                  type="text"
-                  value={factura.empresa.actividad}
-                  onChange={(e) => handleChange('empresa.actividad', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="ACTIVIDAD" widthClass="w-20">
+                  <input
+                    type="text"
+                    value={factura.empresa.actividad}
+                    onChange={(e) => handleChange('empresa.actividad', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  TRIMESTRE
-                </label>
-                <select
-                  value={factura.empresa.trimestre}
-                  onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="">-</option>
-                  {trimestres.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                <FieldRow label="TRI." widthClass="w-8">
+                  <select
+                    value={factura.empresa.trimestre}
+                    onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">-</option>
+                    {trimestres.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </FieldRow>
               </div>
-            </div>
-          </Card>
+                </div>
+              </div>
 
-          {/* Proveedor/Acreedor */}
-          <Card variant="outlined" className="p-1">
-            <h3 className="text-[10px] font-semibold text-foreground mb-0.5">
-              PROVEEDOR
-            </h3>
-            <div className="space-y-0.5">
+              {/* Proveedor/Acreedor */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <h3 className="text-xs font-semibold text-foreground mb-1">
+                  PROVEEDOR
+                </h3>
+                <div className="space-y-1">
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  NOMBRE
-                </label>
-                <input
-                  type="text"
-                  value={factura.proveedor.nombre}
-                  onChange={(e) => handleChange('proveedor.nombre', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="NOMBRE" widthClass="w-16">
+                  <input
+                    type="text"
+                    value={factura.proveedor.nombre}
+                    onChange={(e) => handleChange('proveedor.nombre', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
-              <div className="grid grid-cols-3 gap-0.5">
+                  <div className="grid grid-cols-3 gap-1">
                 <div>
-                  <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                    CIF
-                  </label>
-                  <input
-                    type="text"
-                    value={factura.proveedor.cif}
-                    onChange={(e) => handleChange('proveedor.cif', e.target.value)}
-                    className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
+                  <FieldRow label="CIF" widthClass="w-10">
+                    <input
+                      type="text"
+                      value={factura.proveedor.cif}
+                      onChange={(e) => handleChange('proveedor.cif', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    />
+                  </FieldRow>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                    C. POSTAL
-                  </label>
-                  <input
-                    type="text"
-                    value={factura.proveedor.codigoPostal}
-                    onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
-                    className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
+                  <FieldRow label="C.P." widthClass="w-10">
+                    <input
+                      type="text"
+                      value={factura.proveedor.codigoPostal}
+                      onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    />
+                  </FieldRow>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                    PROVINCIA
-                  </label>
-                  <input
-                    type="text"
-                    value={factura.proveedor.provincia}
-                    onChange={(e) => handleChange('proveedor.provincia', e.target.value)}
-                    className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
+                  <FieldRow label="PROV." widthClass="w-12">
+                    <input
+                      type="text"
+                      value={factura.proveedor.provincia}
+                      onChange={(e) => handleChange('proveedor.provincia', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    />
+                  </FieldRow>
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  DIRECCIÓN
-                </label>
-                <input
-                  type="text"
-                  value={factura.proveedor.direccion}
-                  onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="DIRECCIÓN" widthClass="w-20">
+                  <input
+                    type="text"
+                    value={factura.proveedor.direccion}
+                    onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
-            </div>
-          </Card>
+                </div>
+              </div>
 
-          {/* Datos de la factura */}
-          <Card variant="outlined" className="p-1">
-            <h3 className="text-[10px] font-semibold text-foreground mb-0.5">
-              DATOS FACTURA
-            </h3>
-            <div className="grid grid-cols-3 gap-0.5">
+              {/* Datos de la factura */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <h3 className="text-xs font-semibold text-foreground mb-1">
+                  DATOS FACTURA
+                </h3>
+                <div className="grid grid-cols-3 gap-1">
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  Nº
-                </label>
-                <input
-                  type="text"
-                  value={factura.factura.numero}
-                  onChange={(e) => handleChange('factura.numero', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="Nº" widthClass="w-8">
+                  <input
+                    type="text"
+                    value={factura.factura.numero}
+                    onChange={(e) => handleChange('factura.numero', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  FECHA
-                </label>
-                <input
-                  type="date"
-                  value={factura.factura.fecha}
-                  onChange={(e) => handleChange('factura.fecha', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="FECHA" widthClass="w-12">
+                  <input
+                    type="date"
+                    value={factura.factura.fecha}
+                    onChange={(e) => handleChange('factura.fecha', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  VENC.
-                </label>
-                <input
-                  type="date"
-                  value={factura.factura.fechaVencimiento}
-                  onChange={(e) => handleChange('factura.fechaVencimiento', e.target.value)}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                />
+                <FieldRow label="VENC." widthClass="w-12">
+                  <input
+                    type="date"
+                    value={factura.factura.fechaVencimiento}
+                    onChange={(e) => handleChange('factura.fechaVencimiento', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  />
+                </FieldRow>
               </div>
-            </div>
-          </Card>
+                </div>
+              </div>
 
-          {/* Subcuenta de gasto */}
-          <Card variant="outlined" className="p-1">
-            <label className="block text-[10px] font-medium text-foreground mb-0.5">
-              SUBCUENTA DE GASTO
-            </label>
-            <select
-              value={factura.subcuentaGasto}
-              onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
-              className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-            >
-              <option value="">-</option>
-              <option value="600">600</option>
-              <option value="620">620</option>
-              <option value="621">621</option>
-              <option value="628">628</option>
-            </select>
-          </Card>
+              {/* Subcuenta de gasto */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <FieldRow label="SUBCUENTA" widthClass="w-20">
+                  <select
+                    value={factura.subcuentaGasto}
+                    onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
+                    className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">-</option>
+                    <option value="600">600</option>
+                    <option value="620">620</option>
+                    <option value="621">621</option>
+                    <option value="628">628</option>
+                  </select>
+                </FieldRow>
+              </div>
 
-          {/* Tabla de desglose */}
-          <Card variant="outlined" className="p-1">
-            <div className="flex justify-between items-center mb-0.5">
-              <h3 className="text-[10px] font-semibold text-foreground">
-                DESGLOSE
-              </h3>
-              <button
-                type="button"
-                onClick={agregarLinea}
-                className="text-[9px] px-1 py-0.5 border border-gray-200 rounded hover:bg-gray-50"
-              >
-                + Línea
-              </button>
-            </div>
-            <div className="overflow-hidden">
-              <table className="w-full border-collapse text-[9px]">
+              {/* Tabla de desglose */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="text-xs font-semibold text-foreground">
+                    DESGLOSE
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={agregarLinea}
+                    className="text-[11px] px-2 py-0.5 border border-gray-200 rounded hover:bg-gray-50"
+                  >
+                    + Línea
+                  </button>
+                </div>
+                <div className="overflow-hidden">
+                  <table className="w-full border-collapse text-[10px]">
                 <colgroup>
                   <col className="w-auto" />
                   <col className="w-12" />
@@ -375,7 +381,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={formatearMoneda(linea.base)}
                           onChange={(e) => handleLineaChange(index, 'base', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -383,7 +389,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={linea.porcentajeIva}
                           onChange={(e) => handleLineaChange(index, 'porcentajeIva', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -391,7 +397,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={formatearMoneda(linea.cuotaIva)}
                           onChange={(e) => handleLineaChange(index, 'cuotaIva', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -399,7 +405,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={linea.porcentajeRecargo}
                           onChange={(e) => handleLineaChange(index, 'porcentajeRecargo', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -407,125 +413,126 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={formatearMoneda(linea.cuotaRecargo)}
                           onChange={(e) => handleLineaChange(index, 'cuotaRecargo', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </Card>
+                  </table>
+                </div>
+              </div>
 
-          {/* Retención */}
-          <Card variant="outlined" className="p-1">
-            <div className="grid grid-cols-5 gap-1">
+              {/* Retención */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <div className="grid grid-cols-5 gap-1">
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  RETENCIÓN
-                </label>
-                <label className="flex items-center h-[22px]">
+                <div className="flex items-center gap-2 h-[22px]">
+                  <span className="text-xs font-medium text-foreground shrink-0 w-16">
+                    RETENCIÓN
+                  </span>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={factura.retencion.aplica}
+                      onChange={(e) => handleChange('retencion.aplica', e.target.checked)}
+                      className="mr-0.5"
+                    />
+                    <span className="text-xs">Sí</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <FieldRow label="TIPO" widthClass="w-10">
+                  <select
+                    value={factura.retencion.tipo}
+                    onChange={(e) => handleChange('retencion.tipo', e.target.value)}
+                    disabled={!factura.retencion.aplica}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-</option>
+                    {tiposRetencion.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="%" widthClass="w-6">
+                  <select
+                    value={factura.retencion.porcentaje}
+                    onChange={(e) => handleChange('retencion.porcentaje', e.target.value)}
+                    disabled={!factura.retencion.aplica}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">-</option>
+                    {porcentajesRetencion.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="CANT." widthClass="w-12">
                   <input
-                    type="checkbox"
-                    checked={factura.retencion.aplica}
-                    onChange={(e) => handleChange('retencion.aplica', e.target.checked)}
-                    className="mr-0.5"
+                    type="text"
+                    value={formatearMoneda(factura.retencion.cantidad)}
+                    onChange={(e) => {
+                      const valorLimpio = e.target.value.replace('€', '').trim()
+                      handleChange('retencion.cantidad', valorLimpio)
+                    }}
+                    disabled={!factura.retencion.aplica}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    placeholder="0.00€"
                   />
-                  <span className="text-[10px]">SI</span>
-                </label>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  TIPO
-                </label>
-                <select
-                  value={factura.retencion.tipo}
-                  onChange={(e) => handleChange('retencion.tipo', e.target.value)}
-                  disabled={!factura.retencion.aplica}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">-</option>
-                  {tiposRetencion.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  %
-                </label>
-                <select
-                  value={factura.retencion.porcentaje}
-                  onChange={(e) => handleChange('retencion.porcentaje', e.target.value)}
-                  disabled={!factura.retencion.aplica}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">-</option>
-                  {porcentajesRetencion.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  CANTIDAD
-                </label>
-                <input
-                  type="text"
-                  value={formatearMoneda(factura.retencion.cantidad)}
-                  onChange={(e) => {
-                    const valorLimpio = e.target.value.replace('€', '').trim();
-                    handleChange('retencion.cantidad', valorLimpio);
-                  }}
-                  disabled={!factura.retencion.aplica}
-                  className="w-full px-1 py-0.5 text-[10px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  placeholder="0.00€"
-                />
+                </FieldRow>
               </div>
               <div></div>
             </div>
-          </Card>
+              </div>
 
-          {/* Anexos/Observaciones y Total */}
-          <Card variant="outlined" className="p-1">
-            <div className="grid grid-cols-2 gap-1 mb-1">
+              {/* Anexos/Observaciones y Total */}
+              <div className="border border-gray-200 rounded-lg p-1">
+                <div className="grid grid-cols-2 gap-1">
               <div>
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  OBSERVACIONES
-                </label>
-                <textarea
-                  value={factura.anexosObservaciones}
-                  onChange={(e) => handleChange('anexosObservaciones', e.target.value)}
-                  onKeyDown={(e) => {
-                    // Permitir Enter en textarea, pero Ctrl+Enter o Cmd+Enter para submit
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                      e.preventDefault();
-                      handleSubmit(e as unknown as React.FormEvent);
-                    }
-                  }}
-                  rows={5}
-                  className="w-full px-1 py-0.5 text-[9px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent resize-none"
-                  placeholder="Albarán, ticket..."
-                />
+                <FieldRow label="OBS." widthClass="w-12" alignTop>
+                  <textarea
+                    value={factura.anexosObservaciones}
+                    onChange={(e) => handleChange('anexosObservaciones', e.target.value)}
+                    onKeyDown={(e) => {
+                      // Permitir Enter en textarea, pero Ctrl+Enter o Cmd+Enter para submit
+                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault()
+                        handleSubmit(e as unknown as React.FormEvent)
+                      }
+                    }}
+                        rows={3}
+                    className="w-full px-2 py-2 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent resize-none"
+                    placeholder="Albarán, ticket..."
+                  />
+                </FieldRow>
               </div>
               <div className="flex flex-col">
-                <label className="block text-[10px] font-medium text-foreground mb-0.5">
-                  TOTAL
-                </label>
-                <input
-                  type="text"
-                  value={formatearMoneda(factura.total)}
-                  onChange={(e) => {
-                    const valorLimpio = e.target.value.replace('€', '').trim();
-                    handleChange('total', valorLimpio);
-                  }}
-                  className="w-full px-1 py-0.5 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent font-semibold mb-1"
-                />
+                <FieldRow label="TOTAL" widthClass="w-12">
+                  <input
+                    type="text"
+                    value={formatearMoneda(factura.total)}
+                    onChange={(e) => {
+                      const valorLimpio = e.target.value.replace('€', '').trim()
+                      handleChange('total', valorLimpio)
+                    }}
+                        className="w-full px-2 py-1.5 text-base border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent font-semibold"
+                  />
+                </FieldRow>
                 <Button
                   variant="secondary"
                   size="md"
                   type="submit"
-                  className="w-full text-sm py-2 font-bold ml-auto"
+                      className="w-full text-sm py-1.5 font-bold ml-auto"
                 >
                   VALIDAR
                 </Button>
@@ -533,6 +540,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             </div>
             {/* Botón oculto para permitir submit con Enter desde cualquier campo */}
             <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+              </div>
+            </div>
           </Card>
         </div>
       </form>
