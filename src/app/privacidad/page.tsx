@@ -32,7 +32,7 @@ export default function PrivacidadPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-20">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 md:p-12">
           <h1 className="text-4xl font-bold text-foreground mb-8">
-            Política de Privacidad – Atajo
+            Política de Privacidad – KontaScan
           </h1>
 
           <div className="prose prose-lg max-w-none text-foreground">
@@ -41,7 +41,7 @@ export default function PrivacidadPage() {
                 1. Responsable del tratamiento
               </h2>
               <p className="text-foreground-secondary leading-relaxed">
-                El responsable del tratamiento de los datos es [Nombre legal / razón social], con domicilio en [dirección] y correo electrónico [email de contacto] (en adelante, "Atajo").
+                El responsable del tratamiento de los datos es [Nombre legal / razón social], con domicilio en [dirección] y correo electrónico [email de contacto] (en adelante, &quot;KontaScan&quot;).
               </p>
             </section>
 
@@ -50,7 +50,7 @@ export default function PrivacidadPage() {
                 2. Datos personales que tratamos
               </h2>
               <p className="text-foreground-secondary leading-relaxed mb-4">
-                Atajo puede tratar los siguientes datos:
+                KontaScan puede tratar los siguientes datos:
               </p>
               
               <div className="space-y-4">
@@ -87,7 +87,7 @@ export default function PrivacidadPage() {
               </div>
 
               <p className="text-foreground-secondary leading-relaxed mt-4">
-                Atajo no solicita ni trata datos especialmente protegidos de forma intencionada.
+                KontaScan no solicita ni trata datos especialmente protegidos de forma intencionada.
               </p>
             </section>
 
@@ -115,7 +115,7 @@ export default function PrivacidadPage() {
                 La base legal para el tratamiento de los datos es:
               </p>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>La ejecución del contrato al utilizar Atajo.</li>
+                <li>La ejecución del contrato al utilizar KontaScan.</li>
                 <li>El consentimiento del usuario en determinados casos.</li>
                 <li>El cumplimiento de obligaciones legales aplicables.</li>
               </ul>
@@ -127,7 +127,7 @@ export default function PrivacidadPage() {
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
                 <li>Los documentos subidos se utilizan únicamente para prestar el servicio.</li>
-                <li>Atajo no analiza ni explota los datos con fines comerciales, publicitarios o estadísticos ajenos al servicio.</li>
+                <li>KontaScan no analiza ni explota los datos con fines comerciales, publicitarios o estadísticos ajenos al servicio.</li>
                 <li>Los documentos se procesan de forma automatizada y segura.</li>
                 <li>El acceso a los datos está limitado estrictamente al usuario y su organización.</li>
               </ul>
@@ -138,7 +138,7 @@ export default function PrivacidadPage() {
                 6. Uso de inteligencia artificial
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo utiliza tecnologías de OCR e inteligencia artificial para extraer información de los documentos.</li>
+                <li>KontaScan utiliza tecnologías de OCR e inteligencia artificial para extraer información de los documentos.</li>
                 <li>Estos sistemas se emplean exclusivamente para la prestación del servicio.</li>
                 <li>Los datos no se utilizan para entrenar modelos de terceros fuera del ámbito del servicio.</li>
                 <li>Los resultados deben ser revisados y validados por el usuario antes de su uso contable o fiscal.</li>
@@ -161,7 +161,7 @@ export default function PrivacidadPage() {
                 8. Cesión de datos a terceros
               </h2>
               <p className="text-foreground-secondary leading-relaxed mb-4">
-                Atajo no cede datos personales a terceros, salvo:
+                KontaScan no cede datos personales a terceros, salvo:
               </p>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
                 <li>Proveedores tecnológicos necesarios para el funcionamiento del servicio (hosting, almacenamiento, servicios técnicos).</li>
@@ -177,7 +177,7 @@ export default function PrivacidadPage() {
                 9. Seguridad de los datos
               </h2>
               <p className="text-foreground-secondary leading-relaxed mb-4">
-                Atajo aplica medidas técnicas y organizativas adecuadas para proteger los datos, incluyendo:
+                KontaScan aplica medidas técnicas y organizativas adecuadas para proteger los datos, incluyendo:
               </p>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
                 <li>Control de accesos</li>
@@ -221,7 +221,7 @@ export default function PrivacidadPage() {
                 12. Cambios en la política de privacidad
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo se reserva el derecho a modificar esta política.</li>
+                <li>KontaScan se reserva el derecho a modificar esta política.</li>
                 <li>Las modificaciones se comunicarán de forma clara y con antelación razonable.</li>
               </ul>
             </section>
@@ -248,7 +248,7 @@ export default function PrivacidadPage() {
       <footer className="bg-foreground text-white py-8 mt-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-foreground-secondary">
-            &copy; {new Date().getFullYear()} Atajo. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} KontaScan. Todos los derechos reservados.
           </p>
         </div>
       </footer>

@@ -9,6 +9,7 @@ export interface Cliente {
 
 export interface SubidaFacturas {
   id: string;
+  uploadId?: string; // uuid real en DB (tabla uploads)
   clienteId: string;
   tipo: 'gasto' | 'ingreso';
   nombre: string;
@@ -19,6 +20,7 @@ export interface SubidaFacturas {
 
 export interface ArchivoSubido {
   id: string;
+  invoiceId?: string;
   nombre: string;
   tamaño: number;
   tipo: string;

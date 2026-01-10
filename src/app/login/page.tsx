@@ -73,7 +73,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-block mb-1">
             <Image
               src="/img/logo.png"
-              alt="Atajo"
+              alt="KontaScan"
               width={80}
               height={80}
               className="mx-auto h-16 w-auto"

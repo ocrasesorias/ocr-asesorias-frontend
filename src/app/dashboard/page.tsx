@@ -29,6 +29,21 @@ export default function DashboardPage() {
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false);
   const [nuevoCliente, setNuevoCliente] = useState({ name: '', tax_id: '' });
   const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [subidaParaEliminar, setSubidaParaEliminar] = useState<SubidaFacturas | null>(null)
+  const [isDeletingUpload, setIsDeletingUpload] = useState(false)
+  const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] = useState(false)
+  const [facturaParaEliminar, setFacturaParaEliminar] = useState<ArchivoSubido | null>(null)
+  const [isDeletingInvoice, setIsDeletingInvoice] = useState(false)
+
+  const hasProcessingInvoices = archivosSubidos.some(
+    (a) => a.estado === 'procesando' || a.estado === 'pendiente'
+  )
+
+  const canValidate =
+    !!subidaActual?.uploadId &&
+    archivosSubidos.length > 0 &&
+    !archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente' || a.estado === 'error')
 
   // Verificar sesión y organización al cargar
   useEffect(() => {
@@ -118,14 +133,81 @@ export default function DashboardPage() {
       else sessionStorage.removeItem(key);
     }
     
-    // Cargar subidas del cliente (en producción sería una llamada API)
-    // (por ahora no cargamos nada aquí; solo reseteamos la selección)
+    // Reset UI mientras cargamos histórico real
     setSubidaActual(null);
     setArchivosSubidos([]);
     setIsChoosingTipoSubida(false);
     setSubidaEditandoId(null);
     setSubidaEditandoNombre('');
-  }, [clientes, orgId]);
+
+    // Cargar subidas reales del backend para este cliente
+    if (clienteId) {
+      ;(async () => {
+        try {
+          const resp = await fetch(`/api/uploads?client_id=${encodeURIComponent(clienteId)}`)
+          const data: unknown = await resp.json()
+          if (!resp.ok) {
+            const msg =
+              typeof (data as { error?: unknown })?.error === 'string'
+                ? (data as { error?: string }).error
+                : 'Error cargando subidas'
+            throw new Error(msg)
+          }
+
+          type UploadInvoiceApiRow = {
+            id: string
+            original_filename: string | null
+            mime_type: string | null
+            file_size_bytes: number | null
+            bucket: string
+            storage_path: string
+            created_at: string
+          }
+
+          type UploadApiRow = {
+            id: string
+            client_id: string | null
+            name: string
+            created_at: string
+            invoices?: UploadInvoiceApiRow[]
+          }
+
+          const uploads = Array.isArray((data as { uploads?: unknown })?.uploads)
+            ? ((data as { uploads: unknown[] }).uploads as UploadApiRow[])
+            : []
+
+          const mapped: SubidaFacturas[] = uploads.map((u, uIdx) => ({
+            id: u.id || `${uIdx}`,
+            uploadId: u.id || undefined,
+            clienteId: u.client_id || clienteId,
+            tipo: 'gasto',
+            nombre: u.name || 'Subida',
+            fechaCreacion: u.created_at || new Date().toISOString(),
+            estado: 'pendiente',
+            archivos: (u.invoices || []).map((inv, idx) => ({
+              id: `${inv.id}-${idx}`,
+              invoiceId: inv.id,
+              nombre: inv.original_filename || 'factura',
+              tamaño: Number(inv.file_size_bytes || 0),
+              tipo: inv.mime_type || 'application/pdf',
+              url: '',
+              bucket: inv.bucket,
+              storagePath: inv.storage_path,
+              fechaSubida: inv.created_at,
+              estado: 'procesado',
+            })),
+          }))
+
+          setSubidasFacturas(mapped)
+        } catch (e) {
+          showError(e instanceof Error ? e.message : 'Error cargando subidas')
+          setSubidasFacturas([])
+        }
+      })()
+    } else {
+      setSubidasFacturas([])
+    }
+  }, [clientes, orgId, showError]);
 
   // Restaurar cliente seleccionado al volver al dashboard (si existe en sessionStorage)
   useEffect(() => {
@@ -215,6 +297,7 @@ export default function DashboardPage() {
 
       const nuevaSubida: SubidaFacturas = {
         id: Date.now().toString(),
+        uploadId: undefined, // se creará en DB al subir la primera factura
         clienteId: clienteSeleccionado.id,
         tipo,
         nombre: getNombreSubidaPorDefecto(),
@@ -256,64 +339,244 @@ export default function DashboardPage() {
     setArchivosSubidos(subida.archivos);
   }, []);
 
+  const handleEliminarSubida = useCallback(async (subida: SubidaFacturas) => {
+    if (!subida.uploadId) {
+      showError('Esta subida todavía no existe en el backend')
+      return
+    }
+
+    setSubidaParaEliminar(subida)
+    setIsDeleteModalOpen(true)
+  }, [showError]);
+
+  const handleConfirmEliminarSubida = useCallback(async () => {
+    if (!subidaParaEliminar?.uploadId) {
+      showError('No se pudo identificar la subida a eliminar')
+      setIsDeleteModalOpen(false)
+      setSubidaParaEliminar(null)
+      return
+    }
+
+    setIsDeletingUpload(true)
+
+    try {
+      const resp = await fetch(`/api/uploads/${subidaParaEliminar.uploadId}`, { method: 'DELETE' })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data?.error || 'Error eliminando la subida')
+
+      setSubidasFacturas(prev => prev.filter(s => s.uploadId !== subidaParaEliminar.uploadId))
+      if (subidaActual?.uploadId === subidaParaEliminar.uploadId) {
+        setSubidaActual(null)
+        setArchivosSubidos([])
+      }
+      showSuccess('Subida eliminada')
+      setIsDeleteModalOpen(false)
+      setSubidaParaEliminar(null)
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Error eliminando la subida')
+    } finally {
+      setIsDeletingUpload(false)
+    }
+  }, [showError, showSuccess, subidaActual, subidaParaEliminar]);
+
   // Manejar archivos seleccionados
   const handleFilesSelected = useCallback(async (files: File[]) => {
     if (!subidaActual) {
       showError('Por favor, crea o selecciona una subida primero');
       return;
     }
+    if (!clienteSeleccionado) {
+      showError('Selecciona un cliente antes de subir facturas');
+      return;
+    }
 
-    const nuevosArchivos: ArchivoSubido[] = files.map((file, index) => ({
+    // Asegurar que existe un upload real en DB (solo cuando se sube el primer archivo)
+    let realUploadId = subidaActual.uploadId
+    let createdNow = false
+    if (!realUploadId) {
+      try {
+        const resp = await fetch('/api/uploads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: subidaActual.nombre, client_id: clienteSeleccionado.id }),
+        })
+        const data = await resp.json()
+        if (!resp.ok) throw new Error(data?.error || 'No se pudo crear la subida')
+        realUploadId = data.upload.id
+        createdNow = true
+
+        // Persistir el uploadId en el estado para siguientes archivos
+        setSubidasFacturas(prev =>
+          prev.map(s => (s.id === subidaActual.id ? { ...s, id: realUploadId!, uploadId: realUploadId! } : s))
+        )
+        setSubidaActual(prev => (prev ? { ...prev, id: realUploadId!, uploadId: realUploadId! } : prev))
+      } catch (e) {
+        showError(e instanceof Error ? e.message : 'Error creando la subida')
+        return
+      }
+    }
+
+    // Creamos placeholders en UI para feedback inmediato
+    const placeholders: ArchivoSubido[] = files.map((file, index) => ({
       id: `${Date.now()}-${index}`,
       nombre: file.name,
       tamaño: file.size,
       tipo: file.type,
-      // MVP sin backend: usamos una URL local para previsualización
-      url: URL.createObjectURL(file),
+      url: '',
       fechaSubida: new Date().toISOString(),
-      estado: 'pendiente',
-    }));
+      estado: 'procesando',
+    }))
 
-    const archivosActualizados = [...archivosSubidos, ...nuevosArchivos];
-    setArchivosSubidos(archivosActualizados);
-
-    // Actualizar la subida con los nuevos archivos
+    const archivosConPlaceholders = [...archivosSubidos, ...placeholders]
+    setArchivosSubidos(archivosConPlaceholders)
     setSubidasFacturas(prev =>
-      prev.map(s =>
-        s.id === subidaActual.id
-          ? { ...s, archivos: archivosActualizados }
-          : s
-      )
-    );
-    setSubidaActual(prev => prev ? { ...prev, archivos: archivosActualizados } : null);
-  }, [subidaActual, archivosSubidos, showError]);
+      prev.map(s => (s.id === subidaActual.id ? { ...s, archivos: archivosConPlaceholders } : s))
+    )
+    setSubidaActual(prev => (prev ? { ...prev, archivos: archivosConPlaceholders } : null))
 
-  // Eliminar archivo
-  const handleRemoveFile = useCallback(async (fileId: string) => {
-    const fileToRemove = archivosSubidos.find(f => f.id === fileId);
-    const archivosActualizados = archivosSubidos.filter(f => f.id !== fileId);
-    setArchivosSubidos(archivosActualizados);
+    // Subida real a Supabase vía API (una a una para simplificar estado/errores)
+    const uploaded: ArchivoSubido[] = []
+    let successCount = 0
 
-    if (subidaActual) {
-      setSubidasFacturas(prev =>
-        prev.map(s =>
-          s.id === subidaActual.id
-            ? { ...s, archivos: archivosActualizados }
-            : s
-        )
-      );
-      setSubidaActual(prev => prev ? { ...prev, archivos: archivosActualizados } : null);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const placeholderId = placeholders[i].id
+
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('client_id', clienteSeleccionado.id)
+        // Agrupa varias facturas dentro de una misma "subida" en Storage
+        fd.append('upload_id', realUploadId!)
+        // Si tienes el extractor Python levantado, puedes activar extracción automática:
+        fd.append('run_extraction', 'true')
+
+        const resp = await fetch('/api/invoices/upload', { method: 'POST', body: fd })
+        const data = await resp.json()
+
+        if (!resp.ok) {
+          throw new Error(data?.error || 'Error subiendo la factura')
+        }
+        // El endpoint puede responder 200 con success=false (p.ej. fallo en extracción)
+        if (data?.success === false) {
+          throw new Error(data?.error || 'Error procesando la factura')
+        }
+
+        const invoice = data.invoice
+        let url = data.previewUrl || ''
+        if (!url && invoice?.id) {
+          try {
+            const r2 = await fetch(`/api/invoices/${invoice.id}/preview?expires=${60 * 60 * 24 * 7}`)
+            const j2 = await r2.json()
+            if (r2.ok && j2?.signedUrl) url = j2.signedUrl
+          } catch {
+            // noop
+          }
+        }
+
+        uploaded.push({
+          id: placeholderId,
+          invoiceId: invoice.id,
+          nombre: invoice.original_filename || file.name,
+          tamaño: Number(invoice.file_size_bytes || file.size),
+          tipo:
+            invoice.mime_type ||
+            file.type ||
+            (String(invoice.original_filename || file.name).toLowerCase().endsWith('.pdf')
+              ? 'application/pdf'
+              : 'application/octet-stream'),
+          url,
+          bucket: invoice.bucket || 'invoices',
+          storagePath: invoice.storage_path,
+          fechaSubida: invoice.created_at || new Date().toISOString(),
+          // Si el endpoint respondió OK, consideramos el archivo listo (la preview se puede firmar luego)
+          estado: 'procesado',
+        })
+        successCount++
+      } catch (e) {
+        uploaded.push({
+          ...placeholders[i],
+          estado: 'error',
+          url: '',
+        })
+        showError(e instanceof Error ? e.message : 'Error subiendo la factura')
+      }
     }
 
-    // MVP sin backend: revocar URL local si aplica
-    if (fileToRemove?.url?.startsWith('blob:')) {
+    // Si acabamos de crear la subida y no se subió ninguna factura, borrarla (para cumplir “solo si se sube algo”)
+    if (createdNow && successCount === 0 && realUploadId) {
       try {
-        URL.revokeObjectURL(fileToRemove.url);
+        await fetch(`/api/uploads/${realUploadId}`, { method: 'DELETE' })
       } catch {
         // noop
       }
+
+      setSubidaActual(null)
+      setArchivosSubidos([])
+      setSubidasFacturas(prev => prev.filter(s => s.uploadId !== realUploadId))
+      return
     }
-  }, [archivosSubidos, subidaActual]);
+
+    // Reemplazar placeholders por resultados finales (manteniendo orden)
+    setArchivosSubidos(prev => {
+      const byId = new Map(uploaded.map(a => [a.id, a]))
+      const merged = prev.map(a => byId.get(a.id) || a)
+
+      // persistir en subidaActual/subidasFacturas
+      setSubidasFacturas(sPrev =>
+        sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s))
+      )
+      setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null))
+
+      return merged
+    })
+  }, [subidaActual, archivosSubidos, showError, clienteSeleccionado, setSubidasFacturas]);
+
+  // Eliminar archivo
+  const handleRemoveFile = useCallback(async (fileId: string) => {
+    const fileToRemove = archivosSubidos.find((f) => f.id === fileId) || null
+    if (!fileToRemove) return
+
+    setFacturaParaEliminar(fileToRemove)
+    setIsDeleteInvoiceModalOpen(true)
+  }, [archivosSubidos]);
+
+  const handleConfirmEliminarFactura = useCallback(async () => {
+    if (!facturaParaEliminar) {
+      setIsDeleteInvoiceModalOpen(false)
+      return
+    }
+
+    setIsDeletingInvoice(true)
+    try {
+      // Si existe en backend, borramos factura+storage
+      if (facturaParaEliminar.invoiceId) {
+        const resp = await fetch(`/api/invoices/${facturaParaEliminar.invoiceId}`, { method: 'DELETE' })
+        const data = await resp.json().catch(() => null)
+        if (!resp.ok) throw new Error(data?.error || 'Error eliminando la factura')
+      }
+
+      const archivosActualizados = archivosSubidos.filter((f) => f.id !== facturaParaEliminar.id)
+      setArchivosSubidos(archivosActualizados)
+
+      if (subidaActual) {
+        setSubidasFacturas((prev) =>
+          prev.map((s) =>
+            s.id === subidaActual.id ? { ...s, archivos: archivosActualizados } : s
+          )
+        )
+        setSubidaActual((prev) => (prev ? { ...prev, archivos: archivosActualizados } : null))
+      }
+
+      showSuccess('Factura eliminada')
+      setIsDeleteInvoiceModalOpen(false)
+      setFacturaParaEliminar(null)
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Error eliminando la factura')
+    } finally {
+      setIsDeletingInvoice(false)
+    }
+  }, [archivosSubidos, facturaParaEliminar, subidaActual, showError, showSuccess]);
 
   // Ir a validar facturas
   const handleValidarFacturas = useCallback(() => {
@@ -321,15 +584,27 @@ export default function DashboardPage() {
       showError('Por favor, sube al menos un archivo antes de validar');
       return;
     }
+    if (!subidaActual.uploadId) {
+      showError('La subida aún no está guardada. Sube al menos una factura primero.');
+      return;
+    }
+    if (archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente')) {
+      showError('Aún se están procesando las facturas. Espera a que estén en "Listo".');
+      return;
+    }
+    if (archivosSubidos.some((a) => a.estado === 'error')) {
+      showError('Hay facturas con error. Elimina o reintenta antes de validar.');
+      return;
+    }
 
-    // Guardar los archivos en sessionStorage o pasar por query params
-    // Por ahora usaremos sessionStorage
-    sessionStorage.setItem('archivosSubidos', JSON.stringify(archivosSubidos));
-    sessionStorage.setItem('subidaActual', JSON.stringify(subidaActual));
-    sessionStorage.setItem('clienteSeleccionado', JSON.stringify(clienteSeleccionado));
-
-    router.push('/validar-factura');
-  }, [subidaActual, archivosSubidos, clienteSeleccionado, router, showError]);
+    // Pasamos el tipo para que la pantalla de validación adapte los campos (gasto vs ingreso)
+    try {
+      sessionStorage.setItem(`upload:${subidaActual.uploadId}:tipo`, subidaActual.tipo)
+    } catch {
+      // noop
+    }
+    router.push(`/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}`);
+  }, [subidaActual, archivosSubidos, router, showError]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -373,13 +648,13 @@ export default function DashboardPage() {
             <Link href="/" className="flex items-center space-x-3">
               <Image
                 src="/img/logo.png"
-                alt="Atajo"
+                alt="KontaScan"
                 width={100}
                 height={100}
                 className="h-10 w-auto"
                 priority
               />
-              <span className="text-2xl font-bold text-primary">Atajo</span>
+              <span className="text-2xl font-bold text-primary">KontaScan</span>
             </Link>
             <nav className="flex items-center space-x-4">
               <button
@@ -433,19 +708,6 @@ export default function DashboardPage() {
                     <p className="mt-4 text-sm text-foreground-secondary text-center">
                       No hay clientes registrados. Crea uno nuevo.
                     </p>
-                  )}
-
-                  {clienteSeleccionado && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg text-foreground">
-                      <p className="text-sm font-medium text-foreground">
-                        {clienteSeleccionado.name}
-                      </p>
-                      {clienteSeleccionado.tax_id && (
-                        <p className="text-xs text-foreground-secondary mt-1">
-                          CIF/NIF: {clienteSeleccionado.tax_id}
-                        </p>
-                      )}
-                    </div>
                   )}
                 </>
               ) : (
@@ -600,26 +862,48 @@ export default function DashboardPage() {
                           </div>
 
                           {subidaEditandoId !== subida.id && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSubidaEditandoId(subida.id);
-                                setSubidaEditandoNombre(subida.nombre);
-                              }}
-                              className="text-foreground-secondary hover:text-foreground transition-colors mt-1"
-                              aria-label="Renombrar subida"
-                              title="Renombrar"
-                            >
-                              {/* Icono lápiz */}
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M16.862 4.487a2.25 2.25 0 113.182 3.182L7.125 20.588a4.5 4.5 0 01-1.897 1.13l-2.04.68.68-2.04a4.5 4.5 0 011.13-1.897L16.862 4.487z"
-                                />
-                              </svg>
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSubidaEditandoId(subida.id);
+                                  setSubidaEditandoNombre(subida.nombre);
+                                }}
+                                className="text-foreground-secondary hover:text-foreground transition-colors mt-1"
+                                aria-label="Renombrar subida"
+                                title="Renombrar"
+                              >
+                                {/* Icono lápiz */}
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M16.862 4.487a2.25 2.25 0 113.182 3.182L7.125 20.588a4.5 4.5 0 01-1.897 1.13l-2.04.68.68-2.04a4.5 4.5 0 011.13-1.897L16.862 4.487z"
+                                  />
+                                </svg>
+                              </button>
+
+                              {/* Solo mostramos eliminar si es una subida persistida */}
+                              {subida.uploadId && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEliminarSubida(subida)}
+                                  className="text-error hover:text-red-700 transition-colors mt-1"
+                                  aria-label="Eliminar subida"
+                                  title="Eliminar"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -784,8 +1068,29 @@ export default function DashboardPage() {
                       variant="primary"
                       size="lg"
                       onClick={handleValidarFacturas}
+                      disabled={!canValidate}
                     >
-                      Validar {archivosSubidos.length} factura{archivosSubidos.length !== 1 ? 's' : ''}
+                      <span className="inline-flex items-center justify-center gap-2 font-light">
+                        {hasProcessingInvoices
+                          ? 'Procesando...'
+                          : `Validar ${archivosSubidos.length} factura${archivosSubidos.length !== 1 ? 's' : ''}`}
+                        {!hasProcessingInvoices && (
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        )}
+                      </span>
                     </Button>
                   </div>
                 )}
@@ -794,6 +1099,104 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+
+      {isDeleteModalOpen && subidaParaEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar eliminación de subida"
+          onMouseDown={() => {
+            if (isDeletingUpload) return
+            setIsDeleteModalOpen(false)
+            setSubidaParaEliminar(null)
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground">Eliminar subida</h3>
+              <p className="mt-2 text-sm text-foreground-secondary leading-relaxed">
+                Vas a eliminar <span className="font-semibold text-foreground">{subidaParaEliminar.nombre}</span>.
+                Se borrarán también todas sus facturas asociadas y sus archivos del bucket.
+              </p>
+            </div>
+
+            <div className="px-6 pb-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingUpload}
+                onClick={() => {
+                  setIsDeleteModalOpen(false)
+                  setSubidaParaEliminar(null)
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingUpload}
+                onClick={handleConfirmEliminarSubida}
+              >
+                {isDeletingUpload ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isDeleteInvoiceModalOpen && facturaParaEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar eliminación de factura"
+          onMouseDown={() => {
+            if (isDeletingInvoice) return
+            setIsDeleteInvoiceModalOpen(false)
+            setFacturaParaEliminar(null)
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground">Eliminar factura</h3>
+              <p className="mt-2 text-sm text-foreground-secondary leading-relaxed">
+                Vas a eliminar <span className="font-semibold text-foreground">{facturaParaEliminar.nombre}</span>.
+                Se borrará también su registro y el archivo del bucket (si existe en Supabase).
+              </p>
+            </div>
+
+            <div className="px-6 pb-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingInvoice}
+                onClick={() => {
+                  setIsDeleteInvoiceModalOpen(false)
+                  setFacturaParaEliminar(null)
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingInvoice}
+                onClick={handleConfirmEliminarFactura}
+              >
+                {isDeletingInvoice ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

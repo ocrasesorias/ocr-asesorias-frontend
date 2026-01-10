@@ -14,6 +14,7 @@ export function translateError(errorMessage: string): string {
     'password too weak': 'La contraseña es demasiado débil',
     'password should be at least 6 characters': 'La contraseña debe tener al menos 6 caracteres',
     'signup is disabled': 'El registro está deshabilitado',
+    'email_address_invalid': 'El correo electrónico no es válido (revisa espacios o restricciones de dominios en Supabase)',
     'email rate limit exceeded': 'Demasiados intentos. Por favor, espera unos minutos',
     'token has expired': 'El enlace ha expirado. Por favor, solicita uno nuevo',
     'invalid token': 'El enlace no es válido',

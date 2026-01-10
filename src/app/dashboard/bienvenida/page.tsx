@@ -12,6 +12,7 @@ export default function BienvenidaPage() {
   const router = useRouter();
   const { showError, showSuccess } = useToast();
   const [orgName, setOrgName] = useState('');
+  const [accountingProgram, setAccountingProgram] = useState<'monitor' | 'contasol'>('monitor');
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -80,6 +81,11 @@ export default function BienvenidaPage() {
 
       // Organización creada exitosamente, redirigir al dashboard
       showSuccess('¡Organización creada exitosamente!');
+      try {
+        sessionStorage.setItem('onboarding:accountingProgram', accountingProgram);
+      } catch {
+        // noop
+      }
       router.push('/dashboard');
     } catch (error) {
       console.error('Error al crear organización:', error);
@@ -106,14 +112,14 @@ export default function BienvenidaPage() {
         <div className="text-center mb-8">
           <Image
             src="/img/logo.png"
-            alt="Atajo"
+            alt="KontaScan"
             width={100}
             height={100}
             className="mx-auto h-16 w-auto mb-4"
             priority
           />
           <h1 className="text-4xl font-light text-foreground mb-2">
-            ¡Bienvenido a Atajo!
+            ¡Bienvenido a KontaScan!
           </h1>
           <p className="text-lg text-foreground-secondary">
             Estás a un paso de automatizar tu contabilidad
@@ -127,7 +133,7 @@ export default function BienvenidaPage() {
               Crea tu organización
             </h2>
             <p className="text-foreground-secondary">
-              Para comenzar, necesitamos el nombre de tu asesoría o gestoría.
+              Para comenzar, necesitamos el nombre de tu asesoría y el programa contable que utilizas.
             </p>
           </div>
 
@@ -167,6 +173,46 @@ export default function BienvenidaPage() {
               <p className="mt-2 text-sm text-foreground-secondary">
                 Puedes cambiarlo más tarde desde la configuración.
               </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Programa contable
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountingProgram('monitor')}
+                  disabled={isLoading}
+                  className={`text-left w-full border rounded-lg p-4 transition-all ${
+                    accountingProgram === 'monitor'
+                      ? 'border-primary ring-2 ring-primary/20 bg-primary-lighter'
+                      : 'border-gray-200 hover:border-primary hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Monitor Informática</p>
+                      <p className="text-xs text-foreground-secondary mt-1">Disponible</p>
+                    </div>
+                    <div
+                      className={`h-4 w-4 rounded-full border ${
+                        accountingProgram === 'monitor' ? 'bg-primary border-primary' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                <div className="text-left w-full border border-gray-200 rounded-lg p-4 opacity-60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">ContaSol</p>
+                      <p className="text-xs text-foreground-secondary mt-1">Próximamente</p>
+                    </div>
+                    <div className="h-4 w-4 rounded-full border border-gray-300 bg-gray-100" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-4">

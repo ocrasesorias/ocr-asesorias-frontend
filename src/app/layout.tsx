@@ -10,10 +10,10 @@ const lexend = Lexend({
 });
 
 export const metadata: Metadata = {
-  title: "Atajo – De facturas a Excel contable en segundos",
+  title: "KontaScan – De facturas a Excel contable en segundos",
   description: "Automatiza la entrada de facturas con IA y recibe Excel listos para importar en tu software contable. Precisión, seguridad y soporte cercano.",
   keywords: "OCR, contabilidad, facturas, automatización, gestorías, IA, Excel, Monitor Informática",
-  authors: [{ name: "Atajo" }],
+  authors: [{ name: "KontaScan" }],
 };
 
 export const viewport: Viewport = {

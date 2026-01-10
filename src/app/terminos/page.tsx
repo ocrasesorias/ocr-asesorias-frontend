@@ -32,7 +32,7 @@ export default function TerminosPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-20">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 md:p-12">
           <h1 className="text-4xl font-bold text-foreground mb-8">
-            Términos y Condiciones de Uso – Atajo
+            Términos y Condiciones de Uso – KontaScan
           </h1>
 
           <div className="prose prose-lg max-w-none text-foreground">
@@ -41,7 +41,7 @@ export default function TerminosPage() {
                 1. Identificación del titular
               </h2>
               <p className="text-foreground-secondary leading-relaxed">
-                Atajo es un servicio operado por [Nombre legal / razón social], con domicilio en [dirección] y correo de contacto [email].
+                KontaScan es un servicio operado por [Nombre legal / razón social], con domicilio en [dirección] y correo de contacto [email].
               </p>
             </section>
 
@@ -50,7 +50,7 @@ export default function TerminosPage() {
                 2. Objeto del servicio
               </h2>
               <p className="text-foreground-secondary leading-relaxed">
-                Atajo es una plataforma que permite subir facturas en formato digital, extraer automáticamente sus datos mediante tecnología OCR e inteligencia artificial y generar archivos Excel listos para su importación en programas contables.
+                KontaScan es una plataforma que permite subir facturas en formato digital, extraer automáticamente sus datos mediante tecnología OCR e inteligencia artificial y generar archivos Excel listos para su importación en programas contables.
               </p>
             </section>
 
@@ -73,7 +73,7 @@ export default function TerminosPage() {
                 El usuario se compromete a:
               </p>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Utilizar Atajo únicamente con facturas y documentos de los que tenga derecho de uso.</li>
+                <li>Utilizar KontaScan únicamente con facturas y documentos de los que tenga derecho de uso.</li>
                 <li>No subir contenidos ilícitos, fraudulentos o que vulneren derechos de terceros.</li>
                 <li>No intentar acceder, alterar o dañar el sistema.</li>
               </ul>
@@ -84,9 +84,9 @@ export default function TerminosPage() {
                 5. Procesamiento de facturas y limitación de responsabilidad
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo automatiza la extracción de datos, pero no garantiza una precisión absoluta.</li>
+                <li>KontaScan automatiza la extracción de datos, pero no garantiza una precisión absoluta.</li>
                 <li>El usuario debe revisar y validar los datos antes de su uso contable o fiscal.</li>
-                <li>Atajo no se hace responsable de errores contables, fiscales o legales derivados del uso de los datos sin verificación humana.</li>
+                <li>KontaScan no se hace responsable de errores contables, fiscales o legales derivados del uso de los datos sin verificación humana.</li>
               </ul>
             </section>
 
@@ -96,7 +96,7 @@ export default function TerminosPage() {
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
                 <li>Los documentos subidos se tratan de forma confidencial y segura.</li>
-                <li>Atajo no utiliza los documentos para otros fines distintos a la prestación del servicio.</li>
+                <li>KontaScan no utiliza los documentos para otros fines distintos a la prestación del servicio.</li>
                 <li>El tratamiento de datos personales se rige por la Política de Privacidad.</li>
               </ul>
             </section>
@@ -106,7 +106,7 @@ export default function TerminosPage() {
                 7. Disponibilidad del servicio
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo se ofrece "tal cual", pudiendo sufrir interrupciones por mantenimiento o causas técnicas.</li>
+                <li>KontaScan se ofrece &quot;tal cual&quot;, pudiendo sufrir interrupciones por mantenimiento o causas técnicas.</li>
                 <li>Se harán esfuerzos razonables para garantizar la continuidad del servicio, sin que ello suponga una obligación contractual de disponibilidad permanente.</li>
               </ul>
             </section>
@@ -116,7 +116,7 @@ export default function TerminosPage() {
                 8. Propiedad intelectual
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo, su software, diseño y marca son propiedad exclusiva del titular.</li>
+                <li>KontaScan, su software, diseño y marca son propiedad exclusiva del titular.</li>
                 <li>El usuario conserva todos los derechos sobre sus documentos y datos.</li>
               </ul>
             </section>
@@ -131,7 +131,7 @@ export default function TerminosPage() {
                 <li>No se realizarán devoluciones por periodos ya consumidos, salvo obligación legal.</li>
               </ul>
               <p className="text-foreground-secondary leading-relaxed mt-4 italic">
-                (Si aún no cobras, esta sección puede quedar muy corta o indicar "actualmente gratuito")
+                (Si aún no cobras, esta sección puede quedar muy corta o indicar &quot;actualmente gratuito&quot;)
               </p>
             </section>
 
@@ -150,7 +150,7 @@ export default function TerminosPage() {
                 11. Modificaciones
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo se reserva el derecho a modificar estos términos.</li>
+                <li>KontaScan se reserva el derecho a modificar estos términos.</li>
                 <li>Las modificaciones se comunicarán con antelación razonable.</li>
               </ul>
             </section>
@@ -178,7 +178,7 @@ export default function TerminosPage() {
       <footer className="bg-foreground text-white py-8 mt-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-foreground-secondary">
-            &copy; {new Date().getFullYear()} Atajo. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} KontaScan. Todos los derechos reservados.
           </p>
         </div>
       </footer>

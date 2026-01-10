@@ -47,9 +47,9 @@ export function ClientSelect({
     };
   }, []);
 
-  const label = selected
-    ? `${selected.name}${selected.tax_id ? ` (${selected.tax_id})` : ''}`
-    : placeholder;
+  // En el botón (seleccionado) mostramos SOLO el nombre.
+  // El CIF/NIF se muestra únicamente en el desplegable.
+  const label = selected ? selected.name : placeholder;
 
   return (
     <div ref={containerRef} className="relative">

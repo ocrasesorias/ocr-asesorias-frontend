@@ -64,19 +64,47 @@ const convertirArchivosAFacturas = (archivos: ArchivoSubido[], clienteCif?: stri
     total: '',
     archivo: {
       url: archivo.url,
-      tipo: archivo.tipo === 'application/pdf' ? 'pdf' : 'imagen',
-      nombre: archivo.nombre
+      tipo:
+        archivo.tipo === 'application/pdf' ||
+        archivo.tipo === 'application/x-pdf' ||
+        archivo.nombre.toLowerCase().endsWith('.pdf')
+          ? 'pdf'
+          : 'imagen',
+      nombre: archivo.nombre,
+      invoiceId: archivo.invoiceId,
+      bucket: archivo.bucket,
+      storagePath: archivo.storagePath
     }
   }));
 };
 
+const toISODate = (value: string) => {
+  const v = (value || '').trim();
+  const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+  // ya viene en ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  return v;
+};
+
+const toNumber = (value: string) => {
+  const v = (value || '').replace('€', '').trim().replace(/\./g, '').replace(',', '.');
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
 export default function ValidarFacturaPage() {
   const router = useRouter();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const [facturaActual, setFacturaActual] = useState(0);
   const [facturas, setFacturas] = useState<FacturaData[]>([]);
   const [clienteNombre, setClienteNombre] = useState<string>('');
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -89,40 +117,54 @@ export default function ValidarFacturaPage() {
         return;
       }
 
-      // 2) Cargar datos desde sessionStorage
-      const archivosStr = sessionStorage.getItem('archivosSubidos');
-      const clienteStr = sessionStorage.getItem('clienteSeleccionado');
-
-      if (archivosStr) {
-        try {
-          const archivosRaw: ArchivoSubido[] = JSON.parse(archivosStr);
-          const cliente = clienteStr ? JSON.parse(clienteStr) : null;
-          // MVP sin backend: usamos las URLs tal cual vienen del dashboard (blob/local)
-          const archivos: ArchivoSubido[] = archivosRaw;
-
-          if (archivos.length > 0) {
-            const facturasConvertidas = convertirArchivosAFacturas(
-              archivos,
-              cliente?.tax_id || undefined
-            );
-            setFacturas(facturasConvertidas);
-            setClienteNombre(cliente?.name || '');
-          }
-        } catch (error) {
-          console.error('Error al cargar archivos:', error);
-        }
-      }
+      // Ruta antigua (MVP). Ahora la validación vive en /dashboard/uploads/[id]/validar
+      showError('Ruta antigua. Te llevamos al dashboard para validar desde una subida.');
+      router.replace('/dashboard');
 
       setIsCheckingSession(false);
     };
 
     init();
-  }, [router]);
+  }, [router, showError]);
 
-  const handleValidar = (factura: FacturaData) => {
-    // Aquí se guardaría la factura validada en el backend o estado global
-    // Por ahora, actualizamos la factura en el array
-    setFacturas(prev => {
+  const handleValidar = async (factura: FacturaData) => {
+    // Guardar campos en Supabase (invoice_fields)
+    const invoiceId = factura.archivo?.invoiceId;
+    if (invoiceId) {
+      try {
+        const baseSum = factura.lineas
+          .map((l) => toNumber(l.base))
+          .filter((n): n is number => n !== null)
+          .reduce((a, b) => a + b, 0);
+
+        const vatSum = factura.lineas
+          .map((l) => toNumber(l.cuotaIva))
+          .filter((n): n is number => n !== null)
+          .reduce((a, b) => a + b, 0);
+
+        const total = toNumber(factura.total) ?? (baseSum + vatSum);
+
+        await fetch(`/api/invoices/${invoiceId}/fields`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            supplier_name: factura.proveedor.nombre || null,
+            supplier_tax_id: factura.proveedor.cif || null,
+            invoice_number: factura.factura.numero || null,
+            invoice_date: toISODate(factura.factura.fecha) || null,
+            base_amount: baseSum || null,
+            vat_amount: vatSum || null,
+            total_amount: total || null,
+            vat_rate: null,
+          }),
+        });
+      } catch {
+        // noop: no bloqueamos el flujo de validación por un fallo puntual
+      }
+    }
+
+    // Actualizamos la factura en el array local para navegación
+    setFacturas((prev) => {
       const nuevas = [...prev];
       nuevas[facturaActual] = factura;
       return nuevas;
@@ -130,6 +172,7 @@ export default function ValidarFacturaPage() {
 
     const isLast = facturaActual === facturas.length - 1;
     showSuccess(isLast ? 'Factura validada. Has completado todas.' : 'Factura validada');
+    if (isLast) setIsFinishedModalOpen(true);
   };
 
   const handleSiguiente = () => {
@@ -150,6 +193,42 @@ export default function ValidarFacturaPage() {
 
   const handleVolverDashboard = () => {
     router.push('/dashboard');
+  };
+
+  const handleGenerarExport = async () => {
+    const invoiceIds = facturas
+      .map((f) => f.archivo?.invoiceId)
+      .filter((id): id is string => Boolean(id));
+
+    if (invoiceIds.length === 0) {
+      showError('No hay facturas subidas a Supabase para exportar');
+      return;
+    }
+
+    const program = sessionStorage.getItem('onboarding:accountingProgram') || 'monitor';
+
+    setIsExporting(true);
+    try {
+      const resp = await fetch('/api/exports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_ids: invoiceIds, program }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        showError(data?.error || 'Error generando export');
+        return;
+      }
+
+      showSuccess('Export generado correctamente');
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      setIsFinishedModalOpen(false);
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Error generando export');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isCheckingSession) {
@@ -223,6 +302,50 @@ export default function ValidarFacturaPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal fin de proceso */}
+      {isFinishedModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !isExporting && setIsFinishedModalOpen(false)}
+          />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-6 text-foreground">
+            <h2 className="text-xl font-semibold mb-2">Has terminado la validación</h2>
+            <p className="text-sm text-foreground-secondary mb-6">
+              ¿Quieres revisar o cambiar algún dato, o prefieres continuar y generar el export?
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsFinishedModalOpen(false)}
+                disabled={isExporting}
+              >
+                Revisar / cambiar
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleGenerarExport}
+                disabled={isExporting}
+              >
+                {isExporting ? 'Generando export...' : 'Generar export'}
+              </Button>
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                className="text-sm text-foreground-secondary hover:text-foreground transition-colors"
+                onClick={() => router.push('/dashboard')}
+                disabled={isExporting}
+              >
+                Volver al dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Componente de validación */}
       <div className="flex-1 overflow-y-auto min-h-0">

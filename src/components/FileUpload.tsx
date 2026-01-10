@@ -172,7 +172,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                         ? 'Listo'
                         : archivo.estado === 'error'
                         ? 'Error'
-                        : 'Pendiente'}
+                        : 'Procesando'}
                     </span>
                   </div>
                 </div>

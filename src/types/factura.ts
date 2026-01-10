@@ -49,6 +49,9 @@ export interface FacturaData {
     url: string;
     tipo: 'imagen' | 'pdf';
     nombre: string;
+    invoiceId?: string;
+    bucket?: string;
+    storagePath?: string;
   };
 }
 

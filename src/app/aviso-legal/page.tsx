@@ -33,7 +33,7 @@ export default function AvisoLegalPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 pt-20">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 md:p-12">
           <h1 className="text-4xl font-bold text-foreground mb-4">
-            Aviso Legal – Atajo
+            Aviso Legal – KontaScan
           </h1>
           
           <p className="text-foreground-secondary leading-relaxed mb-8">
@@ -52,7 +52,7 @@ export default function AvisoLegalPage() {
                 <li><strong className="text-foreground">Correo electrónico:</strong> [Email de contacto]</li>
               </ul>
               <p className="text-foreground-secondary leading-relaxed mt-4">
-                En adelante, Atajo.
+                En adelante, KontaScan.
               </p>
             </section>
 
@@ -61,10 +61,10 @@ export default function AvisoLegalPage() {
                 2. Objeto
               </h2>
               <p className="text-foreground-secondary leading-relaxed mb-4">
-                El presente Aviso Legal regula el acceso, navegación y uso del sitio web [dominio], así como los servicios ofrecidos a través de la plataforma Atajo.
+                El presente Aviso Legal regula el acceso, navegación y uso del sitio web [dominio], así como los servicios ofrecidos a través de la plataforma KontaScan.
               </p>
               <p className="text-foreground-secondary leading-relaxed">
-                Atajo es una solución tecnológica que permite automatizar la entrada de facturas, extraer información mediante OCR e inteligencia artificial y generar archivos Excel listos para su uso contable.
+                KontaScan es una solución tecnológica que permite automatizar la entrada de facturas, extraer información mediante OCR e inteligencia artificial y generar archivos Excel listos para su uso contable.
               </p>
             </section>
 
@@ -90,8 +90,8 @@ export default function AvisoLegalPage() {
                 4. Responsabilidad
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
-                <li>Atajo no garantiza la disponibilidad permanente del sitio web ni la ausencia de errores técnicos, aunque realizará esfuerzos razonables para asegurar su correcto funcionamiento.</li>
-                <li>Atajo no se responsabiliza del uso que los usuarios hagan de la información obtenida a través del servicio, ni de las decisiones contables, fiscales o legales tomadas a partir de los datos generados sin la debida verificación humana.</li>
+                <li>KontaScan no garantiza la disponibilidad permanente del sitio web ni la ausencia de errores técnicos, aunque realizará esfuerzos razonables para asegurar su correcto funcionamiento.</li>
+                <li>KontaScan no se responsabiliza del uso que los usuarios hagan de la información obtenida a través del servicio, ni de las decisiones contables, fiscales o legales tomadas a partir de los datos generados sin la debida verificación humana.</li>
               </ul>
             </section>
 
@@ -100,7 +100,7 @@ export default function AvisoLegalPage() {
                 5. Propiedad intelectual e industrial
               </h2>
               <p className="text-foreground-secondary leading-relaxed mb-4">
-                Todos los contenidos del sitio web (textos, diseños, software, logotipos, marcas, código fuente, etc.) son titularidad de Atajo o de terceros autorizados, y están protegidos por la normativa de propiedad intelectual e industrial.
+                Todos los contenidos del sitio web (textos, diseños, software, logotipos, marcas, código fuente, etc.) son titularidad de KontaScan o de terceros autorizados, y están protegidos por la normativa de propiedad intelectual e industrial.
               </p>
               <p className="text-foreground-secondary leading-relaxed">
                 Queda prohibida su reproducción, distribución o modificación sin autorización expresa del titular.
@@ -113,7 +113,7 @@ export default function AvisoLegalPage() {
               </h2>
               <ul className="list-disc list-inside space-y-2 text-foreground-secondary leading-relaxed">
                 <li>El sitio web puede incluir enlaces a páginas de terceros.</li>
-                <li>Atajo no se responsabiliza del contenido, políticas o prácticas de dichos sitios externos.</li>
+                <li>KontaScan no se responsabiliza del contenido, políticas o prácticas de dichos sitios externos.</li>
               </ul>
             </section>
 
@@ -143,7 +143,7 @@ export default function AvisoLegalPage() {
                 9. Contacto
               </h2>
               <p className="text-foreground-secondary leading-relaxed">
-                Para cualquier duda relacionada con este Aviso Legal, puede contactar con Atajo a través del correo electrónico [email de contacto].
+                Para cualquier duda relacionada con este Aviso Legal, puede contactar con KontaScan a través del correo electrónico [email de contacto].
               </p>
             </section>
           </div>
@@ -160,7 +160,7 @@ export default function AvisoLegalPage() {
       <footer className="bg-foreground text-white py-8 mt-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-foreground-secondary">
-            &copy; {new Date().getFullYear()} Atajo. Todos los derechos reservados.
+            &copy; {new Date().getFullYear()} KontaScan. Todos los derechos reservados.
           </p>
         </div>
       </footer>

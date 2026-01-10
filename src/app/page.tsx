@@ -3,8 +3,13 @@ import Link from "next/link";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
 import { LandingAuthNav } from "@/components/LandingAuthNav";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const hasSession = !!user;
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -15,14 +20,14 @@ export default function Home() {
               <Link href="/" className="flex items-center space-x-3">
                 <Image
                   src="/img/logo.png"
-                  alt="Atajo"
+                  alt="KontaScan"
                   width={100}
                   height={100}
                   className="h-10 w-auto"
                   priority
                 />
                 <h1 className="text-2xl font-bold text-primary">
-                  Atajo
+                  KontaScan
                 </h1>
               </Link>
             </div>
@@ -70,15 +75,26 @@ export default function Home() {
               Automatiza la entrada de facturas y recibe un Excel listo para importar en tu programa contable. Preciso, seguro y con soporte cercano.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/registro"
-                className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center"
-              >
-                Probar gratis
-              </Link>
-              <button className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors">
-                Ver demo de 2 minutos
-              </button>
+              {hasSession ? (
+                <Link
+                  href="/dashboard"
+                  className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center"
+                >
+                  Ir al dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/registro"
+                    className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center"
+                  >
+                    Probar gratis
+                  </Link>
+                  <button className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors">
+                    Ver demo de 2 minutos
+                  </button>
+                </>
+              )}
             </div>
             <p className="mt-4 text-sm text-foreground-secondary">
               Funciona con Monitor Informático y los principales softwares contables.
@@ -105,7 +121,7 @@ export default function Home() {
           <ScrollReveal>
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-foreground mb-4">
-                ¿Por qué elegir Atajo?
+                ¿Por qué elegir KontaScan?
               </h2>
               <p className="text-xl text-foreground-secondary max-w-3xl mx-auto">
                 Ahorra horas de trabajo manual transformando facturas en Excel listos para importar. Céntrate en tus clientes, no en el tecleo.
@@ -289,7 +305,7 @@ export default function Home() {
               Integraciones y formatos
             </h2>
             <p className="text-xl text-foreground-secondary max-w-3xl mx-auto mb-6">
-              Atajo genera Excel en el formato que tu gestoría ya utiliza. Compatible con Monitor Informático y los programas contables más usados.
+              KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible con Monitor Informático y los programas contables más usados.
             </p>
           <button className="text-primary hover:text-primary-hover transition-colors font-medium">
             Ver formatos disponibles
@@ -309,18 +325,29 @@ export default function Home() {
               Empieza hoy y comprueba cómo cambia tu carga de trabajo.
             </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/registro"
-              className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center"
-            >
-              Probar gratis
-            </Link>
-            <Link
-              href="/login"
-              className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center"
-            >
-              Iniciar sesión
-            </Link>
+            {hasSession ? (
+              <Link
+                href="/dashboard"
+                className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center"
+              >
+                Ir al dashboard
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/registro"
+                  className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center"
+                >
+                  Probar gratis
+                </Link>
+                <Link
+                  href="/login"
+                  className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center"
+                >
+                  Iniciar sesión
+                </Link>
+              </>
+            )}
           </div>
           </div>
         </ScrollReveal>
@@ -335,15 +362,15 @@ export default function Home() {
                 <h4 className="text-lg font-semibold mb-6 flex items-center space-x-3">
                   <Image
                     src="/img/logo.png"
-                    alt="Atajo"
+                    alt="KontaScan"
                     width={100}
                     height={100}
                     className="h-10 w-auto"
                   />
-                  <span>Atajo</span>
+                  <span>KontaScan</span>
                 </h4>
                 <p className="text-foreground-secondary">
-                  Atajo automatiza la extracción de datos de facturas y entrega Excel listos para importar. Precisión, seguridad y soporte cercano.
+                  KontaScan automatiza la extracción de datos de facturas y entrega Excel listos para importar. Precisión, seguridad y soporte cercano.
                 </p>
               </div>
               <div className="grid md:grid-cols-2 gap-8">
@@ -386,7 +413,7 @@ export default function Home() {
               </div>
             </div>
             <div className="border-t border-gray-700 mt-8 pt-8 text-center text-foreground-secondary">
-              <p>&copy; 2025 Atajo. Todos los derechos reservados.</p>
+              <p>&copy; 2025 KontaScan. Todos los derechos reservados.</p>
             </div>
           </div>
         </ScrollReveal>

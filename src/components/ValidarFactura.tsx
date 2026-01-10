@@ -1,21 +1,91 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
+import Image from 'next/image';
 import { FacturaData } from '@/types/factura';
 import { Card } from './Card';
 import { Button } from './Button';
 
+const FieldRow = ({
+  label,
+  widthClass = 'w-20',
+  alignTop = false,
+  children,
+}: {
+  label: string
+  widthClass?: string
+  alignTop?: boolean
+  children: React.ReactNode
+}) => (
+  <div className={`flex ${alignTop ? 'items-start' : 'items-center'} gap-2`}>
+    <span
+      className={`text-xs font-medium text-foreground shrink-0 ${widthClass} ${
+        alignTop ? 'pt-0.5' : ''
+      }`}
+    >
+      {label}
+    </span>
+    <div className="flex-1 min-w-0">{children}</div>
+  </div>
+)
+
 interface ValidarFacturaProps {
+  tipo?: 'gasto' | 'ingreso'
   factura: FacturaData;
   onValidar: (factura: FacturaData) => void;
   onSiguiente: () => void;
 }
 
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
+  tipo = 'gasto',
   factura: facturaInicial,
   onValidar,
   onSiguiente
 }) => {
+  const normalizeToISODate = (value: string) => {
+    const v = (value || '').trim()
+    if (!v) return ''
+    // DD/MM/YYYY o DD-MM-YYYY -> YYYY-MM-DD
+    const m = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+    if (m) {
+      const [, dd, mm, yyyy] = m
+      return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`
+    }
+    // Ya ISO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+    return v
+  }
+
+  const quarterFromISODate = (iso: string): 'Q1' | 'Q2' | 'Q3' | 'Q4' | '' => {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!m) return ''
+    const month = Number(m[2])
+    if (!Number.isFinite(month) || month < 1 || month > 12) return ''
+    const q = Math.floor((month - 1) / 3) + 1
+    return (`Q${q}` as 'Q1' | 'Q2' | 'Q3' | 'Q4')
+  }
+
+  const applyAutoDates = (data: FacturaData): FacturaData => {
+    const fechaISO = normalizeToISODate(data.factura.fecha)
+    if (!fechaISO) return data
+
+    const trimestre = quarterFromISODate(fechaISO)
+    const vencOriginal = (data.factura.fechaVencimiento || '').trim()
+    const vencISO = vencOriginal ? normalizeToISODate(vencOriginal) : ''
+
+    return {
+      ...data,
+      empresa: {
+        ...data.empresa,
+        trimestre: trimestre || data.empresa.trimestre,
+      },
+      factura: {
+        ...data.factura,
+        fecha: fechaISO,
+        fechaVencimiento: vencISO || fechaISO,
+      },
+    }
+  }
   const facturaInicialCon3Lineas = useMemo(() => {
     // Asegurar que siempre haya al menos 3 líneas con IVA 21%, 10% y 4%
     const lineasBase = facturaInicial.lineas.length >= 3 
@@ -48,15 +118,47 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     return { ...facturaInicial, lineas };
   }, [facturaInicial]);
 
-  const [factura, setFactura] = useState<FacturaData>(facturaInicialCon3Lineas);
+  const [factura, setFactura] = useState<FacturaData>(() => applyAutoDates(facturaInicialCon3Lineas));
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    setFactura(facturaInicialCon3Lineas);
-  }, [facturaInicialCon3Lineas]);
 
   const handleChange = (path: string, value: string | boolean) => {
     setFactura(prev => {
+      // Auto-reglas para fechas:
+      // - factura.fecha: normaliza a ISO, calcula trimestre, y si vencimiento está vacío (o estaba igual que la fecha anterior), lo actualiza.
+      // - factura.fechaVencimiento: normaliza a ISO.
+      if (path === 'factura.fecha') {
+        const prevFechaISO = normalizeToISODate(prev.factura.fecha)
+        const nextFechaISO = normalizeToISODate(String(value || ''))
+        const trimestre = quarterFromISODate(nextFechaISO)
+
+        const vencOriginal = (prev.factura.fechaVencimiento || '').trim()
+        const vencISO = vencOriginal ? normalizeToISODate(vencOriginal) : ''
+        const shouldAutoSetVenc = !vencOriginal || (vencISO && prevFechaISO && vencISO === prevFechaISO)
+
+        return {
+          ...prev,
+          empresa: {
+            ...prev.empresa,
+            trimestre: trimestre || prev.empresa.trimestre,
+          },
+          factura: {
+            ...prev.factura,
+            fecha: nextFechaISO,
+            fechaVencimiento: shouldAutoSetVenc ? (nextFechaISO || prev.factura.fechaVencimiento) : prev.factura.fechaVencimiento,
+          },
+        }
+      }
+
+      if (path === 'factura.fechaVencimiento') {
+        return {
+          ...prev,
+          factura: {
+            ...prev.factura,
+            fechaVencimiento: normalizeToISODate(String(value || '')),
+          },
+        }
+      }
+
       const keys = path.split('.');
       const newFactura = { ...prev };
       let current: Record<string, unknown> = newFactura;
@@ -117,28 +219,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const porcentajesRetencion = ['15%', '17%', '19%'];
   const tiposRetencion = ['AUTÓNOMO', 'PROFESIONAL'];
 
-  const FieldRow = ({
-    label,
-    widthClass = 'w-20',
-    alignTop = false,
-    children,
-  }: {
-    label: string
-    widthClass?: string
-    alignTop?: boolean
-    children: React.ReactNode
-  }) => (
-    <div className={`flex ${alignTop ? 'items-start' : 'items-center'} gap-2`}>
-      <span
-        className={`text-xs font-medium text-foreground shrink-0 ${widthClass} ${
-          alignTop ? 'pt-0.5' : ''
-        }`}
-      >
-        {label}
-      </span>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  )
+  const contraparteTitle = tipo === 'ingreso' ? 'CLIENTE' : 'PROVEEDOR'
+  const subcuentaLabel = tipo === 'ingreso' ? 'SUBCUENTA VENTA' : 'SUBCUENTA'
+  const subcuentas = tipo === 'ingreso'
+    ? [
+        { value: '700', label: '700 - Ventas' },
+        { value: '705', label: '705 - Prestaciones de servicios' },
+        { value: '708', label: '708 - Devoluciones y descuentos' },
+      ]
+    : [
+        { value: '600', label: '600' },
+        { value: '620', label: '620' },
+        { value: '621', label: '621' },
+        { value: '628', label: '628' },
+      ]
 
   return (
     <div className="bg-background p-1 flex flex-col min-h-0 h-full">
@@ -156,22 +250,68 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             <div className="flex-1 overflow-hidden">
               {factura.archivo?.tipo === 'pdf' ? (
                 <div className="w-full h-full border border-gray-200 rounded flex items-center justify-center bg-gray-50">
-                  <iframe
-                    src={factura.archivo.url}
-                    className="w-full h-full rounded"
-                    title="Vista previa PDF"
-                  />
+                  {factura.archivo?.url ? (
+                    <object
+                      data={factura.archivo.url}
+                      type="application/pdf"
+                      className="w-full h-full rounded"
+                      aria-label="Vista previa PDF"
+                    >
+                      <div className="text-center px-6">
+                        <p className="text-sm text-foreground-secondary">
+                          El visor de PDF no se pudo incrustar en esta página.
+                        </p>
+                        <a
+                          href={factura.archivo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:text-primary-hover transition-colors"
+                        >
+                          Abrir PDF en nueva pestaña
+                        </a>
+                      </div>
+                    </object>
+                  ) : (
+                    <div className="text-center px-6">
+                      <p className="text-sm text-foreground-secondary">
+                        No se pudo cargar la previsualización de esta factura.
+                      </p>
+                      <p className="text-xs text-foreground-secondary mt-1">
+                        Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="w-full h-full border border-gray-200 rounded overflow-hidden bg-gray-50 relative">
-                  <img
+                  <Image
                     src={factura.archivo?.url || '/img/placeholder-invoice.png'}
                     alt="Factura"
-                    className="absolute inset-0 w-full h-full object-contain"
+                    fill
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="object-contain"
+                    priority={false}
                   />
                 </div>
               )}
             </div>
+
+            {/* Debug/acción rápida: abrir la URL firmada si existe */}
+            {factura.archivo?.url && (
+              <div className="mt-1 flex items-center justify-between gap-2">
+                <a
+                  href={factura.archivo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:text-primary-hover transition-colors"
+                >
+                  Abrir factura en nueva pestaña
+                </a>
+                <span className="text-[10px] text-foreground-secondary truncate max-w-[60%]">
+                  {factura.archivo.nombre}
+                </span>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -227,7 +367,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               {/* Proveedor/Acreedor */}
               <div className="border border-gray-200 rounded-lg p-1">
                 <h3 className="text-xs font-semibold text-foreground mb-1">
-                  PROVEEDOR
+                  {contraparteTitle}
                 </h3>
                 <div className="space-y-1">
               <div>
@@ -326,17 +466,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
 
               {/* Subcuenta de gasto */}
               <div className="border border-gray-200 rounded-lg p-1">
-                <FieldRow label="SUBCUENTA" widthClass="w-20">
+                <FieldRow label={subcuentaLabel} widthClass="w-20">
                   <select
                     value={factura.subcuentaGasto}
                     onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
                     className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
                   >
                     <option value="">-</option>
-                    <option value="600">600</option>
-                    <option value="620">620</option>
-                    <option value="621">621</option>
-                    <option value="628">628</option>
+                    {subcuentas.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
                   </select>
                 </FieldRow>
               </div>

@@ -32,6 +32,12 @@ export default function RegistroPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const email = formData.email.trim().toLowerCase();
+    if (!email || email.includes(' ')) {
+      showError('El correo electrónico no es válido');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       showError('Las contraseñas no coinciden');
       return;
@@ -46,7 +52,7 @@ export default function RegistroPage() {
     const supabase = createClient();
 
     const { data, error } = await supabase.auth.signUp({
-      email: formData.email,
+      email,
       password: formData.password,
       options: {
         data: {
@@ -117,7 +123,7 @@ export default function RegistroPage() {
           <Link href="/" className="inline-block mb-1">
             <Image
               src="/img/logo.png"
-              alt="Atajo"
+              alt="KontaScan"
               width={80}
               height={80}
               className="mx-auto h-16 w-auto"
@@ -128,7 +134,7 @@ export default function RegistroPage() {
             Crea tu cuenta
           </h2>
           <p className="mt-2 text-foreground-secondary">
-            Únete a Atajo y automatiza tu contabilidad
+            Únete a KontaScan y automatiza tu contabilidad
           </p>
         </div>
 
