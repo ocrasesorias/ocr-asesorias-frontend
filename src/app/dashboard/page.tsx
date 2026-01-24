@@ -167,6 +167,7 @@ export default function DashboardPage() {
           type UploadApiRow = {
             id: string
             client_id: string | null
+            tipo?: string | null
             name: string
             created_at: string
             invoices?: UploadInvoiceApiRow[]
@@ -180,7 +181,9 @@ export default function DashboardPage() {
             id: u.id || `${uIdx}`,
             uploadId: u.id || undefined,
             clienteId: u.client_id || clienteId,
-            tipo: 'gasto',
+            tipo: (String(u.tipo || '').toLowerCase() === 'ingreso' ? 'ingreso' : 'gasto') as
+              | 'gasto'
+              | 'ingreso',
             nombre: u.name || 'Subida',
             fechaCreacion: u.created_at || new Date().toISOString(),
             estado: 'pendiente',
@@ -398,7 +401,11 @@ export default function DashboardPage() {
         const resp = await fetch('/api/uploads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: subidaActual.nombre, client_id: clienteSeleccionado.id }),
+          body: JSON.stringify({
+            name: subidaActual.nombre,
+            client_id: clienteSeleccionado.id,
+            tipo: subidaActual.tipo,
+          }),
         })
         const data = await resp.json()
         if (!resp.ok) throw new Error(data?.error || 'No se pudo crear la subida')
@@ -448,6 +455,8 @@ export default function DashboardPage() {
         fd.append('client_id', clienteSeleccionado.id)
         // Agrupa varias facturas dentro de una misma "subida" en Storage
         fd.append('upload_id', realUploadId!)
+        // Enviamos el tipo para que la IA sepa si es ingreso/gasto
+        fd.append('tipo', String(subidaActual.tipo).toUpperCase())
         // Si tienes el extractor Python levantado, puedes activar extracción automática:
         fd.append('run_extraction', 'true')
 

@@ -32,7 +32,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const { data: upload, error: uploadError } = await supabase
       .from('uploads')
-      .select('id, org_id')
+      .select('id, org_id, tipo')
       .eq('id', uploadId)
       .single()
 
@@ -65,6 +65,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       )
     }
 
+    const tipo = typeof (upload as { tipo?: unknown })?.tipo === 'string' ? (upload as { tipo: string }).tipo : null
+
     for (const invoiceId of ids) {
       const result = await extractInvoiceAndPersist({
         supabase,
@@ -72,6 +74,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         orgId,
         invoiceId,
         extractorUrl,
+        tipo: (tipo as 'gasto' | 'ingreso' | null) || undefined,
       })
 
       if (result.ok) okCount++

@@ -77,6 +77,7 @@ export async function POST(request: Request) {
     const clientId = form.get('client_id')
     const uploadId = form.get('upload_id')
     const runExtraction = form.get('run_extraction')
+    const tipo = form.get('tipo')
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'Falta el archivo (file)' }, { status: 400 })
@@ -163,6 +164,8 @@ export async function POST(request: Request) {
       try {
         const fd = new FormData()
         fd.append('file', file)
+        const tipoNorm = typeof tipo === 'string' ? tipo.trim().toUpperCase() : ''
+        if (tipoNorm === 'INGRESO' || tipoNorm === 'GASTO') fd.append('tipo', tipoNorm)
 
         const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
           method: 'POST',

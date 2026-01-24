@@ -49,8 +49,9 @@ export async function extractInvoiceAndPersist(params: {
   orgId: string
   invoiceId: string
   extractorUrl: string
+  tipo?: 'gasto' | 'ingreso' | 'GASTO' | 'INGRESO'
 }) {
-  const { supabase, userId, orgId, invoiceId, extractorUrl } = params
+  const { supabase, userId, orgId, invoiceId, extractorUrl, tipo } = params
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
@@ -90,6 +91,17 @@ export async function extractInvoiceAndPersist(params: {
 
   const fd = new FormData()
   fd.append('file', blob, filename)
+  const tipoNorm =
+    String(tipo || '')
+      .trim()
+      .toUpperCase() === 'INGRESO'
+      ? 'INGRESO'
+      : String(tipo || '')
+            .trim()
+            .toUpperCase() === 'GASTO'
+        ? 'GASTO'
+        : null
+  if (tipoNorm) fd.append('tipo', tipoNorm)
 
   const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
     method: 'POST',

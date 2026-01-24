@@ -38,12 +38,37 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const orgId = memberships[0].org_id as string
 
+    // Determinar tipo desde el upload asociado (si existe)
+    let tipo: 'gasto' | 'ingreso' | undefined = undefined
+    try {
+      const { data: invRow } = await supabase
+        .from('invoices')
+        .select('id, org_id, upload_id')
+        .eq('id', invoiceId)
+        .single()
+
+      const uploadId = (invRow as { upload_id?: unknown })?.upload_id
+      if (typeof uploadId === 'string' && uploadId) {
+        const { data: upRow } = await supabase
+          .from('uploads')
+          .select('id, org_id, tipo')
+          .eq('id', uploadId)
+          .single()
+
+        const t = String((upRow as { tipo?: unknown })?.tipo || '').toLowerCase()
+        if (t === 'gasto' || t === 'ingreso') tipo = t as 'gasto' | 'ingreso'
+      }
+    } catch {
+      // noop
+    }
+
     const result = await extractInvoiceAndPersist({
       supabase,
       userId: user.id,
       orgId,
       invoiceId,
       extractorUrl,
+      tipo,
     })
 
     if (!result.ok) {

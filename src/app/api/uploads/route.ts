@@ -38,6 +38,7 @@ export async function GET(request: Request) {
         id,
         org_id,
         client_id,
+        tipo,
         name,
         created_by,
         created_at,
@@ -98,6 +99,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const clientId = typeof body?.client_id === 'string' && body.client_id.trim() ? body.client_id : null
+    const tipoRaw = typeof body?.tipo === 'string' ? body.tipo.trim().toLowerCase() : ''
+    const tipo = tipoRaw === 'ingreso' || tipoRaw === 'gasto' ? tipoRaw : 'gasto'
 
     if (!name) {
       return NextResponse.json({ error: 'name es requerido' }, { status: 400 })
@@ -108,6 +111,7 @@ export async function POST(request: Request) {
       .insert({
         org_id: orgId,
         client_id: clientId,
+        tipo,
         name,
         created_by: user.id,
       })

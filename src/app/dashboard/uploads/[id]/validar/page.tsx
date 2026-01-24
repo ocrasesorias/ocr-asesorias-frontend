@@ -162,6 +162,15 @@ export default function ValidarUploadPage() {
         if (!resp.ok) throw new Error(data?.error || 'Error cargando la subida')
 
         const upload = data.upload
+        const uploadTipo = String(upload?.tipo || '').toLowerCase()
+        if (uploadTipo === 'gasto' || uploadTipo === 'ingreso') {
+          setTipoFactura(uploadTipo as 'gasto' | 'ingreso')
+          try {
+            sessionStorage.setItem(`upload:${uploadId}:tipo`, uploadTipo)
+          } catch {
+            // noop
+          }
+        }
         const client = upload?.clients
         setClienteNombre(client?.name || '')
 

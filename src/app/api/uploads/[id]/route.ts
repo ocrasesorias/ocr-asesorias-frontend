@@ -36,6 +36,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         id,
         org_id,
         client_id,
+        tipo,
         name,
         created_by,
         created_at,
