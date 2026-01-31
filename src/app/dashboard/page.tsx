@@ -457,8 +457,8 @@ export default function DashboardPage() {
         fd.append('upload_id', realUploadId!)
         // Enviamos el tipo para que la IA sepa si es ingreso/gasto
         fd.append('tipo', String(subidaActual.tipo).toUpperCase())
-        // Si tienes el extractor Python levantado, puedes activar extracción automática:
-        fd.append('run_extraction', 'true')
+        // Importante: NO esperamos a la extracción aquí.
+        // La extracción OCR/IA se hará desde la pantalla de validación en cola (3 en paralelo).
 
         const resp = await fetch('/api/invoices/upload', { method: 'POST', body: fd })
         const data = await resp.json()
@@ -598,7 +598,7 @@ export default function DashboardPage() {
       return;
     }
     if (archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente')) {
-      showError('Aún se están procesando las facturas. Espera a que estén en "Listo".');
+      showError('Aún se están subiendo las facturas. Espera a que estén en "Subido".');
       return;
     }
     if (archivosSubidos.some((a) => a.estado === 'error')) {
@@ -1072,7 +1072,13 @@ export default function DashboardPage() {
                 />
 
                 {archivosSubidos.length > 0 && (
-                  <div className="mt-6 flex justify-end">
+                  <div className="mt-6 space-y-3">
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-foreground-secondary">
+                      En el siguiente paso se extraerán los datos (OCR/IA) en segundo plano{" "}
+                      <span className="font-medium text-foreground">para todas las facturas</span>.
+                      Podrás empezar a validar en cuanto estén listas.
+                    </div>
+                    <div className="flex justify-end">
                     <Button
                       variant="primary"
                       size="lg"
@@ -1081,7 +1087,7 @@ export default function DashboardPage() {
                     >
                       <span className="inline-flex items-center justify-center gap-2 font-light">
                         {hasProcessingInvoices
-                          ? 'Procesando...'
+                          ? 'Subiendo...'
                           : `Validar ${archivosSubidos.length} factura${archivosSubidos.length !== 1 ? 's' : ''}`}
                         {!hasProcessingInvoices && (
                           <svg
@@ -1101,6 +1107,7 @@ export default function DashboardPage() {
                         )}
                       </span>
                     </Button>
+                    </div>
                   </div>
                 )}
               </div>

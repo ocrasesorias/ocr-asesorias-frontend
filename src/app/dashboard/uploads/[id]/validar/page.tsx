@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/Button'
@@ -40,6 +40,34 @@ type UploadInvoiceRow = {
     total_amount: string | number | null
     vat_rate: string | number | null
   }>
+}
+
+type InvoiceFieldsRow = {
+  supplier_name: string | null
+  supplier_tax_id: string | null
+  invoice_number: string | null
+  invoice_date: string | null
+  base_amount: string | number | null
+  vat_amount: string | number | null
+  total_amount: string | number | null
+  vat_rate: string | number | null
+}
+
+function coerceInvoiceFieldsRow(value: unknown): InvoiceFieldsRow | null {
+  if (!value || typeof value !== 'object') return null
+  const v = value as Partial<Record<keyof InvoiceFieldsRow, unknown>>
+  // Chequeo mínimo: que exista al menos una clave esperada
+  const hasAny =
+    'supplier_name' in v ||
+    'supplier_tax_id' in v ||
+    'invoice_number' in v ||
+    'invoice_date' in v ||
+    'base_amount' in v ||
+    'vat_amount' in v ||
+    'total_amount' in v ||
+    'vat_rate' in v
+  if (!hasAny) return null
+  return value as InvoiceFieldsRow
 }
 
 function getLatestExtraction(inv: UploadInvoiceRow): Record<string, unknown> | null {
@@ -127,11 +155,40 @@ export default function ValidarUploadPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [facturaActual, setFacturaActual] = useState(0)
   const [facturas, setFacturas] = useState<FacturaData[]>([])
+  const [facturaRevisions, setFacturaRevisions] = useState<Record<string, number>>({})
+  const [invoiceRows, setInvoiceRows] = useState<UploadInvoiceRow[]>([])
+  const [previewByInvoiceId, setPreviewByInvoiceId] = useState<Record<string, string>>({})
+  const [invoiceStatus, setInvoiceStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({})
+  const inFlightRef = useRef(0)
+  const startedRef = useRef<Record<string, true>>({})
   const [clienteNombre, setClienteNombre] = useState<string>('')
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
 
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+
+  const statusStats = useMemo(() => {
+    const total = invoiceRows.length
+    let ready = 0
+    let processing = 0
+    let error = 0
+    let idle = 0
+    for (const inv of invoiceRows) {
+      const st = invoiceStatus[inv.id]
+      if (st === 'ready') ready += 1
+      else if (st === 'processing') processing += 1
+      else if (st === 'error') error += 1
+      else idle += 1
+    }
+    const done = ready + error
+    const percent = total > 0 ? Math.round((done / total) * 100) : 0
+    return { total, ready, processing, error, idle, done, percent }
+  }, [invoiceRows, invoiceStatus])
+
+  const allProcessed = useMemo(() => {
+    if (invoiceRows.length === 0) return false
+    return invoiceRows.every((inv) => invoiceStatus[inv.id] === 'ready')
+  }, [invoiceRows, invoiceStatus])
 
   useEffect(() => {
     // Resolver tipo de la subida: preferimos query param, y si no existe usamos sessionStorage (fallback)
@@ -184,10 +241,34 @@ export default function ValidarUploadPage() {
             return { invoiceId: inv.id, url: r.ok ? j?.signedUrl || '' : '' }
           })
         )
-        const byId = new Map(previews.map((p) => [p.invoiceId, p.url]))
+        const previewRecord: Record<string, string> = {}
+        for (const p of previews) previewRecord[p.invoiceId] = p.url || ''
 
-        const mapped = invoices.map((inv) => toFacturaData(inv, byId.get(inv.id) || '', client?.tax_id))
+        setInvoiceRows(invoices)
+        setPreviewByInvoiceId(previewRecord)
+
+        const mapped = invoices.map((inv) => toFacturaData(inv, previewRecord[inv.id] || '', client?.tax_id))
         setFacturas(mapped)
+
+        // Estado inicial por factura: si ya tiene fields/extraction, la consideramos lista.
+        const initialStatus: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {}
+        for (const inv of invoices) {
+          const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
+          const hasFields = Boolean(
+            f?.supplier_name ||
+              f?.supplier_tax_id ||
+              f?.invoice_number ||
+              f?.invoice_date ||
+              f?.base_amount ||
+              f?.vat_amount ||
+              f?.total_amount
+          )
+          const hasExtraction = Boolean(getLatestExtraction(inv))
+          initialStatus[inv.id] = hasFields || hasExtraction ? 'ready' : 'idle'
+        }
+        setInvoiceStatus(initialStatus)
+        startedRef.current = {}
+
       } catch (e) {
         showError(e instanceof Error ? e.message : 'Error cargando la subida')
       } finally {
@@ -197,6 +278,124 @@ export default function ValidarUploadPage() {
 
     run()
   }, [router, uploadId, showError, searchParams])
+
+  const clientTaxId = useMemo(() => {
+    // Preferimos el CIF que ya está en FacturaData.empresa.cif
+    return facturas?.[0]?.empresa?.cif || null
+  }, [facturas])
+
+  const bumpRevision = (invoiceId: string) => {
+    setFacturaRevisions((prev) => ({ ...prev, [invoiceId]: (prev[invoiceId] || 0) + 1 }))
+  }
+
+  const patchFacturaFromExtraction = (prevFactura: FacturaData, extraction: unknown, fields: InvoiceFieldsRow | null) => {
+    const ex = (extraction && typeof extraction === 'object' ? (extraction as Record<string, unknown>) : null) || null
+    const exCliente = typeof ex?.cliente === 'string' ? (ex.cliente as string) : ''
+    const exNif = typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : ''
+    const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
+    const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
+    const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
+    const exNumero = typeof ex?.numero_factura === 'string' ? (ex.numero_factura as string) : ''
+    const exFecha = typeof ex?.fecha === 'string' ? (ex.fecha as string) : ''
+
+    const supplierName = fields?.supplier_name || exCliente || ''
+    const supplierTaxId = fields?.supplier_tax_id || exNif || ''
+    const invoiceNumber = fields?.invoice_number || exNumero || ''
+    const invoiceDate = fields?.invoice_date ? String(fields.invoice_date) : exFecha || ''
+
+    const base = fields?.base_amount ?? null
+    const vat = fields?.vat_amount ?? null
+    const total = fields?.total_amount ?? null
+    const vatRate = fields?.vat_rate ?? null
+
+    const next = { ...prevFactura }
+    // Solo rellenamos si está vacío (no pisamos lo que el usuario haya editado).
+    if (!next.proveedor.nombre && supplierName) next.proveedor.nombre = supplierName
+    if (!next.proveedor.cif && supplierTaxId) next.proveedor.cif = supplierTaxId
+    if (!next.proveedor.direccion && exDireccion) next.proveedor.direccion = exDireccion
+    if (!next.proveedor.codigoPostal && exCp) next.proveedor.codigoPostal = exCp
+    if (!next.proveedor.provincia && exProv) next.proveedor.provincia = exProv
+
+    if (!next.factura.numero && invoiceNumber) next.factura.numero = invoiceNumber
+    if (!next.factura.fecha && invoiceDate) next.factura.fecha = invoiceDate
+
+    const line0 = next.lineas?.[0] ? { ...next.lineas[0] } : null
+    if (line0) {
+      if (!line0.base && base !== null) line0.base = String(base)
+      if (!line0.cuotaIva && vat !== null) line0.cuotaIva = String(vat)
+      if ((!line0.porcentajeIva || !String(line0.porcentajeIva).trim()) && vatRate !== null) line0.porcentajeIva = String(vatRate)
+      next.lineas = [line0, ...next.lineas.slice(1)]
+    }
+    if (!next.total && total !== null) next.total = String(total)
+
+    return next
+  }
+
+  const updateInvoiceFromExtraction = (invoiceId: string, extraction: unknown, fields: unknown) => {
+    const fieldsRow = coerceInvoiceFieldsRow(fields)
+
+    // Guardamos en invoiceRows para futuras rehidrataciones (export, etc.)
+    setInvoiceRows((prev) => {
+      const idx = prev.findIndex((i) => i.id === invoiceId)
+      if (idx === -1) return prev
+      const next = [...prev]
+      const current = next[idx]
+      const createdAt = new Date().toISOString()
+      const invoice_extractions = [
+        ...(Array.isArray(current.invoice_extractions) ? current.invoice_extractions : []),
+        { raw_json: extraction, created_at: createdAt },
+      ]
+      next[idx] = {
+        ...current,
+        invoice_fields: fieldsRow || current.invoice_fields,
+        invoice_extractions,
+      }
+      return next
+    })
+
+    // Parcheamos FacturaData sin depender de closures antiguas.
+    setFacturas((prev) =>
+      prev.map((f) => (f.archivo?.invoiceId === invoiceId ? patchFacturaFromExtraction(f, extraction, fieldsRow) : f))
+    )
+
+    bumpRevision(invoiceId)
+  }
+
+  const startExtract = async (invoiceId: string): Promise<void> => {
+    if (startedRef.current[invoiceId]) return Promise.resolve()
+    startedRef.current[invoiceId] = true
+
+    setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'processing' }))
+    inFlightRef.current += 1
+
+    try {
+      const resp = await fetch(`/api/invoices/${invoiceId}/extract`, { method: 'POST' })
+      const data = await resp.json().catch(() => null)
+      if (!resp.ok) throw new Error(data?.error || 'Error extrayendo factura')
+
+      // data: { success, extraction, fields }
+      updateInvoiceFromExtraction(invoiceId, data?.extraction, data?.fields)
+      setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'ready' }))
+    } catch (e) {
+      setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'error' }))
+      // no spameamos toast por cada una; mostramos solo si es la actual
+      const currentId = facturas?.[facturaActual]?.archivo?.invoiceId
+      if (currentId === invoiceId) showError(e instanceof Error ? e.message : 'Error extrayendo factura')
+      throw e
+    } finally {
+      inFlightRef.current -= 1
+    }
+  }
+
+  // Arrancar extracción en background para TODAS las facturas.
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
+    for (const inv of invoiceRows) {
+      const st = invoiceStatus[inv.id]
+      if (st === 'idle') void startExtract(inv.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceRows, invoiceStatus])
 
   const invoiceIds = useMemo(
     () => facturas.map((f) => f.archivo?.invoiceId).filter((id): id is string => Boolean(id)),
@@ -221,7 +420,20 @@ export default function ValidarUploadPage() {
   }
 
   const handleValidar = async (factura: FacturaData) => {
+    // Requisito UX: no permitir validar hasta que TODAS estén procesadas.
+    if (!allProcessed) {
+      showError('Espera a que termine el procesamiento de todas las facturas antes de validar.')
+      return
+    }
+
     const invoiceId = factura.archivo?.invoiceId
+    if (invoiceId) {
+      const st = invoiceStatus[invoiceId]
+      if (st && st !== 'ready') {
+        showError(st === 'error' ? 'Esta factura falló al procesarse. Reintenta.' : 'Factura aún procesándose…')
+        return
+      }
+    }
     if (invoiceId) {
       try {
         const baseSum = factura.lineas
@@ -343,6 +555,18 @@ export default function ValidarUploadPage() {
             <h1 className="text-sm font-semibold text-foreground">
               {clienteNombre ? `${clienteNombre} · ` : ''}Validar facturas
             </h1>
+            <div className="mt-1">
+              <div className="h-2 w-48 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${statusStats.percent}%` }}
+                />
+              </div>
+              <div className="text-[11px] text-foreground-secondary mt-1">
+                {statusStats.done}/{statusStats.total} procesadas · {statusStats.processing} en proceso
+                {statusStats.error > 0 ? ` · ${statusStats.error} con error` : ''}
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -387,13 +611,30 @@ export default function ValidarUploadPage() {
       )}
 
       <div className="flex-1 overflow-y-auto min-h-0">
+        {(() => {
+          const currentId = facturas[facturaActual]?.archivo?.invoiceId
+          const st = currentId ? invoiceStatus[currentId] : undefined
+          const disableValidar = !allProcessed
+          const validarText = !allProcessed
+            ? `PROCESANDO FACTURAS… (${statusStats.ready}/${statusStats.total})`
+            : st === 'processing'
+              ? 'PROCESANDO…'
+              : st === 'error'
+                ? 'ERROR (REINTENTA)'
+                : undefined
+
+          return (
         <ValidarFactura
-          key={facturas[facturaActual]?.archivo?.invoiceId || facturaActual}
+          key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
           tipo={tipoFactura}
           factura={facturas[facturaActual]}
           onValidar={handleValidar}
           onSiguiente={handleSiguiente}
+          disableValidar={disableValidar}
+          validarText={validarText}
         />
+          )
+        })()}
       </div>
     </div>
   )

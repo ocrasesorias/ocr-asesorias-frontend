@@ -34,13 +34,17 @@ interface ValidarFacturaProps {
   factura: FacturaData;
   onValidar: (factura: FacturaData) => void;
   onSiguiente: () => void;
+  disableValidar?: boolean
+  validarText?: string
 }
 
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   tipo = 'gasto',
   factura: facturaInicial,
   onValidar,
-  onSiguiente
+  onSiguiente,
+  disableValidar = false,
+  validarText
 }) => {
   const normalizeToISODate = (value: string) => {
     const v = (value || '').trim()
@@ -208,6 +212,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (disableValidar) return
     onValidar(factura);
     onSiguiente();
   };
@@ -673,9 +678,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   variant="secondary"
                   size="md"
                   type="submit"
-                      className="w-full text-sm py-1.5 font-bold ml-auto"
+                  disabled={disableValidar}
+                  className="w-full text-sm py-1.5 font-bold ml-auto"
                 >
-                  VALIDAR
+                  {validarText || (disableValidar ? 'PROCESANDO…' : 'VALIDAR')}
                 </Button>
               </div>
             </div>

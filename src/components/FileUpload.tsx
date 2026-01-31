@@ -118,7 +118,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     {archivo.tipo === 'application/pdf' ? (
                       <svg
                         className="w-6 h-6 text-red-500"
@@ -155,13 +155,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       {formatFileSize(archivo.tamaño)}
                     </p>
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     <span
                       className={`
                         text-xs px-2 py-1 rounded-full
                         ${
                           archivo.estado === 'procesado'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-blue-100 text-blue-800'
                             : archivo.estado === 'error'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
@@ -169,16 +169,16 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       `}
                     >
                       {archivo.estado === 'procesado'
-                        ? 'Listo'
+                        ? 'Subido'
                         : archivo.estado === 'error'
                         ? 'Error'
-                        : 'Procesando'}
+                        : 'Subiendo'}
                     </span>
                   </div>
                 </div>
                 <button
                   onClick={() => onRemoveFile(archivo.id)}
-                  className="ml-3 flex-shrink-0 text-red-500 hover:text-red-700 transition-colors"
+                  className="ml-3 shrink-0 text-red-500 hover:text-red-700 transition-colors"
                   type="button"
                 >
                   <svg
