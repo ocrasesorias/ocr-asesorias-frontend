@@ -3,6 +3,8 @@ export interface Cliente {
   org_id: string;
   name: string;
   tax_id: string | null;
+  preferred_income_account?: string | null;
+  preferred_expense_account?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -27,7 +27,12 @@ export default function DashboardPage() {
   const [subidaEditandoNombre, setSubidaEditandoNombre] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false);
-  const [nuevoCliente, setNuevoCliente] = useState({ name: '', tax_id: '' });
+  const [nuevoCliente, setNuevoCliente] = useState({
+    name: '',
+    tax_id: '',
+    preferred_income_account: '700',
+    preferred_expense_account: '600',
+  });
   const [isCreatingClient, setIsCreatingClient] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [subidaParaEliminar, setSubidaParaEliminar] = useState<SubidaFacturas | null>(null)
@@ -35,6 +40,18 @@ export default function DashboardPage() {
   const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] = useState(false)
   const [facturaParaEliminar, setFacturaParaEliminar] = useState<ArchivoSubido | null>(null)
   const [isDeletingInvoice, setIsDeletingInvoice] = useState(false)
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false)
+  const [isDeleteClientModalOpen, setIsDeleteClientModalOpen] = useState(false)
+  const [clientParaEditar, setClientParaEditar] = useState<Cliente | null>(null)
+  const [clientParaEliminar, setClientParaEliminar] = useState<Cliente | null>(null)
+  const [isUpdatingClient, setIsUpdatingClient] = useState(false)
+  const [isDeletingClient, setIsDeletingClient] = useState(false)
+  const [editCliente, setEditCliente] = useState({
+    name: '',
+    tax_id: '',
+    preferred_income_account: '700',
+    preferred_expense_account: '600',
+  })
   // Procesamiento OCR/IA en dashboard (cola 3 en paralelo)
   const [extractStatusByInvoiceId, setExtractStatusByInvoiceId] = useState<
     Record<string, 'idle' | 'processing' | 'ready' | 'error'>
@@ -43,6 +60,7 @@ export default function DashboardPage() {
   const extractInFlightRef = useRef(0)
   const extractStartedRef = useRef<Record<string, true>>({})
   const MAX_EXTRACT_CONCURRENCY = 3
+  const BLOCK_SIZE = 6
 
   const [statusMessageTick, setStatusMessageTick] = useState(0)
 
@@ -58,8 +76,8 @@ export default function DashboardPage() {
     [sessionInvoiceIds, invoiceIdsInOrder]
   )
 
-  const firstBlockIds = useMemo(() => activeInvoiceIds.slice(0, 3), [activeInvoiceIds])
-  const requiredFirstCount = useMemo(() => Math.min(3, activeInvoiceIds.length), [activeInvoiceIds.length])
+  const firstBlockIds = useMemo(() => activeInvoiceIds.slice(0, BLOCK_SIZE), [activeInvoiceIds, BLOCK_SIZE])
+  const requiredFirstCount = useMemo(() => Math.min(BLOCK_SIZE, activeInvoiceIds.length), [activeInvoiceIds.length, BLOCK_SIZE])
   const firstBlockReadyCount = useMemo(() => {
     const ids = firstBlockIds.slice(0, requiredFirstCount)
     return ids.filter((id) => extractStatusByInvoiceId[id] === 'ready').length
@@ -92,14 +110,15 @@ export default function DashboardPage() {
   const dynamicMessages = useMemo(() => {
     const total = archivosSubidos.length
     const uploaded = invoiceIdsInOrder.length
-    const need = Math.min(3, total)
+    const need = Math.min(BLOCK_SIZE, total)
+    const isSmallUpload = total > 0 && total <= BLOCK_SIZE
 
     const msgs: string[] = []
     if (hasUploadingFiles) {
       msgs.push(`Subiendo facturas… (${uploaded}/${total})`)
     }
-    if (uploaded > 0 && firstBlockReadyCount < Math.min(3, uploaded)) {
-      msgs.push(`Procesando las primeras ${Math.min(3, uploaded)} para empezar a validar…`)
+    if (uploaded > 0 && firstBlockReadyCount < Math.min(BLOCK_SIZE, uploaded)) {
+      msgs.push(isSmallUpload ? 'Procesando facturas…' : `Procesando las primeras ${Math.min(BLOCK_SIZE, uploaded)} para empezar a validar…`)
     }
     if (!hasUploadingFiles && uploaded >= need && firstBlockReadyCount >= need) {
       msgs.push('Ya puedes empezar a validar. Seguimos procesando el resto en segundo plano.')
@@ -363,6 +382,8 @@ export default function DashboardPage() {
         body: JSON.stringify({
           name: nuevoCliente.name.trim(),
           tax_id: nuevoCliente.tax_id.trim() || null,
+          preferred_income_account: nuevoCliente.preferred_income_account || null,
+          preferred_expense_account: nuevoCliente.preferred_expense_account || null,
         }),
       });
 
@@ -384,7 +405,7 @@ export default function DashboardPage() {
       }
 
       // Limpiar el formulario y cerrar
-      setNuevoCliente({ name: '', tax_id: '' });
+      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600' });
       setMostrarNuevoCliente(false);
 
       showSuccess('Cliente creado exitosamente');
@@ -395,6 +416,72 @@ export default function DashboardPage() {
       setIsCreatingClient(false);
     }
   };
+
+  const openEditClient = (c: Cliente) => {
+    setClientParaEditar(c)
+    setEditCliente({
+      name: c.name || '',
+      tax_id: c.tax_id || '',
+      preferred_income_account: c.preferred_income_account || '700',
+      preferred_expense_account: c.preferred_expense_account || '600',
+    })
+    setIsEditClientModalOpen(true)
+  }
+
+  const handleGuardarEdicionCliente = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!clientParaEditar) return
+    if (!editCliente.name.trim()) {
+      showError('El nombre del cliente es requerido')
+      return
+    }
+    setIsUpdatingClient(true)
+    try {
+      const resp = await fetch(`/api/clients/${clientParaEditar.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editCliente.name.trim(),
+          tax_id: editCliente.tax_id.trim() || null,
+          preferred_income_account: editCliente.preferred_income_account || null,
+          preferred_expense_account: editCliente.preferred_expense_account || null,
+        }),
+      })
+      const data = await resp.json().catch(() => null)
+      if (!resp.ok) throw new Error(data?.error || 'Error actualizando el cliente')
+
+      const updated = data?.client as Cliente
+      setClientes((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+      setClienteSeleccionado(updated)
+      showSuccess('Cliente actualizado')
+      setIsEditClientModalOpen(false)
+      setClientParaEditar(null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error actualizando el cliente')
+    } finally {
+      setIsUpdatingClient(false)
+    }
+  }
+
+  const handleConfirmEliminarCliente = useCallback(async () => {
+    if (!clientParaEliminar) return
+    setIsDeletingClient(true)
+    try {
+      const resp = await fetch(`/api/clients/${clientParaEliminar.id}`, { method: 'DELETE' })
+      const data = await resp.json().catch(() => null)
+      if (!resp.ok) throw new Error(data?.error || 'Error eliminando el cliente')
+
+      setClientes((prev) => prev.filter((c) => c.id !== clientParaEliminar.id))
+      if (clienteSeleccionado?.id === clientParaEliminar.id) setClienteSeleccionado(null)
+      showSuccess('Cliente eliminado')
+      setIsDeleteClientModalOpen(false)
+      setClientParaEliminar(null)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error eliminando el cliente')
+    } finally {
+      setIsDeletingClient(false)
+    }
+  }, [clientParaEliminar, clienteSeleccionado?.id, showError, showSuccess])
 
   const getNombreSubidaPorDefecto = () => {
     // Ej: "13/12/2025 10:35"
@@ -739,7 +826,9 @@ export default function DashboardPage() {
     if (!canValidate) {
       showError(
         requiredFirstCount > 0
-          ? `Estamos procesando las primeras ${requiredFirstCount} facturas (${firstBlockReadyCount}/${requiredFirstCount}). En cuanto estén listas, podrás validar.`
+          ? (archivosSubidos.length <= BLOCK_SIZE
+            ? 'Estamos procesando las facturas. En cuanto estén listas, podrás validar.'
+            : `Estamos procesando las primeras ${requiredFirstCount} facturas (${firstBlockReadyCount}/${requiredFirstCount}). En cuanto estén listas, podrás validar.`)
           : 'Estamos preparando las facturas. En cuanto estén listas, podrás validar.'
       )
       return
@@ -860,6 +949,32 @@ export default function DashboardPage() {
                     onChange={handleClienteChange}
                   />
 
+                  {clienteSeleccionado && (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        className="flex-1"
+                        onClick={() => openEditClient(clienteSeleccionado)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          setClientParaEliminar(clienteSeleccionado)
+                          setIsDeleteClientModalOpen(true)
+                        }}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  )}
+
                   {clientes.length === 0 && (
                     <p className="mt-4 text-sm text-foreground-secondary text-center">
                       No hay clientes registrados. Crea uno nuevo.
@@ -897,6 +1012,44 @@ export default function DashboardPage() {
                       disabled={isCreatingClient}
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Cuenta preferente (Ingresos)
+                      </label>
+                      <select
+                        value={nuevoCliente.preferred_income_account}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, preferred_income_account: e.target.value })
+                        }
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        disabled={isCreatingClient}
+                      >
+                        <option value="700">700 - Ventas</option>
+                        <option value="705">705 - Prestaciones de servicios</option>
+                        <option value="708">708 - Devoluciones y descuentos</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Cuenta preferente (Gastos)
+                      </label>
+                      <select
+                        value={nuevoCliente.preferred_expense_account}
+                        onChange={(e) =>
+                          setNuevoCliente({ ...nuevoCliente, preferred_expense_account: e.target.value })
+                        }
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        disabled={isCreatingClient}
+                      >
+                        <option value="600">600</option>
+                        <option value="620">620</option>
+                        <option value="621">621</option>
+                        <option value="628">628</option>
+                      </select>
+                    </div>
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       type="submit"
@@ -913,7 +1066,12 @@ export default function DashboardPage() {
                       size="md"
                       onClick={() => {
                         setMostrarNuevoCliente(false);
-                        setNuevoCliente({ name: '', tax_id: '' });
+                        setNuevoCliente({
+                          name: '',
+                          tax_id: '',
+                          preferred_income_account: '700',
+                          preferred_expense_account: '600',
+                        });
                       }}
                       disabled={isCreatingClient}
                     >
@@ -1222,10 +1380,10 @@ export default function DashboardPage() {
                     const st = extractStatusByInvoiceId[invoiceId] || 'idle'
                     const cls =
                       st === 'ready'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-secondary-lighter text-secondary'
                         : st === 'error'
                           ? 'bg-red-100 text-red-800'
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-primary-lighter text-primary'
                     const label =
                       st === 'ready' ? 'Lista' : st === 'error' ? 'Error' : st === 'processing' ? 'Procesando' : 'En cola'
                     return <span className={`text-xs px-2 py-1 rounded-full ${cls}`}>{label}</span>
@@ -1266,7 +1424,9 @@ export default function DashboardPage() {
                           {hasUploadingFiles
                             ? `Subiendo… (${invoiceIdsInOrder.length}/${archivosSubidos.length})`
                             : firstBlockReadyCount < requiredFirstCount
-                              ? `Procesando primeras ${requiredFirstCount}… (${firstBlockReadyCount}/${requiredFirstCount})`
+                              ? (archivosSubidos.length <= BLOCK_SIZE
+                                ? 'Procesando facturas…'
+                                : `Procesando primeras ${requiredFirstCount}… (${firstBlockReadyCount}/${requiredFirstCount})`)
                               : 'Validar'}
                           {!hasUploadingFiles && (
                             <svg
@@ -1386,6 +1546,168 @@ export default function DashboardPage() {
                 onClick={handleConfirmEliminarFactura}
               >
                 {isDeletingInvoice ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEditClientModalOpen && clientParaEditar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Editar cliente"
+          onMouseDown={() => {
+            if (isUpdatingClient) return
+            setIsEditClientModalOpen(false)
+            setClientParaEditar(null)
+          }}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl bg-white shadow-xl border border-gray-200"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleGuardarEdicionCliente}>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-foreground">Editar cliente</h3>
+                <p className="mt-2 text-sm text-foreground-secondary">
+                  Actualiza los datos y las cuentas preferentes para que aparezcan por defecto al validar.
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Nombre *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editCliente.name}
+                      onChange={(e) => setEditCliente((p) => ({ ...p, name: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                      disabled={isUpdatingClient}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">CIF/NIF (opcional)</label>
+                    <input
+                      type="text"
+                      value={editCliente.tax_id}
+                      onChange={(e) => setEditCliente((p) => ({ ...p, tax_id: e.target.value }))}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                      disabled={isUpdatingClient}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Cuenta preferente (Ingresos)
+                      </label>
+                      <select
+                        value={editCliente.preferred_income_account}
+                        onChange={(e) =>
+                          setEditCliente((p) => ({ ...p, preferred_income_account: e.target.value }))
+                        }
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        disabled={isUpdatingClient}
+                      >
+                        <option value="700">700 - Ventas</option>
+                        <option value="705">705 - Prestaciones de servicios</option>
+                        <option value="708">708 - Devoluciones y descuentos</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Cuenta preferente (Gastos)
+                      </label>
+                      <select
+                        value={editCliente.preferred_expense_account}
+                        onChange={(e) =>
+                          setEditCliente((p) => ({ ...p, preferred_expense_account: e.target.value }))
+                        }
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                        disabled={isUpdatingClient}
+                      >
+                        <option value="600">600</option>
+                        <option value="620">620</option>
+                        <option value="621">621</option>
+                        <option value="628">628</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 pb-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isUpdatingClient}
+                  onClick={() => {
+                    setIsEditClientModalOpen(false)
+                    setClientParaEditar(null)
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isUpdatingClient}
+                >
+                  {isUpdatingClient ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isDeleteClientModalOpen && clientParaEliminar && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar eliminación de cliente"
+          onMouseDown={() => {
+            if (isDeletingClient) return
+            setIsDeleteClientModalOpen(false)
+            setClientParaEliminar(null)
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground">Eliminar cliente</h3>
+              <p className="mt-2 text-sm text-foreground-secondary leading-relaxed">
+                Vas a eliminar <span className="font-semibold text-foreground">{clientParaEliminar.name}</span>.
+              </p>
+              <p className="mt-2 text-xs text-foreground-secondary">
+                Si este cliente tiene subidas, no se podrá eliminar hasta borrarlas.
+              </p>
+            </div>
+
+            <div className="px-6 pb-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingClient}
+                onClick={() => {
+                  setIsDeleteClientModalOpen(false)
+                  setClientParaEliminar(null)
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isDeletingClient}
+                onClick={handleConfirmEliminarCliente}
+              >
+                {isDeletingClient ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>

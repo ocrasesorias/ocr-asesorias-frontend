@@ -35,6 +35,7 @@ interface ValidarFacturaProps {
   onValidar: (factura: FacturaData) => void;
   onAnterior?: () => void
   onSiguiente: () => void;
+  onParaDespues?: () => void
   isLast?: boolean
   canGoNext?: boolean
   disableValidar?: boolean
@@ -46,11 +47,77 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   factura: facturaInicial,
   onValidar,
   onSiguiente,
+  onParaDespues,
   isLast = false,
   canGoNext = true,
   disableValidar = false,
   validarText
 }) => {
+  const [moneyFocusKey, setMoneyFocusKey] = useState<string | null>(null)
+
+  const parseEuroNumber = (value: string): number | null => {
+    const raw = String(value || '')
+      .replace(/\u00A0/g, ' ')
+      .replace(/€/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+    if (!raw) return null
+
+    const hasDot = raw.includes('.')
+    const hasComma = raw.includes(',')
+    let normalized = raw
+
+    if (hasDot && hasComma) {
+      // El separador decimal es el que aparezca el último
+      const lastDot = raw.lastIndexOf('.')
+      const lastComma = raw.lastIndexOf(',')
+      const decimalSep = lastComma > lastDot ? ',' : '.'
+      const thousandsSep = decimalSep === ',' ? '.' : ','
+      normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+    } else if (hasComma) {
+      // ES típico: coma decimal
+      normalized = raw.replace(',', '.')
+    } else if (hasDot) {
+      // Si solo hay '.', puede ser decimal (94.5 / 94.50) o miles (1.000 / 1.000.000)
+      const parts = raw.split('.')
+      if (parts.length === 2 && (parts[1].length === 1 || parts[1].length === 2)) {
+        normalized = raw // decimal
+      } else {
+        normalized = raw.replace(/\./g, '') // miles
+      }
+    }
+
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const formatEuroNumber = (n: number): string => {
+    const formatted = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n)
+    // Intl usa NBSP antes del símbolo; lo cambiamos por espacio normal.
+    return formatted.replace(/\u00A0€/g, ' €')
+  }
+
+  const normalizeEuroString = (value: string): string => {
+    const n = parseEuroNumber(value)
+    if (n === null) return String(value || '').replace(/€/g, '').trim()
+    // Guardamos sin símbolo para edición (el símbolo se añade en display).
+    return formatEuroNumber(n).replace(/\s?€$/, '').trim()
+  }
+
+  const moneyValue = (key: string, raw: string) => {
+    // En foco: dejamos el valor "editable" (sin €), pero ya con notación ES si estaba normalizado.
+    if (moneyFocusKey === key) return normalizeEuroString(raw)
+    // Fuera de foco: mostramos siempre con miles/decimales y €.
+    const n = parseEuroNumber(raw)
+    if (n === null) return raw || ''
+    return formatEuroNumber(n)
+  }
+
   const normalizeToISODate = (value: string) => {
     const v = (value || '').trim()
     if (!v) return ''
@@ -185,17 +252,12 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
 
   const handleLineaChange = (index: number, field: string, value: string) => {
     // Remover el símbolo € si está presente
-    const valorLimpio = value.replace('€', '').trim();
+    const valorLimpio = value.replace(/\u00A0/g, ' ').replace('€', '').trim();
     setFactura(prev => {
       const newLineas = [...prev.lineas];
       newLineas[index] = { ...newLineas[index], [field]: valorLimpio };
       return { ...prev, lineas: newLineas };
     });
-  };
-
-  const formatearMoneda = (valor: string) => {
-    if (!valor || valor.trim() === '') return '';
-    return valor + '€';
   };
 
   const agregarLinea = () => {
@@ -227,7 +289,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   // Solo necesitamos prevenir el submit en textareas
 
   const trimestres = ['Q1', 'Q2', 'Q3', 'Q4'];
-  const porcentajesRetencion = ['15%', '17%', '19%'];
+  const porcentajesRetencion = ['7%', '15%', '17%', '19%'];
   const tiposRetencion = ['AUTÓNOMO', 'PROFESIONAL'];
 
   const contraparteTitle = tipo === 'ingreso' ? 'CLIENTE' : 'PROVEEDOR'
@@ -253,48 +315,71 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
         className="grid grid-cols-2 gap-1 min-h-0 h-full"
       >
         {/* Columna izquierda: Imagen/PDF de la factura */}
-        <div className="overflow-hidden h-full">
-          <Card variant="elevated" className="p-1 h-full flex flex-col">
-            <h2 className="text-[10px] font-semibold text-foreground mb-0.5">
-              Factura
-            </h2>
-            <div className="flex-1 overflow-hidden">
+        <div className="overflow-hidden h-full flex flex-col">
+          <div className="flex-1 bg-slate-200 rounded-xl overflow-hidden relative border border-slate-300 flex flex-col">
+            {/* Barra superior (estilo visor) */}
+            <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-xs font-medium truncate">{factura.archivo?.nombre || 'Factura'}</span>
+              </div>
+              {factura.archivo?.url ? (
+                <a
+                  href={factura.archivo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary-hover transition-colors"
+                  title="Abrir en nueva pestaña"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10v11h11" />
+                  </svg>
+                  <span className="whitespace-nowrap">Abrir en nueva pestaña</span>
+                </a>
+              ) : (
+                <div className="text-xs text-slate-300">—</div>
+              )}
+            </div>
+
+            <div className="flex-1 bg-white overflow-hidden">
               {factura.archivo?.tipo === 'pdf' ? (
-                <div className="w-full h-full border border-gray-200 rounded flex items-center justify-center bg-gray-50">
+                <div className="w-full h-full">
                   {factura.archivo?.url ? (
                     <object
                       data={factura.archivo.url}
                       type="application/pdf"
-                      className="w-full h-full rounded"
+                      className="w-full h-full"
                       aria-label="Vista previa PDF"
                     >
-                      <div className="text-center px-6">
-                        <p className="text-sm text-foreground-secondary">
+                      <div className="text-center px-6 py-8">
+                        <p className="text-sm text-slate-500">
                           El visor de PDF no se pudo incrustar en esta página.
                         </p>
                         <a
                           href={factura.archivo.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:text-primary-hover transition-colors"
+                          className="text-sm text-secondary hover:text-secondary-hover underline"
                         >
                           Abrir PDF en nueva pestaña
                         </a>
                       </div>
                     </object>
                   ) : (
-                    <div className="text-center px-6">
-                      <p className="text-sm text-foreground-secondary">
-                        No se pudo cargar la previsualización de esta factura.
-                      </p>
-                      <p className="text-xs text-foreground-secondary mt-1">
-                        Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.
-                      </p>
+                    <div className="h-full w-full flex items-center justify-center text-center px-6">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          No se pudo cargar la previsualización de esta factura.
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="w-full h-full border border-gray-200 rounded overflow-hidden bg-gray-50 relative">
+                <div className="w-full h-full overflow-hidden bg-white relative">
                   <Image
                     src={factura.archivo?.url || '/img/placeholder-invoice.png'}
                     alt="Factura"
@@ -306,80 +391,96 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
               )}
             </div>
-
-            {/* Debug/acción rápida: abrir la URL firmada si existe */}
-            {factura.archivo?.url && (
-              <div className="mt-1 flex items-center justify-between gap-2">
-                <a
-                  href={factura.archivo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:text-primary-hover transition-colors"
-                >
-                  Abrir factura en nueva pestaña
-                </a>
-                <span className="text-[10px] text-foreground-secondary truncate max-w-[60%]">
-                  {factura.archivo.nombre}
-                </span>
-              </div>
-            )}
-          </Card>
+          </div>
         </div>
 
         {/* Columna derecha: Campos editables */}
         <div className="overflow-hidden h-full">
           <Card variant="elevated" className="h-full p-1 flex flex-col overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-hidden space-y-1">
+            {/* Contenido scrolleable (detrás de la barra fija inferior) */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
               {/* Empresa */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <h3 className="text-xs font-semibold text-foreground mb-1">
-                  EMPRESA
-                </h3>
-                <div className="grid grid-cols-[2fr_2fr_0.7fr] gap-1">
-              <div>
-                <FieldRow label="CIF" widthClass="w-10">
-                  <input
-                    type="text"
-                    value={factura.empresa.cif}
-                    onChange={(e) => handleChange('empresa.cif', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
-              <div>
-                <FieldRow label="ACTIVIDAD" widthClass="w-20">
-                  <input
-                    type="text"
-                    value={factura.empresa.actividad}
-                    onChange={(e) => handleChange('empresa.actividad', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
-              <div>
-                <FieldRow label="TRI." widthClass="w-8">
-                  <select
-                    value={factura.empresa.trimestre}
-                    onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+              <div className="border border-gray-200 rounded-lg p-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg
+                    className="w-4 h-4 text-secondary shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
-                    <option value="">-</option>
-                    {trimestres.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </FieldRow>
-              </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M2 20H4M4 20H14M4 20V6.2002C4 5.08009 4 4.51962 4.21799 4.0918C4.40973 3.71547 4.71547 3.40973 5.0918 3.21799C5.51962 3 6.08009 3 7.2002 3H10.8002C11.9203 3 12.4796 3 12.9074 3.21799C13.2837 3.40973 13.5905 3.71547 13.7822 4.0918C14 4.5192 14 5.07899 14 6.19691V12M14 20H20M14 20V12M20 20H22M20 20V12C20 11.0681 19.9999 10.6024 19.8477 10.2349C19.6447 9.74481 19.2557 9.35523 18.7656 9.15224C18.3981 9 17.9316 9 16.9997 9C16.0679 9 15.6019 9 15.2344 9.15224C14.7443 9.35523 14.3552 9.74481 14.1522 10.2349C14 10.6024 14 11.0681 14 12M7 10H11M7 7H11"
+                    />
+                  </svg>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    Empresa
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-[2fr_2fr_0.9fr] gap-2 items-center">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">
+                      CIF
+                    </div>
+                    <input
+                      type="text"
+                      value={factura.empresa.cif}
+                      onChange={(e) => handleChange('empresa.cif', e.target.value)}
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-16 shrink-0">
+                      Actividad
+                    </div>
+                    <input
+                      type="text"
+                      value={factura.empresa.actividad}
+                      onChange={(e) => handleChange('empresa.actividad', e.target.value)}
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-7 shrink-0">
+                      Tri.
+                    </div>
+                    <select
+                      value={factura.empresa.trimestre}
+                      onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">-</option>
+                      {trimestres.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Proveedor/Acreedor */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <h3 className="text-xs font-semibold text-foreground mb-1">
-                  {contraparteTitle}
-                </h3>
+              <div className="border border-gray-200 rounded-lg p-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg
+                    className="w-4 h-4 text-secondary shrink-0"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M16.5177 17H3.39249c-.70639 0-1.22802-.69699-.96159-1.33799C3.66709 12.69799 6.57126 10.99999 9.95417 10.99999c3.38394 0 6.2881 1.698 7.52429 4.662 0.26642.641-.2552 1.338-.96076 1.338zM5.87198 5c0-2.206 1.83233-4 4.08319-4 2.25188 0 4.08318 1.794 4.08318 4s-1.8313 4-4.08318 4C7.70431 9 5.87198 7.206 5.87198 5zm12.95472 11.636c-.74211-3.359-3.06341-5.838-6.11865-6.963 1.61898-1.277 2.56322-3.342 2.21615-5.603C14.52243 1.447 12.29505-.652 9.60627-.958 5.89466-1.381 2.74652 1.449 2.74652 5c0 1.89.89422 3.574 2.28863 4.673-3.05626 1.125-5.37654 3.604-6.11967 6.963C-1.35498 17.857-.35052 19 0.92445 19H16.8162c1.27599 0 2.28046-1.143 2.0105-2.364z" />
+                  </svg>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    {contraparteTitle}
+                  </div>
+                </div>
                 <div className="space-y-1">
               <div>
                 <FieldRow label="NOMBRE" widthClass="w-16">
@@ -437,11 +538,25 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               </div>
 
               {/* Datos de la factura */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <h3 className="text-xs font-semibold text-foreground mb-1">
-                  DATOS FACTURA
-                </h3>
-                <div className="grid grid-cols-3 gap-1">
+              <div className="border border-gray-200 rounded-lg p-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg
+                    className="w-4 h-4 text-secondary shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M6 1C4.34315 1 3 2.34315 3 4V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V8.82843C21 8.03278 20.6839 7.26972 20.1213 6.70711L15.2929 1.87868C14.7303 1.31607 13.9672 1 13.1716 1H6ZM5 4C5 3.44772 5.44772 3 6 3H12V8C12 9.10457 12.8954 10 14 10H19V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V4ZM18.5858 8L14 3.41421V8H18.5858Z"
+                    />
+                  </svg>
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    Datos Factura
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
               <div>
                 <FieldRow label="Nº" widthClass="w-8">
                   <input
@@ -473,42 +588,39 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </FieldRow>
               </div>
                 </div>
-              </div>
 
-              {/* Subcuenta de gasto */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <FieldRow label={subcuentaLabel} widthClass="w-20">
-                  <select
-                    value={factura.subcuentaGasto}
-                    onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
-                    className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">-</option>
-                    {subcuentas.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </FieldRow>
-              </div>
-
-              {/* Tabla de desglose */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="text-xs font-semibold text-foreground">
-                    DESGLOSE
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={agregarLinea}
-                    className="text-[11px] px-2 py-0.5 border border-gray-200 rounded hover:bg-gray-50"
-                  >
-                    + Línea
-                  </button>
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  <FieldRow label={subcuentaLabel} widthClass="w-20">
+                    <select
+                      value={factura.subcuentaGasto}
+                      onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
+                      className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">-</option>
+                      {subcuentas.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldRow>
                 </div>
-                <div className="overflow-hidden">
-                  <table className="w-full border-collapse text-[10px]">
+
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      Desglose
+                    </div>
+                    <button
+                      type="button"
+                      onClick={agregarLinea}
+                      className="text-[11px] px-2 py-0.5 border border-gray-200 rounded hover:bg-gray-50"
+                    >
+                      + Línea
+                    </button>
+                  </div>
+                  <div className="overflow-hidden">
+                    <table className="w-full border-collapse text-[10px]">
                 <colgroup>
                   <col className="w-auto" />
                   <col className="w-12" />
@@ -531,8 +643,17 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <td className="border border-gray-200 px-0.5 py-0.5">
                         <input
                           type="text"
-                          value={formatearMoneda(linea.base)}
+                          value={moneyValue(`linea:${index}:base`, linea.base)}
                           onChange={(e) => handleLineaChange(index, 'base', e.target.value)}
+                          onFocus={() => setMoneyFocusKey(`linea:${index}:base`)}
+                          onBlur={() => {
+                            setMoneyFocusKey(null)
+                            setFactura((prev) => {
+                              const newLineas = [...prev.lineas]
+                              newLineas[index] = { ...newLineas[index], base: normalizeEuroString(newLineas[index].base) }
+                              return { ...prev, lineas: newLineas }
+                            })
+                          }}
                           className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
@@ -547,8 +668,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <td className="border border-gray-200 px-0.5 py-0.5">
                         <input
                           type="text"
-                          value={formatearMoneda(linea.cuotaIva)}
+                          value={moneyValue(`linea:${index}:cuotaIva`, linea.cuotaIva)}
                           onChange={(e) => handleLineaChange(index, 'cuotaIva', e.target.value)}
+                          onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaIva`)}
+                          onBlur={() => {
+                            setMoneyFocusKey(null)
+                            setFactura((prev) => {
+                              const newLineas = [...prev.lineas]
+                              newLineas[index] = {
+                                ...newLineas[index],
+                                cuotaIva: normalizeEuroString(newLineas[index].cuotaIva),
+                              }
+                              return { ...prev, lineas: newLineas }
+                            })
+                          }}
                           className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
@@ -563,21 +696,32 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <td className="border border-gray-200 px-0.5 py-0.5">
                         <input
                           type="text"
-                          value={formatearMoneda(linea.cuotaRecargo)}
+                          value={moneyValue(`linea:${index}:cuotaRecargo`, linea.cuotaRecargo)}
                           onChange={(e) => handleLineaChange(index, 'cuotaRecargo', e.target.value)}
+                          onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaRecargo`)}
+                          onBlur={() => {
+                            setMoneyFocusKey(null)
+                            setFactura((prev) => {
+                              const newLineas = [...prev.lineas]
+                              newLineas[index] = {
+                                ...newLineas[index],
+                                cuotaRecargo: normalizeEuroString(newLineas[index].cuotaRecargo),
+                              }
+                              return { ...prev, lineas: newLineas }
+                            })
+                          }}
                           className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                         />
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                  </table>
+                    </table>
+                  </div>
                 </div>
-              </div>
 
-              {/* Retención */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <div className="grid grid-cols-4 gap-2 items-stretch">
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  <div className="grid grid-cols-4 gap-2 items-stretch border border-gray-200 rounded-lg p-1">
                   {/* RETENCIÓN + Sí (centrado) */}
                   <div className="flex flex-col items-center justify-center text-center gap-1">
                     <div className="text-xs font-medium text-foreground">RETENCIÓN</div>
@@ -633,10 +777,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <div className="text-xs font-medium text-foreground">CANT.</div>
                     <input
                       type="text"
-                      value={formatearMoneda(factura.retencion.cantidad)}
+                      value={moneyValue('retencion:cantidad', factura.retencion.cantidad)}
                       onChange={(e) => {
                         const valorLimpio = e.target.value.replace('€', '').trim()
                         handleChange('retencion.cantidad', valorLimpio)
+                      }}
+                      onFocus={() => setMoneyFocusKey('retencion:cantidad')}
+                      onBlur={() => {
+                        setMoneyFocusKey(null)
+                        setFactura((prev) => ({
+                          ...prev,
+                          retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
+                        }))
                       }}
                       disabled={!factura.retencion.aplica}
                       className="w-full max-w-[220px] px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -645,11 +797,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </div>
                 </div>
               </div>
+              </div>
 
-              {/* Anexos/Observaciones y Total */}
+              {/* Observaciones */}
               <div className="border border-gray-200 rounded-lg p-1">
-                <div className="grid grid-cols-2 gap-1">
-              <div>
                 <FieldRow label="OBS." widthClass="w-12" alignTop>
                   <textarea
                     value={factura.anexosObservaciones}
@@ -661,32 +812,37 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         handleSubmit(e as unknown as React.FormEvent)
                       }
                     }}
-                        rows={3}
+                    rows={3}
                     className="w-full px-2 py-2 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent resize-none"
                     placeholder="Albarán, ticket..."
                   />
                 </FieldRow>
               </div>
-              <div className="flex flex-col">
-                <FieldRow label="TOTAL" widthClass="w-12">
-                  <input
-                    type="text"
-                    value={formatearMoneda(factura.total)}
-                    onChange={(e) => {
-                      const valorLimpio = e.target.value.replace('€', '').trim()
-                      handleChange('total', valorLimpio)
-                    }}
-                        className="w-full px-2 py-1.5 text-base border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent font-semibold"
-                  />
-                </FieldRow>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+
+              {/* Separación visual para que el scroll no quede “pegado” a la barra fija */}
+              <div className="h-2" />
+            </div>
+
+            {/* Barra fija inferior (TOTAL + acciones) */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-2 py-2">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
+                    TOTAL FACTURA
+                  </div>
+                  <div className="text-2xl font-bold text-foreground truncate">
+                    {moneyValue('total', factura.total)}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="md"
                     type="button"
-                    onClick={() => onSiguiente()}
+                    onClick={() => (onParaDespues ? onParaDespues() : onSiguiente())}
                     disabled={isLast || !canGoNext}
-                    className="w-full text-sm py-1.5 font-bold"
+                    className="px-4 py-2 text-sm font-bold whitespace-nowrap"
                   >
                     PARA DESPUÉS
                   </Button>
@@ -695,17 +851,25 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     size="md"
                     type="submit"
                     disabled={disableValidar}
-                    className="w-full text-sm py-1.5 font-bold"
+                    className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
                   >
-                    {validarText || (disableValidar ? 'PROCESANDO…' : 'VALIDAR')}
+                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : 'VALIDAR')}</span>
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      focusable="false"
+                    >
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15-4-4 1.41-1.41L11 14.17l5.59-5.59L18 10l-7 7z" />
+                    </svg>
                   </Button>
                 </div>
               </div>
             </div>
+
             {/* Botón oculto para permitir submit con Enter desde cualquier campo */}
             <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
-              </div>
-            </div>
           </Card>
         </div>
       </form>

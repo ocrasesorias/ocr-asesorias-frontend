@@ -23,7 +23,7 @@ export const Button: React.FC<ButtonProps> = ({
   
   const variantClasses = {
     primary: 'bg-primary text-white hover:bg-primary-hover focus:ring-primary',
-    secondary: 'bg-secondary text-white hover:bg-secondary/90 focus:ring-secondary',
+    secondary: 'bg-secondary text-white hover:bg-secondary-hover focus:ring-secondary',
     outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary'
   };
   

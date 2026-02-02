@@ -26,7 +26,7 @@ export interface FacturaData {
   subcuentaGasto: string;
   retencion: {
     aplica: boolean;
-    porcentaje: '15%' | '17%' | '19%' | '';
+    porcentaje: '7%' | '15%' | '17%' | '19%' | '';
     tipo: 'AUTÓNOMO' | 'PROFESIONAL' | '';
     cantidad: string;
   };

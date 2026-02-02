@@ -86,7 +86,28 @@ function getLatestExtraction(inv: UploadInvoiceRow): Record<string, unknown> | n
   return typeof raw === 'object' ? (raw as Record<string, unknown>) : null
 }
 
-function toFacturaData(inv: UploadInvoiceRow, previewUrl: string, clientTaxId?: string | null): FacturaData {
+type RetencionPorcentaje = FacturaData['retencion']['porcentaje']
+type RetencionTipo = FacturaData['retencion']['tipo']
+
+function toRetencionPorcentaje(pct: number | null): RetencionPorcentaje {
+  if (pct === null) return ''
+  const r = Math.round(Math.abs(pct))
+  if (r === 7) return '7%'
+  if (r === 15) return '15%'
+  if (r === 17) return '17%'
+  if (r === 19) return '19%'
+  return ''
+}
+
+function defaultRetencionTipo(hasRetencion: boolean): RetencionTipo {
+  return hasRetencion ? 'PROFESIONAL' : ''
+}
+
+function toFacturaData(
+  inv: UploadInvoiceRow,
+  previewUrl: string,
+  opts?: { clientTaxId?: string | null; defaultSubcuenta?: string }
+): FacturaData {
   const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
   const ex = getLatestExtraction(inv)
   const isPdf =
@@ -104,8 +125,22 @@ function toFacturaData(inv: UploadInvoiceRow, previewUrl: string, clientTaxId?: 
   const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
   const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
 
+  const toNumLoose = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string') {
+      const s = v.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
+      if (!s) return null
+      const n = Number(s.replace(/\./g, '').replace(',', '.'))
+      return Number.isFinite(n) ? n : null
+    }
+    return null
+  }
+  const exRetPct = toNumLoose(ex?.retencion_porcentaje)
+  const exRetImp = toNumLoose(ex?.retencion_importe)
+  const hasRetencion = Boolean((exRetPct && Math.abs(exRetPct) > 0) || (exRetImp && Math.abs(exRetImp) > 0))
+
   return {
-    empresa: { cif: clientTaxId || 'B12345678', trimestre: 'Q1', actividad: '' },
+    empresa: { cif: opts?.clientTaxId || 'B12345678', trimestre: 'Q1', actividad: '' },
     proveedor: {
       nombre: f?.supplier_name || exCliente || '',
       cif: f?.supplier_tax_id || exNif || '',
@@ -118,8 +153,14 @@ function toFacturaData(inv: UploadInvoiceRow, previewUrl: string, clientTaxId?: 
       fecha: f?.invoice_date ? String(f.invoice_date) : '',
       fechaVencimiento: '',
     },
-    subcuentaGasto: '',
-    retencion: { aplica: false, porcentaje: '', tipo: '', cantidad: '' },
+    subcuentaGasto: opts?.defaultSubcuenta || '',
+    retencion: {
+      aplica: hasRetencion,
+      porcentaje: toRetencionPorcentaje(exRetPct),
+      // No tenemos tipo en extracción; por defecto "PROFESIONAL" si hay retención
+      tipo: defaultRetencionTipo(hasRetencion),
+      cantidad: exRetImp !== null ? String(Math.abs(exRetImp)) : '',
+    },
     lineas: [
       {
         base: base !== null ? String(base) : '',
@@ -149,8 +190,9 @@ export default function ValidarUploadPage() {
   const params = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const uploadId = params.id
-  const { showError, showSuccess, setToastConfig } = useToast()
+  const { showError, showSuccess, showInfo, setToastConfig } = useToast()
 
+  const BLOCK_SIZE = 6
   const MAX_CONCURRENCY = 3
 
   const [isLoading, setIsLoading] = useState(true)
@@ -159,6 +201,9 @@ export default function ValidarUploadPage() {
   const [facturaRevisions, setFacturaRevisions] = useState<Record<string, number>>({})
   const [invoiceRows, setInvoiceRows] = useState<UploadInvoiceRow[]>([])
   const [invoiceStatus, setInvoiceStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({})
+  const [validatedByInvoiceId, setValidatedByInvoiceId] = useState<Record<string, true>>({})
+  const [deferredByInvoiceId, setDeferredByInvoiceId] = useState<Record<string, true>>({})
+  const [visitedByInvoiceId, setVisitedByInvoiceId] = useState<Record<string, true>>({})
   const inFlightRef = useRef(0)
   const startedRef = useRef<Record<string, true>>({})
   const [clienteNombre, setClienteNombre] = useState<string>('')
@@ -185,6 +230,39 @@ export default function ValidarUploadPage() {
     return { total, ready, processing, error, idle, done, percent }
   }, [invoiceRows, invoiceStatus])
 
+  const validatedStats = useMemo(() => {
+    const total = invoiceRows.length
+    let validated = 0
+    for (const inv of invoiceRows) {
+      if (validatedByInvoiceId[inv.id]) validated += 1
+    }
+    const percent = total > 0 ? Math.round((validated / total) * 100) : 0
+    return { total, validated, percent }
+  }, [invoiceRows, validatedByInvoiceId])
+
+  const allValidated = useMemo(() => {
+    return validatedStats.total > 0 && validatedStats.validated >= validatedStats.total
+  }, [validatedStats.total, validatedStats.validated])
+
+  const persistIdSet = (key: string, rec: Record<string, true>) => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(Object.keys(rec)))
+    } catch {
+      // noop
+    }
+  }
+
+  const restoreIdSet = (key: string): Set<string> => {
+    try {
+      const raw = sessionStorage.getItem(key)
+      const parsed: unknown = raw ? JSON.parse(raw) : null
+      if (Array.isArray(parsed)) return new Set(parsed.filter((x): x is string => typeof x === 'string'))
+    } catch {
+      // noop
+    }
+    return new Set()
+  }
+
   const prefixDoneCount = useMemo(() => {
     // cuántas facturas consecutivas (desde la primera) ya están "procesadas" (ready o error)
     let c = 0
@@ -197,28 +275,24 @@ export default function ValidarUploadPage() {
   }, [invoiceRows, invoiceStatus])
 
   const unlockedMaxIndex = useMemo(() => {
-    // desbloqueamos navegación por bloques de 3 (0-2, luego 0-5, etc.)
-    // Importante: el último bloque puede tener 1 o 2 facturas (si total no es múltiplo de 3).
+    // desbloqueamos navegación por bloques de 6 (0-5, luego 0-11, etc.)
+    // Importante: el último bloque puede tener 1..5 facturas (si total no es múltiplo de 6).
     if (invoiceRows.length === 0) return -1
     const total = invoiceRows.length
     let unlockedCount = 0
-    for (let start = 0; start < total; start += 3) {
-      const end = Math.min(total, start + 3) // fin exclusivo del bloque
+    for (let start = 0; start < total; start += BLOCK_SIZE) {
+      const end = Math.min(total, start + BLOCK_SIZE) // fin exclusivo del bloque
       if (prefixDoneCount >= end) unlockedCount = end
       else break
     }
     return unlockedCount - 1
-  }, [invoiceRows.length, prefixDoneCount])
+  }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
 
   const initialGateReady = useMemo(() => {
-    // no mostramos validar hasta que estén listas las primeras 3 (o menos si hay <3)
-    const need = Math.min(3, invoiceRows.length)
+    // no mostramos validar hasta que estén listas las primeras 6 (o menos si hay <6)
+    const need = Math.min(BLOCK_SIZE, invoiceRows.length)
     return need > 0 && prefixDoneCount >= need
-  }, [invoiceRows.length, prefixDoneCount])
-
-  const isAllDone = useMemo(() => {
-    return statusStats.total > 0 && statusStats.done >= statusStats.total
-  }, [statusStats.total, statusStats.done])
+  }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
 
   useEffect(() => {
     // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
@@ -256,6 +330,9 @@ export default function ValidarUploadPage() {
 
         const upload = data.upload
         const uploadTipo = String(upload?.tipo || '').toLowerCase()
+        const tipoLocal = (uploadTipo === 'gasto' || uploadTipo === 'ingreso' ? uploadTipo : 'gasto') as
+          | 'gasto'
+          | 'ingreso'
         if (uploadTipo === 'gasto' || uploadTipo === 'ingreso') {
           setTipoFactura(uploadTipo as 'gasto' | 'ingreso')
           try {
@@ -266,6 +343,10 @@ export default function ValidarUploadPage() {
         }
         const client = upload?.clients
         setClienteNombre(client?.name || '')
+        const defaultSubcuenta =
+          tipoLocal === 'ingreso'
+            ? (client?.preferred_income_account as string | null) || '700'
+            : (client?.preferred_expense_account as string | null) || '600'
 
         const invoices: UploadInvoiceRow[] = Array.isArray(upload?.invoices) ? upload.invoices : []
 
@@ -282,8 +363,27 @@ export default function ValidarUploadPage() {
 
         setInvoiceRows(invoices)
 
-        const mapped = invoices.map((inv) => toFacturaData(inv, previewRecord[inv.id] || '', client?.tax_id))
+        const mapped = invoices.map((inv) =>
+          toFacturaData(inv, previewRecord[inv.id] || '', { clientTaxId: client?.tax_id, defaultSubcuenta })
+        )
         setFacturas(mapped)
+
+        // Restaurar estado de sesión (validada / para después / visitada)
+        const validatedSet = restoreIdSet(`upload:${uploadId}:validatedIds`)
+        const deferredSet = restoreIdSet(`upload:${uploadId}:deferredIds`)
+        const visitedSet = restoreIdSet(`upload:${uploadId}:visitedIds`)
+
+        const vRec: Record<string, true> = {}
+        const dRec: Record<string, true> = {}
+        const visRec: Record<string, true> = {}
+        for (const inv of invoices) {
+          if (validatedSet.has(inv.id)) vRec[inv.id] = true
+          if (deferredSet.has(inv.id)) dRec[inv.id] = true
+          if (visitedSet.has(inv.id)) visRec[inv.id] = true
+        }
+        setValidatedByInvoiceId(vRec)
+        setDeferredByInvoiceId(dRec)
+        setVisitedByInvoiceId(visRec)
 
         // Estado inicial por factura: si ya tiene fields/extraction, la consideramos lista.
         const initialStatus: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {}
@@ -313,6 +413,18 @@ export default function ValidarUploadPage() {
 
     run()
   }, [router, uploadId, showError, searchParams])
+
+  // Marcar como "visitada" la factura actual (para colorear barra)
+  useEffect(() => {
+    const id = invoiceRows[facturaActual]?.id
+    if (!id) return
+    setVisitedByInvoiceId((prev) => {
+      if (prev[id]) return prev
+      const next = { ...prev, [id]: true as const }
+      persistIdSet(`upload:${uploadId}:visitedIds`, next)
+      return next
+    })
+  }, [facturaActual, invoiceRows, uploadId])
 
   const clientTaxId = useMemo(() => {
     // Preferimos el CIF que ya está en FacturaData.empresa.cif
@@ -362,6 +474,36 @@ export default function ValidarUploadPage() {
       next.lineas = [line0, ...next.lineas.slice(1)]
     }
     if (!next.total && total !== null) next.total = String(total)
+
+    // Retención: si viene en la extracción, la aplicamos por defecto.
+    // Aceptamos varias claves por compatibilidad.
+    const toNumLoose = (v: unknown): number | null => {
+      if (typeof v === 'number' && Number.isFinite(v)) return v
+      if (typeof v === 'string') {
+        const s = v.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
+        if (!s) return null
+        const n = Number(s.replace(/\./g, '').replace(',', '.'))
+        return Number.isFinite(n) ? n : null
+      }
+      return null
+    }
+
+    const retPctRaw =
+      toNumLoose(ex?.retencion_porcentaje) ?? toNumLoose(ex?.porcentaje_retencion) ?? toNumLoose(ex?.retencion_pct) ?? null
+    const retImpRaw = toNumLoose(ex?.retencion_importe) ?? toNumLoose(ex?.retencion) ?? null
+
+    const retPct = retPctRaw !== null ? Math.abs(retPctRaw) : null
+    const retImp = retImpRaw !== null ? Math.abs(retImpRaw) : null
+
+    if (!next.retencion.aplica && ((retPct && retPct > 0) || (retImp && retImp > 0))) {
+      next.retencion.aplica = true
+    }
+    if (!next.retencion.porcentaje && retPct !== null) {
+      next.retencion.porcentaje = toRetencionPorcentaje(retPct)
+    }
+    if (!next.retencion.cantidad && retImp !== null) {
+      next.retencion.cantidad = String(retImp)
+    }
 
     return next
   }
@@ -459,8 +601,47 @@ export default function ValidarUploadPage() {
   }
 
   const toNumber = (value: string) => {
-    const v = (value || '').replace('€', '').trim().replace(/\./g, '').replace(',', '.')
-    const n = Number(v)
+    // Soporta:
+    // - 1.000,56  (ES)
+    // - 1000,56
+    // - 1,000.56  (EN)
+    // - 1000.56
+    // - y con/ sin símbolo €
+    const raw = String(value || '')
+      .replace(/\u00A0/g, ' ')
+      .replace(/€/g, '')
+      .replace(/\s+/g, '')
+      .trim()
+    if (!raw) return null
+
+    const hasDot = raw.includes('.')
+    const hasComma = raw.includes(',')
+
+    let normalized = raw
+
+    if (hasDot && hasComma) {
+      // El separador decimal es el que aparezca el último
+      const lastDot = raw.lastIndexOf('.')
+      const lastComma = raw.lastIndexOf(',')
+      const decimalSep = lastComma > lastDot ? ',' : '.'
+      const thousandsSep = decimalSep === ',' ? '.' : ','
+      normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+    } else if (hasComma) {
+      // ES típico: 1.000,56 ya vendría con '.', pero si solo hay coma asumimos coma decimal
+      normalized = raw.replace(',', '.')
+    } else if (hasDot) {
+      // Si solo hay '.', puede ser decimal (94.50) o miles (1.000)
+      const parts = raw.split('.')
+      if (parts.length === 2 && parts[1].length === 2) {
+        // 94.50 -> decimal
+        normalized = raw
+      } else {
+        // 1.000 o 1.000.000 -> miles
+        normalized = raw.replace(/\./g, '')
+      }
+    }
+
+    const n = Number(normalized)
     return Number.isFinite(n) ? n : null
   }
 
@@ -516,9 +697,77 @@ export default function ValidarUploadPage() {
       return nuevas
     })
 
+    // Marcar como validada y persistir (sesión)
+    if (invoiceId) {
+      setValidatedByInvoiceId((prev) => {
+        const next = { ...prev, [invoiceId]: true as const }
+        persistIdSet(`upload:${uploadId}:validatedIds`, next)
+        return next
+      })
+      // Si estaba "para después", lo quitamos.
+      setDeferredByInvoiceId((prev) => {
+        if (!prev[invoiceId]) return prev
+        const { [invoiceId]: _omit, ...rest } = prev
+        persistIdSet(`upload:${uploadId}:deferredIds`, rest)
+        return rest
+      })
+    }
+
     const isLast = facturaActual === facturas.length - 1
-    showSuccess(isLast ? 'Factura validada. Has completado todas.' : 'Factura validada')
-    if (isLast) setIsFinishedModalOpen(true)
+    // Calculamos "all validated" incluyendo esta factura (sin esperar al setState async)
+    const totalCount = invoiceRows.length
+    const prevValidatedCount = validatedStats.validated
+    const isAlreadyValidated = Boolean(invoiceId && validatedByInvoiceId[invoiceId])
+    const nextValidatedCount = invoiceId ? prevValidatedCount + (isAlreadyValidated ? 0 : 1) : prevValidatedCount
+    const nextAllValidated = totalCount > 0 && nextValidatedCount >= totalCount
+
+    if (nextAllValidated) {
+      showSuccess('Factura validada. Has completado todas.')
+      setIsFinishedModalOpen(true)
+      return
+    }
+
+    // Si es la última (en orden) pero quedan pendientes, volvemos a la primera pendiente.
+    if (isLast) {
+      const pendingCount = Math.max(0, totalCount - nextValidatedCount)
+      showInfo(`Te faltan ${pendingCount} por validar. Volvemos a la primera pendiente.`)
+      // Recalcular primera pendiente (usando invoiceRows actuales)
+      const ids = invoiceRows.map((i) => i.id)
+      let target = 0
+      for (let idx = 0; idx < ids.length; idx += 1) {
+        const id = ids[idx]
+        const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
+        if (!isVal) {
+          target = idx
+          break
+        }
+      }
+      setFacturaActual(target)
+      return
+    }
+
+    showSuccess('Factura validada')
+  }
+
+  const handleParaDespues = () => {
+    const invoiceId = facturas[facturaActual]?.archivo?.invoiceId
+    if (invoiceId && !validatedByInvoiceId[invoiceId]) {
+      setDeferredByInvoiceId((prev) => {
+        const next = { ...prev, [invoiceId]: true as const }
+        persistIdSet(`upload:${uploadId}:deferredIds`, next)
+        return next
+      })
+    }
+    handleSiguiente()
+  }
+
+  const jumpToIndex = (idx: number) => {
+    if (idx < 0 || idx >= invoiceRows.length) return
+    if (idx > unlockedMaxIndex) {
+      showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
+      return
+    }
+    setFacturaActual(idx)
   }
 
   const handleSiguiente = () => {
@@ -572,9 +821,9 @@ export default function ValidarUploadPage() {
     )
   }
 
-  // No mostramos la pantalla de validación hasta que estén procesadas las primeras 3 (o menos si hay <3).
+  // No mostramos la pantalla de validación hasta que estén procesadas las primeras 6 (o menos si hay <6).
   if (!initialGateReady) {
-    const need = Math.min(3, invoiceRows.length)
+    const need = Math.min(BLOCK_SIZE, invoiceRows.length)
     return (
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -604,79 +853,124 @@ export default function ValidarUploadPage() {
 
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col">
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10">
-        <div className="w-full">
-          <div className="grid grid-cols-3 items-center gap-4">
-            {/* Izquierda: volver a la página anterior */}
-            <div className="justify-self-start">
-              <button
-                onClick={() => router.back()}
-                className="inline-flex items-center text-foreground-secondary hover:text-foreground transition-colors"
-                aria-label="Volver"
-                title="Volver"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-              </button>
-            </div>
+      <header className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-50">
+        <div className="flex items-center justify-between gap-6">
+          {/* Izquierda */}
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => router.back()}
+              className="p-2 rounded-full hover:bg-slate-100 transition-colors"
+              aria-label="Volver"
+              title="Volver"
+            >
+              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
+            </button>
 
-            {/* Centro: CIF · Nombre (azul) · Ingresos/Gastos (centrado real en la página) */}
-            <div className="justify-self-center min-w-0 px-2">
-              <div className="text-sm font-semibold truncate text-center">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight truncate">
                 {clientTaxId ? (
-                  <span className="text-foreground">CIF {clientTaxId}</span>
+                  <span className="text-slate-900">CIF {clientTaxId}</span>
                 ) : (
-                  <span className="text-foreground">CIF —</span>
+                  <span className="text-slate-900">CIF —</span>
                 )}
-                <span className="text-foreground-secondary">{' · '}</span>
-                <span className="text-primary">{clienteNombre || 'Validar facturas'}</span>
-                <span className="text-foreground-secondary">{' · '}</span>
-                <span className="text-foreground">{tipoFactura === 'ingreso' ? 'Ingresos' : 'Gastos'}</span>
+                <span className="text-slate-400">{' · '}</span>
+                <span className="text-secondary">{clienteNombre || 'Validar facturas'}</span>
+                <span className="text-slate-400">{' · '}</span>
+                <span className="text-slate-900">{tipoFactura === 'ingreso' ? 'Ingresos' : 'Gastos'}</span>
               </div>
-            </div>
-
-            {/* Derecha: volver a la factura anterior */}
-            <div className="justify-self-end">
-              <button
-                type="button"
-                onClick={handleAnterior}
-                disabled={facturaActual === 0}
-                className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-gray-200 text-primary hover:text-primary-hover hover:bg-gray-50 transition-colors disabled:opacity-100 disabled:text-foreground-secondary disabled:cursor-not-allowed whitespace-nowrap"
-                aria-label="Volver a la factura anterior"
-                title="Anterior"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="text-sm font-semibold">Anterior</span>
-              </button>
+              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+                Pantalla de Validación
+              </div>
             </div>
           </div>
 
-          {/* Progreso (línea inferior del header): azul mientras procesa, verde al terminar */}
-          <div className="mt-2 -mx-4">
-            <div className="px-4 pb-1 flex justify-end">
-              <div className="text-[11px] text-foreground-secondary whitespace-nowrap">
+          {/* Derecha */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-medium text-slate-500">
                 {statusStats.done}/{statusStats.total} procesadas
-                {statusStats.processing > 0 ? ` · ${statusStats.processing} en proceso` : ''}
-                {statusStats.error > 0 ? ` · ${statusStats.error} con error` : ''}
+              </span>
+              <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
+                <div
+                  className="bg-secondary h-full rounded-full transition-all"
+                  style={{ width: `${statusStats.percent}%` }}
+                />
               </div>
             </div>
-            <div className="h-1 bg-gray-200 w-full">
-              <div
-                className={`h-full transition-all ${isAllDone ? 'bg-green-600' : 'bg-primary'}`}
-                style={{ width: `${statusStats.percent}%` }}
-              />
+
+            <button
+              type="button"
+              onClick={handleAnterior}
+              disabled={facturaActual === 0}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Volver a la factura anterior"
+              title="Anterior"
+            >
+              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span>Anterior</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Línea inferior de progreso (como en el screenshot cuando está completo) */}
+        <div className="mt-3 -mx-6">
+          <div className="px-6 pb-1 flex justify-end">
+            <div className="text-[11px] text-slate-500 whitespace-nowrap">
+              {validatedStats.validated}/{validatedStats.total} validadas
+            </div>
+          </div>
+          {/* Barra segmentada clicable:
+              - secondary: validada
+              - warning: para después
+              - neutral: visitada pero no validada
+              - transparente: no visitada */}
+          <div className="h-2 w-full border border-slate-200 bg-transparent overflow-hidden">
+            <div className="h-full w-full flex">
+              {invoiceRows.map((inv, idx) => {
+                const isValidated = Boolean(validatedByInvoiceId[inv.id])
+                const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated
+                const isVisited = Boolean(visitedByInvoiceId[inv.id])
+                const isCurrent = idx === facturaActual
+
+                const bgClass = isValidated
+                  ? 'bg-secondary'
+                  : isDeferred
+                    ? 'bg-warning'
+                    : isVisited
+                      ? 'bg-slate-200'
+                      : 'bg-transparent'
+
+                return (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => jumpToIndex(idx)}
+                    className={[
+                      'h-full flex-1 transition-colors',
+                      bgClass,
+                      idx === invoiceRows.length - 1 ? '' : 'border-r border-slate-200',
+                      isCurrent ? 'ring-2 ring-primary ring-inset' : '',
+                      idx > unlockedMaxIndex ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                    ].join(' ')}
+                    title={`Factura ${idx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : ''}`}
+                    aria-label={`Ir a factura ${idx + 1}`}
+                    disabled={idx > unlockedMaxIndex}
+                  />
+                )
+              })}
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {isFinishedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -725,6 +1019,7 @@ export default function ValidarUploadPage() {
               onValidar={handleValidar}
               onAnterior={facturaActual > 0 ? handleAnterior : undefined}
               onSiguiente={handleSiguiente}
+              onParaDespues={handleParaDespues}
               isLast={isLast}
               canGoNext={canGoNext}
               disableValidar={disableValidar}

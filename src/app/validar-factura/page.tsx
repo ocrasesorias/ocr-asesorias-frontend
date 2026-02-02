@@ -91,9 +91,32 @@ const toISODate = (value: string) => {
 };
 
 const toNumber = (value: string) => {
-  const v = (value || '').replace('€', '').trim().replace(/\./g, '').replace(',', '.');
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+  const raw = String(value || '')
+    .replace(/\u00A0/g, ' ')
+    .replace(/€/g, '')
+    .replace(/\s+/g, '')
+    .trim()
+  if (!raw) return null
+
+  const hasDot = raw.includes('.')
+  const hasComma = raw.includes(',')
+  let normalized = raw
+
+  if (hasDot && hasComma) {
+    const lastDot = raw.lastIndexOf('.')
+    const lastComma = raw.lastIndexOf(',')
+    const decimalSep = lastComma > lastDot ? ',' : '.'
+    const thousandsSep = decimalSep === ',' ? '.' : ','
+    normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+  } else if (hasComma) {
+    normalized = raw.replace(',', '.')
+  } else if (hasDot) {
+    const parts = raw.split('.')
+    normalized = parts.length === 2 && parts[1].length === 2 ? raw : raw.replace(/\./g, '')
+  }
+
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : null
 };
 
 export default function ValidarFacturaPage() {

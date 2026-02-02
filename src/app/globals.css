@@ -37,9 +37,13 @@
   --color-primary-hover: #1d4ed8; /* Versión más oscura de primary para hover */
   --color-primary-light: #dbeafe; /* Versión muy clara de primary para fondos */
   --color-primary-lighter: #eff6ff; /* Versión aún más clara */
+  --color-secondary-hover: #059669; /* Versión más oscura de secondary para hover */
+  --color-secondary-light: #d1fae5; /* Versión muy clara de secondary para fondos */
+  --color-secondary-lighter: #ecfdf5; /* Versión aún más clara */
   
   /* Mapeo de colores para Tailwind */
   --color-primary-600: var(--color-primary-hover);
+  --color-secondary-600: var(--color-secondary-hover);
 
   /* Fuentes */
   --font-sans: var(--font-lexend);

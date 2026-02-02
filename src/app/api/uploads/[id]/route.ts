@@ -53,7 +53,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         clients (
           id,
           name,
-          tax_id
+          tax_id,
+          preferred_income_account,
+          preferred_expense_account
         ),
         invoices (
           id,
@@ -82,17 +84,17 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       )
       .eq('id', uploadId)
       .in('org_id', orgIds)
-      // Orden consistente de facturas (sin depender de sintaxis de PostgREST en el select)
-      .order('created_at', { ascending: true, foreignTable: 'invoices' as any })
       .maybeSingle()
 
     if (error) {
+      const code = error.code ?? undefined
+      const hint = error.hint ?? undefined
       return NextResponse.json(
         {
           error: 'Error cargando la subida',
           details:
             process.env.NODE_ENV !== 'production'
-              ? { message: error.message, code: (error as any)?.code, hint: (error as any)?.hint, usedAdmin: Boolean(admin) }
+              ? { message: error.message, code, hint, usedAdmin: Boolean(admin) }
               : undefined,
         },
         { status: 500 }
@@ -101,6 +103,20 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     if (!upload) {
       return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
+    }
+
+    // Orden consistente de facturas (sin depender del tipado/sintaxis PostgREST).
+    // Si no hay invoices, no hacemos nada.
+    const uploadObj = upload as Record<string, unknown>
+    const invoicesVal = uploadObj.invoices
+    if (Array.isArray(invoicesVal)) {
+      invoicesVal.sort((a, b) => {
+        const aObj = a && typeof a === 'object' ? (a as Record<string, unknown>) : null
+        const bObj = b && typeof b === 'object' ? (b as Record<string, unknown>) : null
+        const aCreated = typeof aObj?.created_at === 'string' ? aObj.created_at : ''
+        const bCreated = typeof bObj?.created_at === 'string' ? bObj.created_at : ''
+        return aCreated.localeCompare(bCreated)
+      })
     }
 
     return NextResponse.json({ success: true, upload }, { status: 200 })

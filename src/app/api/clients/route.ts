@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Obtener los datos del cliente del body
     const body = await request.json();
-    const { name, tax_id } = body;
+    const { name, tax_id, preferred_income_account, preferred_expense_account } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
@@ -49,6 +49,14 @@ export async function POST(request: Request) {
         org_id: orgId,
         name: name.trim(),
         tax_id: tax_id?.trim() || null,
+        preferred_income_account:
+          typeof preferred_income_account === 'string' && preferred_income_account.trim()
+            ? preferred_income_account.trim()
+            : null,
+        preferred_expense_account:
+          typeof preferred_expense_account === 'string' && preferred_expense_account.trim()
+            ? preferred_expense_account.trim()
+            : null,
       })
       .select()
       .single();
@@ -56,7 +64,21 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Error al crear cliente:', error);
       return NextResponse.json(
-        { error: error.message || 'Error al crear el cliente' },
+        {
+          error:
+            error.message ||
+            'Error al crear el cliente',
+          details:
+            process.env.NODE_ENV !== 'production'
+              ? {
+                  hint:
+                    String(error.message || '').includes('preferred_income_account') ||
+                    String(error.message || '').includes('preferred_expense_account')
+                      ? 'Faltan columnas en la tabla clients. Añade preferred_income_account y preferred_expense_account (tipo text) en Supabase.'
+                      : undefined,
+                }
+              : undefined,
+        },
         { status: 500 }
       );
     }
