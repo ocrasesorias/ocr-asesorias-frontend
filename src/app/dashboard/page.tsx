@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
@@ -35,22 +35,134 @@ export default function DashboardPage() {
   const [isDeleteInvoiceModalOpen, setIsDeleteInvoiceModalOpen] = useState(false)
   const [facturaParaEliminar, setFacturaParaEliminar] = useState<ArchivoSubido | null>(null)
   const [isDeletingInvoice, setIsDeletingInvoice] = useState(false)
+  // Procesamiento OCR/IA en dashboard (cola 3 en paralelo)
+  const [extractStatusByInvoiceId, setExtractStatusByInvoiceId] = useState<
+    Record<string, 'idle' | 'processing' | 'ready' | 'error'>
+  >({})
+  const [sessionInvoiceIds, setSessionInvoiceIds] = useState<string[]>([])
+  const extractInFlightRef = useRef(0)
+  const extractStartedRef = useRef<Record<string, true>>({})
+  const MAX_EXTRACT_CONCURRENCY = 3
 
-  const hasProcessingInvoices = archivosSubidos.some(
-    (a) => a.estado === 'procesando' || a.estado === 'pendiente'
+  const [statusMessageTick, setStatusMessageTick] = useState(0)
+
+  const hasUploadingFiles = archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente')
+
+  const invoiceIdsInOrder = useMemo(
+    () => archivosSubidos.map((a) => a.invoiceId).filter((id): id is string => Boolean(id)),
+    [archivosSubidos]
   )
+
+  const activeInvoiceIds = useMemo(
+    () => (sessionInvoiceIds.length > 0 ? sessionInvoiceIds : invoiceIdsInOrder),
+    [sessionInvoiceIds, invoiceIdsInOrder]
+  )
+
+  const firstBlockIds = useMemo(() => activeInvoiceIds.slice(0, 3), [activeInvoiceIds])
+  const requiredFirstCount = useMemo(() => Math.min(3, activeInvoiceIds.length), [activeInvoiceIds.length])
+  const firstBlockReadyCount = useMemo(() => {
+    const ids = firstBlockIds.slice(0, requiredFirstCount)
+    return ids.filter((id) => extractStatusByInvoiceId[id] === 'ready').length
+  }, [firstBlockIds, requiredFirstCount, extractStatusByInvoiceId])
 
   const canValidate =
     !!subidaActual?.uploadId &&
     archivosSubidos.length > 0 &&
-    !archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente' || a.estado === 'error')
+    !archivosSubidos.some((a) => a.estado === 'error') &&
+    !hasUploadingFiles &&
+    requiredFirstCount > 0 &&
+    // si es una subida antigua (no se subió en esta sesión), dejamos entrar y que valide procese allí
+    (sessionInvoiceIds.length === 0 || firstBlockReadyCount >= requiredFirstCount)
+
+  const processingCount = useMemo(
+    () => Object.values(extractStatusByInvoiceId).filter((s) => s === 'processing').length,
+    [extractStatusByInvoiceId]
+  )
+  const readyCount = useMemo(
+    () => Object.values(extractStatusByInvoiceId).filter((s) => s === 'ready').length,
+    [extractStatusByInvoiceId]
+  )
+  const errorCount = useMemo(
+    () => Object.values(extractStatusByInvoiceId).filter((s) => s === 'error').length,
+    [extractStatusByInvoiceId]
+  )
+
+  const hasAnyExtractionWork = processingCount > 0 || readyCount > 0 || errorCount > 0
+
+  const dynamicMessages = useMemo(() => {
+    const total = archivosSubidos.length
+    const uploaded = invoiceIdsInOrder.length
+    const need = Math.min(3, total)
+
+    const msgs: string[] = []
+    if (hasUploadingFiles) {
+      msgs.push(`Subiendo facturas… (${uploaded}/${total})`)
+    }
+    if (uploaded > 0 && firstBlockReadyCount < Math.min(3, uploaded)) {
+      msgs.push(`Procesando las primeras ${Math.min(3, uploaded)} para empezar a validar…`)
+    }
+    if (!hasUploadingFiles && uploaded >= need && firstBlockReadyCount >= need) {
+      msgs.push('Ya puedes empezar a validar. Seguimos procesando el resto en segundo plano.')
+    }
+    if (errorCount > 0) {
+      msgs.push('Algunas facturas fallaron al procesarse. Puedes eliminarlas o reintentar.')
+    }
+    if (msgs.length === 0) {
+      msgs.push('Sube tus facturas para empezar.')
+    }
+    return msgs
+  }, [archivosSubidos.length, errorCount, firstBlockReadyCount, hasUploadingFiles, invoiceIdsInOrder.length])
+
+  const statusMessage = dynamicMessages[statusMessageTick % dynamicMessages.length]
+
+  useEffect(() => {
+    if (!hasUploadingFiles && !hasAnyExtractionWork) return
+    const id = window.setInterval(() => setStatusMessageTick((t) => t + 1), 2500)
+    return () => window.clearInterval(id)
+  }, [hasUploadingFiles, hasAnyExtractionWork])
+
+  const startExtract = useCallback(
+    async (invoiceId: string) => {
+      if (extractStartedRef.current[invoiceId]) return
+      extractStartedRef.current[invoiceId] = true
+
+      setExtractStatusByInvoiceId((prev) => ({ ...prev, [invoiceId]: 'processing' }))
+      extractInFlightRef.current += 1
+      try {
+        const r = await fetch(`/api/invoices/${invoiceId}/extract`, { method: 'POST' })
+        const j = await r.json().catch(() => null)
+        if (!r.ok) throw new Error(j?.error || 'Error procesando factura')
+        setExtractStatusByInvoiceId((prev) => ({ ...prev, [invoiceId]: 'ready' }))
+      } catch {
+        setExtractStatusByInvoiceId((prev) => ({ ...prev, [invoiceId]: 'error' }))
+      } finally {
+        extractInFlightRef.current -= 1
+      }
+    },
+    []
+  )
+
+  const pumpExtractQueue = useCallback(() => {
+    if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) return
+
+    // Solo auto-procesamos lo subido en esta sesión (para no re-procesar históricos).
+    for (const invoiceId of sessionInvoiceIds) {
+      if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) break
+      const st = extractStatusByInvoiceId[invoiceId] || 'idle'
+      if (st === 'idle') void startExtract(invoiceId)
+    }
+  }, [extractStatusByInvoiceId, sessionInvoiceIds, startExtract])
+
+  useEffect(() => {
+    pumpExtractQueue()
+  }, [pumpExtractQueue])
 
   // Verificar sesión y organización al cargar
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session) {
         router.push('/login?redirect=/dashboard');
         return;
@@ -114,7 +226,7 @@ export default function DashboardPage() {
         router.push('/login?redirect=/dashboard');
         return;
       }
-      
+
       setIsLoading(false);
     };
 
@@ -132,17 +244,22 @@ export default function DashboardPage() {
       if (clienteId) sessionStorage.setItem(key, clienteId);
       else sessionStorage.removeItem(key);
     }
-    
+
     // Reset UI mientras cargamos histórico real
     setSubidaActual(null);
     setArchivosSubidos([]);
+    setExtractStatusByInvoiceId({})
+    setSessionInvoiceIds([])
+    extractStartedRef.current = {}
+    extractInFlightRef.current = 0
+    setStatusMessageTick(0)
     setIsChoosingTipoSubida(false);
     setSubidaEditandoId(null);
     setSubidaEditandoNombre('');
 
     // Cargar subidas reales del backend para este cliente
     if (clienteId) {
-      ;(async () => {
+      ; (async () => {
         try {
           const resp = await fetch(`/api/uploads?client_id=${encodeURIComponent(clienteId)}`)
           const data: unknown = await resp.json()
@@ -259,17 +376,17 @@ export default function DashboardPage() {
 
       // Agregar el nuevo cliente a la lista
       setClientes(prev => [data.client, ...prev]);
-      
+
       // Seleccionar el nuevo cliente automáticamente
       setClienteSeleccionado(data.client);
       if (orgId) {
         sessionStorage.setItem(`dashboard:selectedClientId:${orgId}`, data.client.id);
       }
-      
+
       // Limpiar el formulario y cerrar
       setNuevoCliente({ name: '', tax_id: '' });
       setMostrarNuevoCliente(false);
-      
+
       showSuccess('Cliente creado exitosamente');
     } catch (error) {
       console.error('Error al crear cliente:', error);
@@ -297,6 +414,13 @@ export default function DashboardPage() {
   const handleCrearSubidaConTipo = useCallback(
     (tipo: 'gasto' | 'ingreso') => {
       if (!clienteSeleccionado) return;
+
+      // Reset estado de procesamiento (nueva subida)
+      setExtractStatusByInvoiceId({})
+      setSessionInvoiceIds([])
+      extractStartedRef.current = {}
+      extractInFlightRef.current = 0
+      setStatusMessageTick(0)
 
       const nuevaSubida: SubidaFacturas = {
         id: Date.now().toString(),
@@ -340,6 +464,12 @@ export default function DashboardPage() {
   const handleSeleccionarSubida = useCallback((subida: SubidaFacturas) => {
     setSubidaActual(subida);
     setArchivosSubidos(subida.archivos);
+    // Si seleccionas una subida histórica, no auto-procesamos desde aquí (lo hará la pantalla de validar).
+    setExtractStatusByInvoiceId({})
+    setSessionInvoiceIds([])
+    extractStartedRef.current = {}
+    extractInFlightRef.current = 0
+    setStatusMessageTick(0)
   }, []);
 
   const handleEliminarSubida = useCallback(async (subida: SubidaFacturas) => {
@@ -442,7 +572,6 @@ export default function DashboardPage() {
     setSubidaActual(prev => (prev ? { ...prev, archivos: archivosConPlaceholders } : null))
 
     // Subida real a Supabase vía API (una a una para simplificar estado/errores)
-    const uploaded: ArchivoSubido[] = []
     let successCount = 0
 
     for (let i = 0; i < files.length; i++) {
@@ -483,7 +612,7 @@ export default function DashboardPage() {
           }
         }
 
-        uploaded.push({
+        const nextArchivo: ArchivoSubido = {
           id: placeholderId,
           invoiceId: invoice.id,
           nombre: invoice.original_filename || file.name,
@@ -498,15 +627,29 @@ export default function DashboardPage() {
           bucket: invoice.bucket || 'invoices',
           storagePath: invoice.storage_path,
           fechaSubida: invoice.created_at || new Date().toISOString(),
-          // Si el endpoint respondió OK, consideramos el archivo listo (la preview se puede firmar luego)
+          // subido; el procesamiento OCR/IA se hará en cola (3 en paralelo) desde este dashboard y/o validación
           estado: 'procesado',
-        })
+        }
         successCount++
+
+        // Actualizar UI inmediatamente (para no esperar al final)
+        setArchivosSubidos(prev => {
+          const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a))
+          setSubidasFacturas(sPrev => sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s)))
+          setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null))
+          return merged
+        })
+
+        // Encolar extracción de esta factura
+        setExtractStatusByInvoiceId(prev => ({ ...prev, [invoice.id]: prev[invoice.id] || 'idle' }))
+        setSessionInvoiceIds(prev => (prev.includes(invoice.id) ? prev : [...prev, invoice.id]))
       } catch (e) {
-        uploaded.push({
-          ...placeholders[i],
-          estado: 'error',
-          url: '',
+        const nextArchivo: ArchivoSubido = { ...placeholders[i], estado: 'error', url: '' }
+        setArchivosSubidos(prev => {
+          const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a))
+          setSubidasFacturas(sPrev => sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s)))
+          setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null))
+          return merged
         })
         showError(e instanceof Error ? e.message : 'Error subiendo la factura')
       }
@@ -526,19 +669,6 @@ export default function DashboardPage() {
       return
     }
 
-    // Reemplazar placeholders por resultados finales (manteniendo orden)
-    setArchivosSubidos(prev => {
-      const byId = new Map(uploaded.map(a => [a.id, a]))
-      const merged = prev.map(a => byId.get(a.id) || a)
-
-      // persistir en subidaActual/subidasFacturas
-      setSubidasFacturas(sPrev =>
-        sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s))
-      )
-      setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null))
-
-      return merged
-    })
   }, [subidaActual, archivosSubidos, showError, clienteSeleccionado, setSubidasFacturas]);
 
   // Eliminar archivo
@@ -597,23 +727,40 @@ export default function DashboardPage() {
       showError('La subida aún no está guardada. Sube al menos una factura primero.');
       return;
     }
-    if (archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente')) {
-      showError('Aún se están subiendo las facturas. Espera a que estén en "Subido".');
-      return;
-    }
     if (archivosSubidos.some((a) => a.estado === 'error')) {
       showError('Hay facturas con error. Elimina o reintenta antes de validar.');
       return;
     }
 
-    // Pasamos el tipo para que la pantalla de validación adapte los campos (gasto vs ingreso)
+    if (hasUploadingFiles) {
+      showError('Espera a que terminen de subirse las facturas para empezar a validar.')
+      return
+    }
+    if (!canValidate) {
+      showError(
+        requiredFirstCount > 0
+          ? `Estamos procesando las primeras ${requiredFirstCount} facturas (${firstBlockReadyCount}/${requiredFirstCount}). En cuanto estén listas, podrás validar.`
+          : 'Estamos preparando las facturas. En cuanto estén listas, podrás validar.'
+      )
+      return
+    }
+
     try {
       sessionStorage.setItem(`upload:${subidaActual.uploadId}:tipo`, subidaActual.tipo)
     } catch {
       // noop
     }
-    router.push(`/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}`);
-  }, [subidaActual, archivosSubidos, router, showError]);
+    router.push(`/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}`)
+  }, [
+    subidaActual,
+    archivosSubidos,
+    router,
+    showError,
+    hasUploadingFiles,
+    canValidate,
+    requiredFirstCount,
+    firstBlockReadyCount,
+  ]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -800,10 +947,9 @@ export default function DashboardPage() {
                         key={subida.id}
                         className={`
                           w-full p-3 rounded-lg border transition-colors
-                          ${
-                            subidaActual?.id === subida.id
-                              ? 'border-primary bg-primary-lighter'
-                              : 'border-gray-200 hover:border-gray-200 hover:bg-gray-50'
+                          ${subidaActual?.id === subida.id
+                            ? 'border-primary bg-primary-lighter'
+                            : 'border-gray-200 hover:border-gray-200 hover:bg-gray-50'
                           }
                         `}
                       >
@@ -1069,44 +1215,77 @@ export default function DashboardPage() {
                   onFilesSelected={handleFilesSelected}
                   archivosSubidos={archivosSubidos}
                   onRemoveFile={handleRemoveFile}
+                  maxVisibleFiles={3}
+                  badgeForFile={(archivo) => {
+                    const invoiceId = archivo.invoiceId
+                    if (!invoiceId) return null
+                    const st = extractStatusByInvoiceId[invoiceId] || 'idle'
+                    const cls =
+                      st === 'ready'
+                        ? 'bg-green-100 text-green-800'
+                        : st === 'error'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-blue-100 text-blue-800'
+                    const label =
+                      st === 'ready' ? 'Lista' : st === 'error' ? 'Error' : st === 'processing' ? 'Procesando' : 'En cola'
+                    return <span className={`text-xs px-2 py-1 rounded-full ${cls}`}>{label}</span>
+                  }}
                 />
 
                 {archivosSubidos.length > 0 && (
                   <div className="mt-6 space-y-3">
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-foreground-secondary">
-                      En el siguiente paso se extraerán los datos (OCR/IA) en segundo plano{" "}
-                      <span className="font-medium text-foreground">para todas las facturas</span>.
-                      Podrás empezar a validar en cuanto estén listas.
+                      <div className="font-medium text-foreground">{statusMessage}</div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <span>
+                          Total: <span className="font-semibold text-foreground">{archivosSubidos.length}</span>
+                        </span>
+                        <span>
+                          Procesadas: <span className="font-semibold text-foreground">{readyCount}</span>
+                          {errorCount > 0 ? (
+                            <>
+                              {' '}
+                              · Error: <span className="font-semibold text-foreground">{errorCount}</span>
+                            </>
+                          ) : null}
+                        </span>
+                        <span>
+                          Primer bloque: <span className="font-semibold text-foreground">{firstBlockReadyCount}</span>/
+                          <span className="font-semibold text-foreground">{requiredFirstCount || 0}</span> listas
+                        </span>
+                      </div>
                     </div>
                     <div className="flex justify-end">
-                    <Button
-                      variant="primary"
-                      size="lg"
-                      onClick={handleValidarFacturas}
-                      disabled={!canValidate}
-                    >
-                      <span className="inline-flex items-center justify-center gap-2 font-light">
-                        {hasProcessingInvoices
-                          ? 'Subiendo...'
-                          : `Validar ${archivosSubidos.length} factura${archivosSubidos.length !== 1 ? 's' : ''}`}
-                        {!hasProcessingInvoices && (
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        )}
-                      </span>
-                    </Button>
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        onClick={handleValidarFacturas}
+                        disabled={!canValidate}
+                      >
+                        <span className="inline-flex items-center justify-center gap-2 font-light">
+                          {hasUploadingFiles
+                            ? `Subiendo… (${invoiceIdsInOrder.length}/${archivosSubidos.length})`
+                            : firstBlockReadyCount < requiredFirstCount
+                              ? `Procesando primeras ${requiredFirstCount}… (${firstBlockReadyCount}/${requiredFirstCount})`
+                              : 'Validar'}
+                          {!hasUploadingFiles && (
+                            <svg
+                              className="w-5 h-5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          )}
+                        </span>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -1136,7 +1315,7 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-foreground">Eliminar subida</h3>
               <p className="mt-2 text-sm text-foreground-secondary leading-relaxed">
                 Vas a eliminar <span className="font-semibold text-foreground">{subidaParaEliminar.nombre}</span>.
-                Se borrarán también todas sus facturas asociadas y sus archivos del bucket.
+                Se borrarán también todas sus facturas asociadas.
               </p>
             </div>
 
@@ -1185,7 +1364,6 @@ export default function DashboardPage() {
               <h3 className="text-lg font-semibold text-foreground">Eliminar factura</h3>
               <p className="mt-2 text-sm text-foreground-secondary leading-relaxed">
                 Vas a eliminar <span className="font-semibold text-foreground">{facturaParaEliminar.nombre}</span>.
-                Se borrará también su registro y el archivo del bucket (si existe en Supabase).
               </p>
             </div>
 

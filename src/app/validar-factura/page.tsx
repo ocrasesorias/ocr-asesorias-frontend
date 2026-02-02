@@ -353,6 +353,8 @@ export default function ValidarFacturaPage() {
           factura={facturas[facturaActual]}
           onValidar={handleValidar}
           onSiguiente={handleSiguiente}
+          isLast={facturaActual === facturas.length - 1}
+          canGoNext={true}
         />
       </div>
     </div>

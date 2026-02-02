@@ -110,7 +110,18 @@ export async function extractInvoiceAndPersist(params: {
 
   const json = await resp.json().catch(() => null)
   if (!resp.ok || !json?.success) {
-    const msg = json?.detail || json?.error || 'Error en extracción'
+    const facturaErr =
+      typeof json?.factura?.error === 'string'
+        ? json.factura.error
+        : typeof json?.factura?.error_message === 'string'
+          ? json.factura.error_message
+          : null
+    const msg =
+      json?.detail ||
+      json?.error ||
+      facturaErr ||
+      json?.message ||
+      'Error en extracción'
     await supabase.from('invoices').update({ error_message: String(msg) }).eq('id', invoiceId)
     return { ok: false as const, error: String(msg) }
   }

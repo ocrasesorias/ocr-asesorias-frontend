@@ -20,13 +20,15 @@ export async function GET(request: Request) {
       .from('organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1)
 
     if (membershipError || !memberships || memberships.length === 0) {
       return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
     }
 
-    const orgId = memberships[0].org_id as string
+    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
+    if (orgIds.length === 0) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
 
     const url = new URL(request.url)
     const clientId = url.searchParams.get('client_id')
@@ -54,7 +56,7 @@ export async function GET(request: Request) {
         )
       `
       )
-      .eq('org_id', orgId)
+      .in('org_id', orgIds)
       .order('created_at', { ascending: false })
 
     if (clientId) query = query.eq('client_id', clientId)
@@ -88,13 +90,16 @@ export async function POST(request: Request) {
       .from('organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1)
 
     if (membershipError || !memberships || memberships.length === 0) {
       return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
     }
 
-    const orgId = memberships[0].org_id as string
+    // TODO: si en el futuro hay selección de org activa, usarla aquí.
+    const orgId = (memberships[0].org_id as string) || ''
+    if (!orgId) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
 
     const body = await request.json().catch(() => null)
     const name = typeof body?.name === 'string' ? body.name.trim() : ''

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
@@ -21,15 +22,23 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       .from('organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1)
 
     if (membershipError || !memberships || memberships.length === 0) {
       return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
     }
 
-    const orgId = memberships[0].org_id as string
+    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
+    if (orgIds.length === 0) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
 
-    const { data: upload, error } = await supabase
+    // Importante:
+    // - Con RLS, los joins (clients/invoice_fields/invoice_extractions) pueden fallar aunque el upload exista.
+    // - Por eso usamos Service Role (si está configurado) DESPUÉS de comprobar que el usuario pertenece a la org.
+    const admin = createAdminClient()
+    const db = admin ?? supabase
+
+    const { data: upload, error } = await db
       .from('uploads')
       .select(
         `
@@ -72,14 +81,26 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       `
       )
       .eq('id', uploadId)
-      .single()
+      .in('org_id', orgIds)
+      // Orden consistente de facturas (sin depender de sintaxis de PostgREST en el select)
+      .order('created_at', { ascending: true, foreignTable: 'invoices' as any })
+      .maybeSingle()
 
-    if (error || !upload) {
-      return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
+    if (error) {
+      return NextResponse.json(
+        {
+          error: 'Error cargando la subida',
+          details:
+            process.env.NODE_ENV !== 'production'
+              ? { message: error.message, code: (error as any)?.code, hint: (error as any)?.hint, usedAdmin: Boolean(admin) }
+              : undefined,
+        },
+        { status: 500 }
+      )
     }
 
-    if (upload.org_id !== orgId) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
+    if (!upload) {
+      return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
     }
 
     return NextResponse.json({ success: true, upload }, { status: 200 })
@@ -107,34 +128,36 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       .from('organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1)
 
     if (membershipError || !memberships || memberships.length === 0) {
       return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
     }
 
-    const orgId = memberships[0].org_id as string
+    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
+    if (orgIds.length === 0) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
+
+    const admin = createAdminClient()
+    const db = admin ?? supabase
 
     // Verificar que el upload pertenece a la org
-    const { data: upload, error: uploadError } = await supabase
+    const { data: upload, error: uploadError } = await db
       .from('uploads')
       .select('id, org_id')
       .eq('id', uploadId)
-      .single()
+      .in('org_id', orgIds)
+      .maybeSingle()
 
     if (uploadError || !upload) {
       return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
-    }
-
-    if (upload.org_id !== orgId) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
     // Traer facturas asociadas para borrar objetos de Storage
     const { data: invoices, error: invError } = await supabase
       .from('invoices')
       .select('id, bucket, storage_path')
-      .eq('org_id', orgId)
+      .eq('org_id', upload.org_id)
       .eq('upload_id', uploadId)
 
     if (invError) {
@@ -161,7 +184,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     }
 
     // Borrar upload (cascade eliminará invoices)
-    const { error: delError } = await supabase.from('uploads').delete().eq('id', uploadId).eq('org_id', orgId)
+    const { error: delError } = await supabase.from('uploads').delete().eq('id', uploadId).eq('org_id', upload.org_id)
     if (delError) {
       return NextResponse.json({ error: delError.message || 'Error eliminando subida' }, { status: 500 })
     }

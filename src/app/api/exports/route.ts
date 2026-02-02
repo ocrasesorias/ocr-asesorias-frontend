@@ -1,11 +1,38 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
 function csvEscape(value: unknown) {
   const s = value === null || value === undefined ? '' : String(value)
   if (/[",\n;]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
+function formatNumberES(value: unknown) {
+  if (value === null || value === undefined || value === '') return ''
+  const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'))
+  if (!Number.isFinite(n)) return ''
+  // Sin separador de miles, coma decimal, sin ceros innecesarios
+  const s = n.toFixed(2).replace(/\.?0+$/, '') // "35.70" -> "35.7", "600.00" -> "600"
+  return s.replace('.', ',')
+}
+
+function formatDateDDMMYYYY(value: unknown) {
+  const s = value === null || value === undefined ? '' : String(value).trim()
+  if (!s) return ''
+  // Ya viene DD/MM/YYYY
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+    const [dd, mm, yyyy] = s.split('/')
+    return `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`
+  }
+  // ISO YYYY-MM-DD...
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) {
+    const [, yyyy, mm, dd] = m
+    return `${dd}/${mm}/${yyyy}`
+  }
   return s
 }
 
@@ -44,13 +71,15 @@ export async function POST(request: Request) {
       .from('organization_members')
       .select('org_id')
       .eq('user_id', user.id)
-      .limit(1)
 
     if (membershipError || !memberships || memberships.length === 0) {
       return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
     }
 
-    const orgId = memberships[0].org_id as string
+    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
+    if (orgIds.length === 0) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
 
     const body = await request.json().catch(() => null)
     const invoiceIds = Array.isArray(body?.invoice_ids) ? (body.invoice_ids as string[]) : []
@@ -60,8 +89,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'invoice_ids es requerido' }, { status: 400 })
     }
 
+    const admin = createAdminClient()
+    const db = admin ?? supabase
+
     // Traer facturas de la org + fields
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('invoices')
       .select(
         `
@@ -78,7 +110,7 @@ export async function POST(request: Request) {
         )
       `
       )
-      .eq('org_id', orgId)
+      .in('org_id', orgIds)
       .in('id', invoiceIds)
 
     if (error) {
@@ -90,32 +122,58 @@ export async function POST(request: Request) {
       return { invoice_id: r.id, ...(f || {}) }
     })
 
-    // Export “genérico” (pipeline completo: genera fichero y lo guarda en bucket exports)
-    // Cuando tengamos el layout oficial de Monitor/ContaSol, se puede adaptar aquí.
+    // Layout pedido (abre en Excel como CSV)
+    // Orden exacto:
+    // Numero de factura | Fecha de factura | Cliente/Razón Social | NIF | (vacío) | 477... | 705... | % IVA | Base | IVA | Total
     const header = [
-      'invoice_id',
-      'supplier_name',
-      'supplier_tax_id',
-      'invoice_number',
-      'invoice_date',
-      'base_amount',
-      'vat_amount',
-      'total_amount',
-      'vat_rate',
+      'Numero de factura',
+      'Fecha de factura',
+      'Cliente/Razón Social',
+      'NIF',
+      '',
+      '477000000021',
+      '7050000000000',
+      'Porcentaje de IVA',
+      'Base imponible',
+      'IVA de la factura',
+      'Total',
     ]
 
-    const csv =
-      header.join(';') +
-      '\n' +
-      rows
-        .map((r) => header.map((h) => csvEscape(r[h])).join(';'))
-        .join('\n')
+    const csv = [
+      header.map((h) => csvEscape(h)).join(';'),
+      ...rows.map((r) => {
+        const invoiceNumber = (r.invoice_number as string | null) || ''
+        const invoiceDate = formatDateDDMMYYYY(r.invoice_date)
+        const name = (r.supplier_name as string | null) || ''
+        const nif = (r.supplier_tax_id as string | null) || ''
+        const vatRate = formatNumberES(r.vat_rate)
+        const base = formatNumberES(r.base_amount)
+        const vat = formatNumberES(r.vat_amount)
+        const total = formatNumberES(r.total_amount)
+
+        const rowValues = [
+          invoiceNumber,
+          invoiceDate,
+          name,
+          nif,
+          '',
+          '477000000021',
+          '7050000000000',
+          vatRate,
+          base,
+          vat,
+          total,
+        ]
+        return rowValues.map(csvEscape).join(';')
+      }),
+    ].join('\n')
 
     const bucket = 'exports'
     const exportId = crypto.randomUUID()
     const ts = new Date().toISOString().replace(/[:.]/g, '-')
     const filename = `${program}-${ts}.csv`
-    const storagePath = `org/${orgId}/export/${exportId}/${filename}`
+    // Guardamos bajo la primera org del usuario (solo como ruta), pero el contenido se basa en invoice_ids validados por orgIds.
+    const storagePath = `org/${orgIds[0]}/export/${exportId}/${filename}`
 
     const upload = await supabase.storage
       .from(bucket)

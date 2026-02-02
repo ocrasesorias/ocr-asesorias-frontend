@@ -1,20 +1,25 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ArchivoSubido } from '@/types/dashboard';
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
   archivosSubidos: ArchivoSubido[];
   onRemoveFile: (fileId: string) => void;
+  maxVisibleFiles?: number
+  badgeForFile?: (archivo: ArchivoSubido) => React.ReactNode
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
   onFilesSelected,
   archivosSubidos,
   onRemoveFile,
+  maxVisibleFiles,
+  badgeForFile,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [showAll, setShowAll] = useState(false)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -55,6 +60,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
+
+  const totalCount = archivosSubidos.length
+  const visibleCount = maxVisibleFiles ? Math.max(1, maxVisibleFiles) : totalCount
+  const isCollapsed = Boolean(maxVisibleFiles && totalCount > visibleCount && !showAll)
+  const displayedFiles = useMemo(() => {
+    if (!maxVisibleFiles) return archivosSubidos
+    if (showAll) return archivosSubidos
+    return archivosSubidos.slice(0, visibleCount)
+  }, [archivosSubidos, maxVisibleFiles, showAll, visibleCount])
 
   return (
     <div className="space-y-4">
@@ -108,11 +122,22 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       {/* Lista de archivos subidos */}
       {archivosSubidos.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-4 text-foreground">
-          <h3 className="text-sm font-semibold text-foreground mb-3">
-            Archivos subidos ({archivosSubidos.length})
-          </h3>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-sm font-semibold text-foreground">
+              Facturas ({totalCount})
+            </h3>
+            {maxVisibleFiles && totalCount > visibleCount && (
+              <button
+                type="button"
+                className="text-xs text-primary hover:text-primary-hover font-medium"
+                onClick={() => setShowAll((v) => !v)}
+              >
+                {showAll ? 'Ver menos' : `Ver todas (${totalCount})`}
+              </button>
+            )}
+          </div>
           <div className="space-y-2">
-            {archivosSubidos.map((archivo) => (
+            {displayedFiles.map((archivo) => (
               <div
                 key={archivo.id}
                 className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -155,26 +180,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                       {formatFileSize(archivo.tamaño)}
                     </p>
                   </div>
-                  <div className="shrink-0">
-                    <span
-                      className={`
-                        text-xs px-2 py-1 rounded-full
-                        ${
-                          archivo.estado === 'procesado'
-                            ? 'bg-blue-100 text-blue-800'
-                            : archivo.estado === 'error'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }
-                      `}
-                    >
-                      {archivo.estado === 'procesado'
-                        ? 'Subido'
-                        : archivo.estado === 'error'
-                        ? 'Error'
-                        : 'Subiendo'}
-                    </span>
-                  </div>
+                  {badgeForFile ? <div className="shrink-0">{badgeForFile(archivo)}</div> : null}
                 </div>
                 <button
                   onClick={() => onRemoveFile(archivo.id)}
@@ -198,6 +204,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
               </div>
             ))}
           </div>
+
+          {isCollapsed && (
+            <div className="mt-3 text-xs text-foreground-secondary">
+              Mostrando {displayedFiles.length} de {totalCount}. Hay más facturas procesándose…
+            </div>
+          )}
         </div>
       )}
     </div>

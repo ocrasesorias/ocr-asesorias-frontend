@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 import { Button } from '@/components/Button'
 import { ValidarFactura } from '@/components/ValidarFactura'
 import { FacturaData } from '@/types/factura'
@@ -20,17 +19,17 @@ type UploadInvoiceRow = {
     created_at: string
   }>
   invoice_fields?:
-    | {
-        supplier_name: string | null
-        supplier_tax_id: string | null
-        invoice_number: string | null
-        invoice_date: string | null
-        base_amount: string | number | null
-        vat_amount: string | number | null
-        total_amount: string | number | null
-        vat_rate: string | number | null
-      }
-    | Array<{
+  | {
+    supplier_name: string | null
+    supplier_tax_id: string | null
+    invoice_number: string | null
+    invoice_date: string | null
+    base_amount: string | number | null
+    vat_amount: string | number | null
+    total_amount: string | number | null
+    vat_rate: string | number | null
+  }
+  | Array<{
     supplier_name: string | null
     supplier_tax_id: string | null
     invoice_number: string | null
@@ -150,14 +149,15 @@ export default function ValidarUploadPage() {
   const params = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const uploadId = params.id
-  const { showError, showSuccess } = useToast()
+  const { showError, showSuccess, setToastConfig } = useToast()
+
+  const MAX_CONCURRENCY = 3
 
   const [isLoading, setIsLoading] = useState(true)
   const [facturaActual, setFacturaActual] = useState(0)
   const [facturas, setFacturas] = useState<FacturaData[]>([])
   const [facturaRevisions, setFacturaRevisions] = useState<Record<string, number>>({})
   const [invoiceRows, setInvoiceRows] = useState<UploadInvoiceRow[]>([])
-  const [previewByInvoiceId, setPreviewByInvoiceId] = useState<Record<string, string>>({})
   const [invoiceStatus, setInvoiceStatus] = useState<Record<string, 'idle' | 'processing' | 'ready' | 'error'>>({})
   const inFlightRef = useRef(0)
   const startedRef = useRef<Record<string, true>>({})
@@ -185,10 +185,46 @@ export default function ValidarUploadPage() {
     return { total, ready, processing, error, idle, done, percent }
   }, [invoiceRows, invoiceStatus])
 
-  const allProcessed = useMemo(() => {
-    if (invoiceRows.length === 0) return false
-    return invoiceRows.every((inv) => invoiceStatus[inv.id] === 'ready')
+  const prefixDoneCount = useMemo(() => {
+    // cuántas facturas consecutivas (desde la primera) ya están "procesadas" (ready o error)
+    let c = 0
+    for (const inv of invoiceRows) {
+      const st = invoiceStatus[inv.id]
+      if (st === 'ready' || st === 'error') c += 1
+      else break
+    }
+    return c
   }, [invoiceRows, invoiceStatus])
+
+  const unlockedMaxIndex = useMemo(() => {
+    // desbloqueamos navegación por bloques de 3 (0-2, luego 0-5, etc.)
+    // Importante: el último bloque puede tener 1 o 2 facturas (si total no es múltiplo de 3).
+    if (invoiceRows.length === 0) return -1
+    const total = invoiceRows.length
+    let unlockedCount = 0
+    for (let start = 0; start < total; start += 3) {
+      const end = Math.min(total, start + 3) // fin exclusivo del bloque
+      if (prefixDoneCount >= end) unlockedCount = end
+      else break
+    }
+    return unlockedCount - 1
+  }, [invoiceRows.length, prefixDoneCount])
+
+  const initialGateReady = useMemo(() => {
+    // no mostramos validar hasta que estén listas las primeras 3 (o menos si hay <3)
+    const need = Math.min(3, invoiceRows.length)
+    return need > 0 && prefixDoneCount >= need
+  }, [invoiceRows.length, prefixDoneCount])
+
+  const isAllDone = useMemo(() => {
+    return statusStats.total > 0 && statusStats.done >= statusStats.total
+  }, [statusStats.total, statusStats.done])
+
+  useEffect(() => {
+    // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
+    setToastConfig({ position: 'top-center', maxToasts: 1 })
+    return () => setToastConfig(null)
+  }, [setToastConfig])
 
   useEffect(() => {
     // Resolver tipo de la subida: preferimos query param, y si no existe usamos sessionStorage (fallback)
@@ -245,7 +281,6 @@ export default function ValidarUploadPage() {
         for (const p of previews) previewRecord[p.invoiceId] = p.url || ''
 
         setInvoiceRows(invoices)
-        setPreviewByInvoiceId(previewRecord)
 
         const mapped = invoices.map((inv) => toFacturaData(inv, previewRecord[inv.id] || '', client?.tax_id))
         setFacturas(mapped)
@@ -256,12 +291,12 @@ export default function ValidarUploadPage() {
           const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
           const hasFields = Boolean(
             f?.supplier_name ||
-              f?.supplier_tax_id ||
-              f?.invoice_number ||
-              f?.invoice_date ||
-              f?.base_amount ||
-              f?.vat_amount ||
-              f?.total_amount
+            f?.supplier_tax_id ||
+            f?.invoice_number ||
+            f?.invoice_date ||
+            f?.base_amount ||
+            f?.vat_amount ||
+            f?.total_amount
           )
           const hasExtraction = Boolean(getLatestExtraction(inv))
           initialStatus[inv.id] = hasFields || hasExtraction ? 'ready' : 'idle'
@@ -387,15 +422,25 @@ export default function ValidarUploadPage() {
     }
   }
 
-  // Arrancar extracción en background para TODAS las facturas.
-  useEffect(() => {
-    if (invoiceRows.length === 0) return
-    for (const inv of invoiceRows) {
-      const st = invoiceStatus[inv.id]
-      if (st === 'idle') void startExtract(inv.id)
+  const pumpQueue = useMemo(() => {
+    return () => {
+      if (invoiceRows.length === 0) return
+      if (inFlightRef.current >= MAX_CONCURRENCY) return
+
+      const orderedIds = invoiceRows.map((i) => i.id)
+      for (const id of orderedIds) {
+        if (inFlightRef.current >= MAX_CONCURRENCY) break
+        const st = invoiceStatus[id]
+        if (st === 'idle') void startExtract(id)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceRows, invoiceStatus])
+  }, [invoiceRows, invoiceStatus, MAX_CONCURRENCY])
+
+  // Arrancar y mantener cola (3 en paralelo).
+  useEffect(() => {
+    pumpQueue()
+  }, [pumpQueue, invoiceRows.length, facturaActual, invoiceStatus])
 
   const invoiceIds = useMemo(
     () => facturas.map((f) => f.archivo?.invoiceId).filter((id): id is string => Boolean(id)),
@@ -420,12 +465,6 @@ export default function ValidarUploadPage() {
   }
 
   const handleValidar = async (factura: FacturaData) => {
-    // Requisito UX: no permitir validar hasta que TODAS estén procesadas.
-    if (!allProcessed) {
-      showError('Espera a que termine el procesamiento de todas las facturas antes de validar.')
-      return
-    }
-
     const invoiceId = factura.archivo?.invoiceId
     if (invoiceId) {
       const st = invoiceStatus[invoiceId]
@@ -483,7 +522,12 @@ export default function ValidarUploadPage() {
   }
 
   const handleSiguiente = () => {
-    if (facturaActual < facturas.length - 1) setFacturaActual(facturaActual + 1)
+    const next = facturaActual + 1
+    if (next > unlockedMaxIndex) {
+      showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
+      return
+    }
+    if (facturaActual < facturas.length - 1) setFacturaActual(next)
   }
 
   const handleAnterior = () => {
@@ -528,6 +572,22 @@ export default function ValidarUploadPage() {
     )
   }
 
+  // No mostramos la pantalla de validación hasta que estén procesadas las primeras 3 (o menos si hay <3).
+  if (!initialGateReady) {
+    const need = Math.min(3, invoiceRows.length)
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-foreground-secondary">Procesando las primeras {need} facturas…</p>
+          <p className="text-xs text-foreground-secondary mt-2">
+            {Math.min(prefixDoneCount, need)}/{need} listas
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (facturas.length === 0) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
@@ -545,47 +605,75 @@ export default function ValidarUploadPage() {
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col">
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center space-x-4">
-          <Link href="/dashboard" className="text-primary hover:text-primary-hover">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-sm font-semibold text-foreground">
-              {clienteNombre ? `${clienteNombre} · ` : ''}Validar facturas
-            </h1>
-            <div className="mt-1">
-              <div className="h-2 w-48 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${statusStats.percent}%` }}
-                />
+        <div className="w-full">
+          <div className="grid grid-cols-3 items-center gap-4">
+            {/* Izquierda: volver a la página anterior */}
+            <div className="justify-self-start">
+              <button
+                onClick={() => router.back()}
+                className="inline-flex items-center text-foreground-secondary hover:text-foreground transition-colors"
+                aria-label="Volver"
+                title="Volver"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Centro: CIF · Nombre (azul) · Ingresos/Gastos (centrado real en la página) */}
+            <div className="justify-self-center min-w-0 px-2">
+              <div className="text-sm font-semibold truncate text-center">
+                {clientTaxId ? (
+                  <span className="text-foreground">CIF {clientTaxId}</span>
+                ) : (
+                  <span className="text-foreground">CIF —</span>
+                )}
+                <span className="text-foreground-secondary">{' · '}</span>
+                <span className="text-primary">{clienteNombre || 'Validar facturas'}</span>
+                <span className="text-foreground-secondary">{' · '}</span>
+                <span className="text-foreground">{tipoFactura === 'ingreso' ? 'Ingresos' : 'Gastos'}</span>
               </div>
-              <div className="text-[11px] text-foreground-secondary mt-1">
-                {statusStats.done}/{statusStats.total} procesadas · {statusStats.processing} en proceso
+            </div>
+
+            {/* Derecha: volver a la factura anterior */}
+            <div className="justify-self-end">
+              <button
+                type="button"
+                onClick={handleAnterior}
+                disabled={facturaActual === 0}
+                className="inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-gray-200 text-primary hover:text-primary-hover hover:bg-gray-50 transition-colors disabled:opacity-100 disabled:text-foreground-secondary disabled:cursor-not-allowed whitespace-nowrap"
+                aria-label="Volver a la factura anterior"
+                title="Anterior"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="text-sm font-semibold">Anterior</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Progreso (línea inferior del header): azul mientras procesa, verde al terminar */}
+          <div className="mt-2 -mx-4">
+            <div className="px-4 pb-1 flex justify-end">
+              <div className="text-[11px] text-foreground-secondary whitespace-nowrap">
+                {statusStats.done}/{statusStats.total} procesadas
+                {statusStats.processing > 0 ? ` · ${statusStats.processing} en proceso` : ''}
                 {statusStats.error > 0 ? ` · ${statusStats.error} con error` : ''}
               </div>
             </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-4">
-          <span className="text-xs text-foreground-secondary">
-            {facturaActual + 1} de {facturas.length}
-          </span>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={handleAnterior} disabled={facturaActual === 0} className="py-2">
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSiguiente}
-              disabled={facturaActual === facturas.length - 1}
-              className="py-2"
-            >
-              Siguiente
-            </Button>
+            <div className="h-1 bg-gray-200 w-full">
+              <div
+                className={`h-full transition-all ${isAllDone ? 'bg-green-600' : 'bg-primary'}`}
+                style={{ width: `${statusStats.percent}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -596,14 +684,14 @@ export default function ValidarUploadPage() {
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-6 text-foreground">
             <h2 className="text-xl font-semibold mb-2">Has terminado la validación</h2>
             <p className="text-sm text-foreground-secondary mb-6">
-              ¿Quieres revisar o cambiar algún dato, o prefieres continuar y generar el export?
+              ¿Quieres revisar o cambiar algún dato, o prefieres continuar y generar la exportación?
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button variant="outline" onClick={() => setIsFinishedModalOpen(false)} disabled={isExporting}>
                 Revisar / cambiar
               </Button>
               <Button variant="primary" onClick={handleGenerarExport} disabled={isExporting}>
-                {isExporting ? 'Generando export...' : 'Generar export'}
+                {isExporting ? 'Generando exportación...' : 'Generar exportación'}
               </Button>
             </div>
           </div>
@@ -614,9 +702,15 @@ export default function ValidarUploadPage() {
         {(() => {
           const currentId = facturas[facturaActual]?.archivo?.invoiceId
           const st = currentId ? invoiceStatus[currentId] : undefined
-          const disableValidar = !allProcessed
-          const validarText = !allProcessed
-            ? `PROCESANDO FACTURAS… (${statusStats.ready}/${statusStats.total})`
+          const isLast = facturaActual === facturas.length - 1
+          const canGoNext = facturaActual + 1 <= unlockedMaxIndex
+          // Regla UX: si esta factura es "la última disponible" pero todavía no podemos pasar al siguiente bloque,
+          // NO dejamos validarla (evita validar y quedarse bloqueado con toast de error).
+          const mustWaitForNextBlock = !isLast && !canGoNext
+
+          const disableValidar = Boolean(!currentId || st !== 'ready' || mustWaitForNextBlock)
+          const validarText = mustWaitForNextBlock
+            ? 'ESPERA AL SIGUIENTE BLOQUE…'
             : st === 'processing'
               ? 'PROCESANDO…'
               : st === 'error'
@@ -624,15 +718,18 @@ export default function ValidarUploadPage() {
                 : undefined
 
           return (
-        <ValidarFactura
-          key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
-          tipo={tipoFactura}
-          factura={facturas[facturaActual]}
-          onValidar={handleValidar}
-          onSiguiente={handleSiguiente}
-          disableValidar={disableValidar}
-          validarText={validarText}
-        />
+            <ValidarFactura
+              key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
+              tipo={tipoFactura}
+              factura={facturas[facturaActual]}
+              onValidar={handleValidar}
+              onAnterior={facturaActual > 0 ? handleAnterior : undefined}
+              onSiguiente={handleSiguiente}
+              isLast={isLast}
+              canGoNext={canGoNext}
+              disableValidar={disableValidar}
+              validarText={validarText}
+            />
           )
         })()}
       </div>

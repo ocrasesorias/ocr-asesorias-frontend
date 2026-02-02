@@ -52,7 +52,7 @@ export default function PrivacidadPage() {
               <p className="text-foreground-secondary leading-relaxed mb-4">
                 KontaScan puede tratar los siguientes datos:
               </p>
-              
+
               <div className="space-y-4">
                 <div>
                   <h3 className="text-xl font-semibold text-foreground mb-2">

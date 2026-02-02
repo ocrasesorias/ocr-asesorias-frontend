@@ -4,9 +4,33 @@ import { extractInvoiceAndPersist } from '@/lib/invoices/extraction'
 
 export const runtime = 'nodejs'
 
-export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+) {
+  let idx = 0
+  const c = Math.max(1, Math.min(10, Math.floor(concurrency || 1)))
+  const workers = Array.from({ length: Math.min(c, items.length || 1) }).map(async () => {
+    while (idx < items.length) {
+      const current = idx
+      idx += 1
+      // eslint-disable-next-line no-await-in-loop
+      await worker(items[current] as T)
+    }
+  })
+  await Promise.all(workers)
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: uploadId } = await context.params
+    const url = new URL(request.url)
+    const limitRaw = url.searchParams.get('limit')
+    const concurrencyRaw = url.searchParams.get('concurrency')
+    const limit = limitRaw ? Math.max(1, Math.min(500, Number(limitRaw))) : null
+    const concurrency = concurrencyRaw ? Math.max(1, Math.min(10, Number(concurrencyRaw))) : 3
+
     const supabase = await createClient()
 
     const {
@@ -45,15 +69,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const { data: invoices, error: invError } = await supabase
       .from('invoices')
-      .select('id')
+      .select('id, created_at')
       .eq('org_id', orgId)
       .eq('upload_id', uploadId)
+      .order('created_at', { ascending: true })
 
     if (invError) {
       return NextResponse.json({ error: invError.message || 'Error cargando facturas' }, { status: 500 })
     }
 
-    const ids = (invoices || []).map((i) => i.id)
+    const idsAll = (invoices || []).map((i) => i.id)
+    const ids = limit ? idsAll.slice(0, limit) : idsAll
     let okCount = 0
     const errors: Array<{ invoiceId: string; error: string }> = []
 
@@ -67,7 +93,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     const tipo = typeof (upload as { tipo?: unknown })?.tipo === 'string' ? (upload as { tipo: string }).tipo : null
 
-    for (const invoiceId of ids) {
+    await runWithConcurrency(ids, concurrency, async (invoiceId) => {
       const result = await extractInvoiceAndPersist({
         supabase,
         userId: user.id,
@@ -79,9 +105,12 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
       if (result.ok) okCount++
       else errors.push({ invoiceId, error: result.error })
-    }
+    })
 
-    return NextResponse.json({ success: true, total: ids.length, ok: okCount, errors }, { status: 200 })
+    return NextResponse.json(
+      { success: true, total: ids.length, ok: okCount, errors, limit: limit ?? null, concurrency },
+      { status: 200 }
+    )
   } catch (error) {
     console.error('Error inesperado en POST /api/uploads/[id]/extract:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
