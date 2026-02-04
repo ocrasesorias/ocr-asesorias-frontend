@@ -17,6 +17,8 @@ export default function DashboardPage() {
   const { showError, showSuccess } = useToast();
   const [organizationName, setOrganizationName] = useState<string>('');
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [facturasGastadasOrgCount, setFacturasGastadasOrgCount] = useState<number | null>(null)
+  const [isLoadingFacturasGastadasOrgCount, setIsLoadingFacturasGastadasOrgCount] = useState(false)
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [subidasFacturas, setSubidasFacturas] = useState<SubidaFacturas[]>([]);
@@ -65,6 +67,30 @@ export default function DashboardPage() {
   const [statusMessageTick, setStatusMessageTick] = useState(0)
 
   const hasUploadingFiles = archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente')
+
+  const refreshFacturasGastadasOrgCount = useCallback(async () => {
+    if (!orgId) return
+    setIsLoadingFacturasGastadasOrgCount(true)
+    try {
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from('invoices')
+        .select('id', { count: 'exact', head: true })
+        .eq('org_id', orgId)
+
+      if (error) throw new Error(error.message || 'Error contando facturas')
+      setFacturasGastadasOrgCount(typeof count === 'number' ? count : 0)
+    } catch {
+      // Mejor no spamear toasts aquí. Mostramos "—" y seguimos.
+      setFacturasGastadasOrgCount(null)
+    } finally {
+      setIsLoadingFacturasGastadasOrgCount(false)
+    }
+  }, [orgId])
+
+  useEffect(() => {
+    void refreshFacturasGastadasOrgCount()
+  }, [refreshFacturasGastadasOrgCount])
 
   const invoiceIdsInOrder = useMemo(
     () => archivosSubidos.map((a) => a.invoiceId).filter((id): id is string => Boolean(id)),
@@ -592,12 +618,13 @@ export default function DashboardPage() {
       showSuccess('Subida eliminada')
       setIsDeleteModalOpen(false)
       setSubidaParaEliminar(null)
+      void refreshFacturasGastadasOrgCount()
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Error eliminando la subida')
     } finally {
       setIsDeletingUpload(false)
     }
-  }, [showError, showSuccess, subidaActual, subidaParaEliminar]);
+  }, [showError, showSuccess, subidaActual, subidaParaEliminar, refreshFacturasGastadasOrgCount]);
 
   // Manejar archivos seleccionados
   const handleFilesSelected = useCallback(async (files: File[]) => {
@@ -742,6 +769,10 @@ export default function DashboardPage() {
       }
     }
 
+    if (successCount > 0) {
+      void refreshFacturasGastadasOrgCount()
+    }
+
     // Si acabamos de crear la subida y no se subió ninguna factura, borrarla (para cumplir “solo si se sube algo”)
     if (createdNow && successCount === 0 && realUploadId) {
       try {
@@ -756,7 +787,7 @@ export default function DashboardPage() {
       return
     }
 
-  }, [subidaActual, archivosSubidos, showError, clienteSeleccionado, setSubidasFacturas]);
+  }, [subidaActual, archivosSubidos, showError, clienteSeleccionado, setSubidasFacturas, refreshFacturasGastadasOrgCount]);
 
   // Eliminar archivo
   const handleRemoveFile = useCallback(async (fileId: string) => {
@@ -797,12 +828,13 @@ export default function DashboardPage() {
       showSuccess('Factura eliminada')
       setIsDeleteInvoiceModalOpen(false)
       setFacturaParaEliminar(null)
+      void refreshFacturasGastadasOrgCount()
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Error eliminando la factura')
     } finally {
       setIsDeletingInvoice(false)
     }
-  }, [archivosSubidos, facturaParaEliminar, subidaActual, showError, showSuccess]);
+  }, [archivosSubidos, facturaParaEliminar, subidaActual, showError, showSuccess, refreshFacturasGastadasOrgCount]);
 
   // Ir a validar facturas
   const handleValidarFacturas = useCallback(() => {
@@ -915,13 +947,24 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-light text-foreground mb-2">
-            {organizationName || 'Dashboard'}
-          </h2>
-          <p className="text-foreground-secondary">
-            Gestiona las facturas de tus clientes
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <h2 className="text-3xl font-light text-foreground mb-2 truncate">
+              {organizationName || 'Dashboard'}
+            </h2>
+            <p className="text-foreground-secondary">
+              Gestiona las facturas de tus clientes
+            </p>
+          </div>
+
+          <div className="shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-right min-w-[170px]">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Facturas gastadas
+            </div>
+            <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
+              {isLoadingFacturasGastadasOrgCount ? '…' : (facturasGastadasOrgCount ?? '—')}
+            </div>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">

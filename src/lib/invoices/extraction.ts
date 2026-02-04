@@ -151,6 +151,26 @@ export async function extractInvoiceAndPersist(params: {
           ? factura.nif
           : null
 
+  // Si la extracción trae desglose de IVAs, vat_rate puede no ser representativo (por ejemplo 0 con varios tipos).
+  // En ese caso, guardamos vat_rate solo si hay un único porcentaje en el desglose; si hay varios, lo dejamos null.
+  let vat_rate_to_store: number | null = vat_rate
+  const rawIvasValue =
+    factura && typeof factura === 'object' ? (factura as Record<string, unknown>)?.ivas : null
+  const rawIvas: unknown[] = Array.isArray(rawIvasValue) ? rawIvasValue : []
+  if (rawIvas.length > 0) {
+    const rates = new Set<number>()
+    for (const it of rawIvas) {
+      if (!it || typeof it !== 'object') continue
+      const itObj = it as Record<string, unknown>
+      const r = parseNumber(itObj.porcentaje_iva ?? itObj.porcentaje ?? itObj.tipo)
+      if (typeof r === 'number' && Number.isFinite(r)) rates.add(r)
+    }
+    vat_rate_to_store = rates.size === 1 ? [...rates][0] : null
+  } else if (vat_rate_to_store === 0 && (vat_amount || 0) > 0) {
+    // 0% con IVA > 0 no tiene sentido -> mejor null que un 0 engañoso
+    vat_rate_to_store = null
+  }
+
   const { data: fields, error: fieldsError } = await supabase
     .from('invoice_fields')
     .upsert(
@@ -163,7 +183,7 @@ export async function extractInvoiceAndPersist(params: {
         base_amount,
         vat_amount,
         total_amount,
-        vat_rate,
+        vat_rate: vat_rate_to_store,
         updated_by: userId,
       },
       { onConflict: 'invoice_id' }

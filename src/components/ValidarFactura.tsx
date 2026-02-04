@@ -163,36 +163,43 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     }
   }
   const facturaInicialCon3Lineas = useMemo(() => {
-    // Asegurar que siempre haya al menos 3 líneas con IVA 21%, 10% y 4%
-    const lineasBase = facturaInicial.lineas.length >= 3 
-      ? [...facturaInicial.lineas]
-      : [
-          ...facturaInicial.lineas,
-          ...Array(3 - facturaInicial.lineas.length).fill(null).map((_, index) => {
-            // Asignar IVA según la posición: primera línea 21%, segunda 10%, tercera 4%
-            const ivas = ['21', '10', '4'];
-            const ivaIndex = facturaInicial.lineas.length + index;
-            return {
-              base: '',
-              porcentajeIva: ivas[ivaIndex] || '',
-              cuotaIva: '',
-              porcentajeRecargo: '0',
-              cuotaRecargo: '0.00'
-            };
-          })
-        ];
-    
-    // Asegurar que las 3 líneas tengan IVA 21%, 10% y 4% respectivamente
-    const lineas = lineasBase.length >= 3
-      ? [
-          { ...lineasBase[0], porcentajeIva: lineasBase[0].porcentajeIva || '21' },
-          { ...lineasBase[1], porcentajeIva: lineasBase[1].porcentajeIva || '10' },
-          { ...lineasBase[2], porcentajeIva: lineasBase[2].porcentajeIva || '4' }
-        ]
-      : lineasBase;
-    
-    return { ...facturaInicial, lineas };
-  }, [facturaInicial]);
+    // Reglas UX: el desglose SIEMPRE se muestra en este orden fijo:
+    // 1) 21%  2) 10%  3) 4%
+    // Y los importes se colocan en la fila que corresponda por porcentaje.
+    const parsePct = (v: unknown): number | null => {
+      const raw = String(v ?? '').replace('%', '').trim().replace(',', '.')
+      if (!raw) return null
+      const n = Number(raw)
+      return Number.isFinite(n) ? n : null
+    }
+    const isPct = (line: { porcentajeIva?: unknown } | null | undefined, pct: number) => {
+      const n = parsePct(line?.porcentajeIva)
+      return n !== null && Math.abs(n - pct) < 0.01
+    }
+    const emptyLine = (pct: number) => ({
+      base: '',
+      porcentajeIva: String(pct),
+      cuotaIva: '',
+      porcentajeRecargo: '0',
+      cuotaRecargo: '0.00',
+    })
+
+    const remaining = Array.isArray(facturaInicial.lineas) ? [...facturaInicial.lineas] : []
+
+    const takeFirst = (pct: number) => {
+      const idx = remaining.findIndex((l) => isPct(l, pct))
+      if (idx === -1) return emptyLine(pct)
+      const [picked] = remaining.splice(idx, 1)
+      return { ...picked, porcentajeIva: String(pct) }
+    }
+
+    const l21 = takeFirst(21)
+    const l10 = takeFirst(10)
+    const l4 = takeFirst(4)
+
+    const lineas = [l21, l10, l4, ...remaining]
+    return { ...facturaInicial, lineas }
+  }, [facturaInicial])
 
   const [factura, setFactura] = useState<FacturaData>(() => applyAutoDates(facturaInicialCon3Lineas));
   const formRef = useRef<HTMLFormElement>(null);

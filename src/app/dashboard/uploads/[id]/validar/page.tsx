@@ -103,6 +103,107 @@ function defaultRetencionTipo(hasRetencion: boolean): RetencionTipo {
   return hasRetencion ? 'PROFESIONAL' : ''
 }
 
+function toNumLoose(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const s = value.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
+    if (!s) return null
+    const n = Number(s.replace(/\./g, '').replace(',', '.'))
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+type ExtractedIvaLine = { base: number | null; porcentaje: number | null; iva: number | null }
+
+function extractIvaLinesFromExtraction(ex: Record<string, unknown> | null): ExtractedIvaLine[] {
+  const raw = ex?.ivas
+  if (!Array.isArray(raw)) return []
+
+  const out: ExtractedIvaLine[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    const base = toNumLoose(it.base_imponible ?? it.base)
+    const porcentaje = toNumLoose(it.porcentaje_iva ?? it.porcentaje ?? it.tipo)
+    const iva = toNumLoose(it.iva_importe ?? it.iva ?? it.cuota ?? it.cuota_iva)
+    if (base === null && porcentaje === null && iva === null) continue
+    out.push({ base, porcentaje, iva })
+  }
+
+  // Consolidar por porcentaje (evita duplicados)
+  const merged = new Map<number, { base: number; iva: number }>()
+  for (const l of out) {
+    const pct = l.porcentaje
+    if (pct === null || !Number.isFinite(pct)) continue
+    const key = Math.round(pct * 100) / 100
+    const cur = merged.get(key) || { base: 0, iva: 0 }
+    merged.set(key, {
+      base: cur.base + (l.base ?? 0),
+      iva: cur.iva + (l.iva ?? 0),
+    })
+  }
+
+  const result: ExtractedIvaLine[] = []
+  for (const [pct, vals] of merged.entries()) {
+    result.push({
+      porcentaje: pct,
+      base: Math.round(vals.base * 100) / 100,
+      iva: Math.round(vals.iva * 100) / 100,
+    })
+  }
+
+  return result.sort((a, b) => (b.porcentaje ?? 0) - (a.porcentaje ?? 0))
+}
+
+function applyExtractedIvasToLineas(params: {
+  lineas: FacturaData['lineas']
+  extracted: ExtractedIvaLine[]
+  overwrite: boolean
+}): FacturaData['lineas'] {
+  const { extracted, overwrite } = params
+  const lineas = [...params.lineas]
+  if (extracted.length === 0) return lineas
+
+  const parsePct = (v: string) => {
+    const raw = String(v || '').replace('%', '').trim().replace(',', '.')
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : null
+  }
+
+  const findIndexByPct = (pct: number) => {
+    for (let i = 0; i < lineas.length; i += 1) {
+      const n = parsePct(lineas[i]?.porcentajeIva || '')
+      if (n !== null && Math.abs(n - pct) < 0.01) return i
+    }
+    return -1
+  }
+
+  for (const l of extracted) {
+    if (l.porcentaje === null || !Number.isFinite(l.porcentaje)) continue
+    const pct = Math.round(l.porcentaje * 100) / 100
+    let idx = findIndexByPct(pct)
+    if (idx === -1) {
+      lineas.push({
+        base: '',
+        porcentajeIva: String(pct),
+        cuotaIva: '',
+        porcentajeRecargo: '0',
+        cuotaRecargo: '0.00',
+      })
+      idx = lineas.length - 1
+    }
+
+    const cur = { ...lineas[idx] }
+    if (overwrite || !cur.porcentajeIva?.trim()) cur.porcentajeIva = String(pct)
+    if (l.base !== null && (overwrite || !cur.base?.trim())) cur.base = String(l.base)
+    if (l.iva !== null && (overwrite || !cur.cuotaIva?.trim())) cur.cuotaIva = String(l.iva)
+    lineas[idx] = cur
+  }
+
+  return lineas
+}
+
 function toFacturaData(
   inv: UploadInvoiceRow,
   previewUrl: string,
@@ -124,20 +225,34 @@ function toFacturaData(
   const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
   const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
   const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
-
-  const toNumLoose = (v: unknown): number | null => {
-    if (typeof v === 'number' && Number.isFinite(v)) return v
-    if (typeof v === 'string') {
-      const s = v.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
-      if (!s) return null
-      const n = Number(s.replace(/\./g, '').replace(',', '.'))
-      return Number.isFinite(n) ? n : null
-    }
-    return null
-  }
   const exRetPct = toNumLoose(ex?.retencion_porcentaje)
   const exRetImp = toNumLoose(ex?.retencion_importe)
   const hasRetencion = Boolean((exRetPct && Math.abs(exRetPct) > 0) || (exRetImp && Math.abs(exRetImp) > 0))
+
+  const extractedIvas = extractIvaLinesFromExtraction(ex)
+
+  // Si tenemos desglose de IVAs, preferimos rellenar desde ahí (evita el caso "IVA total" con porcentaje 0).
+  // Si no hay desglose, caemos al comportamiento legacy (1 sola línea con base/iva/%).
+  const baseLineas: FacturaData['lineas'] =
+    extractedIvas.length > 0
+      ? [
+          { base: '', porcentajeIva: '21', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
+          { base: '', porcentajeIva: '10', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
+          { base: '', porcentajeIva: '4', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
+        ]
+      : [
+          {
+            base: base !== null ? String(base) : '',
+            porcentajeIva: vatRate !== null ? String(vatRate) : '21',
+            cuotaIva: vat !== null ? String(vat) : '',
+            porcentajeRecargo: '0',
+            cuotaRecargo: '0.00',
+          },
+          { base: '', porcentajeIva: '10', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
+          { base: '', porcentajeIva: '4', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
+        ]
+
+  const lineas = applyExtractedIvasToLineas({ lineas: baseLineas, extracted: extractedIvas, overwrite: true })
 
   return {
     empresa: { cif: opts?.clientTaxId || 'B12345678', trimestre: 'Q1', actividad: '' },
@@ -161,17 +276,7 @@ function toFacturaData(
       tipo: defaultRetencionTipo(hasRetencion),
       cantidad: exRetImp !== null ? String(Math.abs(exRetImp)) : '',
     },
-    lineas: [
-      {
-        base: base !== null ? String(base) : '',
-        porcentajeIva: vatRate !== null ? String(vatRate) : '21',
-        cuotaIva: vat !== null ? String(vat) : '',
-        porcentajeRecargo: '0',
-        cuotaRecargo: '0.00',
-      },
-      { base: '', porcentajeIva: '10', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
-      { base: '', porcentajeIva: '4', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
-    ],
+    lineas,
     anexosObservaciones: '',
     total: total !== null ? String(total) : '',
     archivo: {
@@ -389,6 +494,7 @@ export default function ValidarUploadPage() {
         const initialStatus: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {}
         for (const inv of invoices) {
           const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
+          const latestEx = getLatestExtraction(inv)
           const hasFields = Boolean(
             f?.supplier_name ||
             f?.supplier_tax_id ||
@@ -398,8 +504,17 @@ export default function ValidarUploadPage() {
             f?.vat_amount ||
             f?.total_amount
           )
-          const hasExtraction = Boolean(getLatestExtraction(inv))
-          initialStatus[inv.id] = hasFields || hasExtraction ? 'ready' : 'idle'
+          const hasExtraction = Boolean(latestEx)
+
+          // Auto-reintento: si antes se guardó un IVA con % = 0 pero con cuota > 0 (caso típico de facturas con varios IVAs),
+          // forzamos una nueva extracción para intentar obtener el desglose.
+          const vatRateN = toNumLoose(f?.vat_rate)
+          const vatAmountN = toNumLoose(f?.vat_amount)
+          const exIvasValue = latestEx ? latestEx['ivas'] : null
+          const exHasIvas = Array.isArray(exIvasValue) && exIvasValue.length > 0
+          const needsReextract = Boolean(vatRateN === 0 && (vatAmountN || 0) > 0 && !exHasIvas)
+
+          initialStatus[inv.id] = needsReextract ? 'idle' : hasFields || hasExtraction ? 'ready' : 'idle'
         }
         setInvoiceStatus(initialStatus)
         startedRef.current = {}
@@ -475,19 +590,36 @@ export default function ValidarUploadPage() {
     }
     if (!next.total && total !== null) next.total = String(total)
 
-    // Retención: si viene en la extracción, la aplicamos por defecto.
-    // Aceptamos varias claves por compatibilidad.
-    const toNumLoose = (v: unknown): number | null => {
-      if (typeof v === 'number' && Number.isFinite(v)) return v
-      if (typeof v === 'string') {
-        const s = v.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
-        if (!s) return null
-        const n = Number(s.replace(/\./g, '').replace(',', '.'))
+    // Si viene desglose de IVAs, rellenamos líneas.
+    // Heurística: si antes nos llegó un "IVA total" con porcentaje 0, lo limpiamos y aplicamos el desglose.
+    const extractedIvas = extractIvaLinesFromExtraction(ex)
+    if (extractedIvas.length > 0) {
+      const distinctRates = new Set<number>()
+      for (const l of extractedIvas) {
+        if (typeof l.porcentaje === 'number' && Number.isFinite(l.porcentaje)) distinctRates.add(l.porcentaje)
+      }
+      const hasMultiple = distinctRates.size > 1
+      const parsePct = (v: string) => {
+        const raw = String(v || '').replace('%', '').trim().replace(',', '.')
+        const n = Number(raw)
         return Number.isFinite(n) ? n : null
       }
-      return null
+      const lineas0 = Array.isArray(next.lineas) ? [...next.lineas] : []
+      const pct0 = lineas0[0] ? parsePct(lineas0[0].porcentajeIva) : null
+
+      if (hasMultiple && (pct0 === 0 || pct0 === null)) {
+        // Caso típico reportado: IVA total en línea 0 con % = 0
+        if (lineas0[0]) {
+          lineas0[0] = { ...lineas0[0], base: '', cuotaIva: '', porcentajeIva: '21' }
+        }
+        next.lineas = applyExtractedIvasToLineas({ lineas: lineas0, extracted: extractedIvas, overwrite: true })
+      } else {
+        next.lineas = applyExtractedIvasToLineas({ lineas: next.lineas || [], extracted: extractedIvas, overwrite: false })
+      }
     }
 
+    // Retención: si viene en la extracción, la aplicamos por defecto.
+    // Aceptamos varias claves por compatibilidad.
     const retPctRaw =
       toNumLoose(ex?.retencion_porcentaje) ?? toNumLoose(ex?.porcentaje_retencion) ?? toNumLoose(ex?.retencion_pct) ?? null
     const retImpRaw = toNumLoose(ex?.retencion_importe) ?? toNumLoose(ex?.retencion) ?? null
@@ -584,10 +716,10 @@ export default function ValidarUploadPage() {
     pumpQueue()
   }, [pumpQueue, invoiceRows.length, facturaActual, invoiceStatus])
 
-  const invoiceIds = useMemo(
-    () => facturas.map((f) => f.archivo?.invoiceId).filter((id): id is string => Boolean(id)),
-    [facturas]
-  )
+  const validatedInvoiceIds = useMemo(() => {
+    const ordered = invoiceRows.map((i) => i.id)
+    return ordered.filter((id) => Boolean(validatedByInvoiceId[id]))
+  }, [invoiceRows, validatedByInvoiceId])
 
   const toISODate = (value: string) => {
     const v = (value || '').trim()
@@ -667,10 +799,17 @@ export default function ValidarUploadPage() {
           .reduce((a, b) => a + b, 0)
 
         const total = toNumber(factura.total) ?? baseSum + vatSum
-        const vatRate =
-          factura.lineas?.[0]?.porcentajeIva && factura.lineas[0].porcentajeIva.trim()
-            ? Number(factura.lineas[0].porcentajeIva.replace('%', '').trim())
-            : null
+        const vatRatesUsed = new Set<number>()
+        for (const l of factura.lineas || []) {
+          const baseN = toNumber(l.base)
+          const vatN = toNumber(l.cuotaIva)
+          if (baseN === null && vatN === null) continue
+          const raw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
+          const n = Number(raw)
+          if (Number.isFinite(n)) vatRatesUsed.add(n)
+        }
+        // Solo guardamos un único tipo si la factura tiene 1 IVA; si hay varios, dejamos null.
+        const vatRate = vatRatesUsed.size === 1 ? [...vatRatesUsed][0] : null
 
         await fetch(`/api/invoices/${invoiceId}/fields`, {
           method: 'PUT',
@@ -784,8 +923,8 @@ export default function ValidarUploadPage() {
   }
 
   const handleGenerarExport = async () => {
-    if (invoiceIds.length === 0) {
-      showError('No hay facturas para exportar')
+    if (validatedInvoiceIds.length === 0) {
+      showError('No hay facturas validadas para exportar')
       return
     }
 
@@ -795,7 +934,7 @@ export default function ValidarUploadPage() {
       const resp = await fetch('/api/exports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice_ids: invoiceIds, program }),
+        body: JSON.stringify({ invoice_ids: validatedInvoiceIds, program }),
       })
       const data = await resp.json()
       if (!resp.ok) throw new Error(data?.error || 'Error generando export')
@@ -918,6 +1057,19 @@ export default function ValidarUploadPage() {
               </svg>
               <span>Anterior</span>
             </button>
+
+            <Button
+              variant="primary"
+              onClick={() => setIsFinishedModalOpen(true)}
+              disabled={validatedInvoiceIds.length === 0}
+              title={
+                validatedInvoiceIds.length === 0
+                  ? 'Valida al menos una factura para exportar'
+                  : `Exportar ${validatedInvoiceIds.length} facturas validadas`
+              }
+            >
+              Finalizar / Exportar
+            </Button>
           </div>
         </div>
 
@@ -976,9 +1128,10 @@ export default function ValidarUploadPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !isExporting && setIsFinishedModalOpen(false)} />
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-6 text-foreground">
-            <h2 className="text-xl font-semibold mb-2">Has terminado la validación</h2>
+            <h2 className="text-xl font-semibold mb-2">Exportar facturas validadas</h2>
             <p className="text-sm text-foreground-secondary mb-6">
-              ¿Quieres revisar o cambiar algún dato, o prefieres continuar y generar la exportación?
+              Se generará el Excel con las facturas marcadas como validadas.
+              <span className="font-medium">{' '}{validatedStats.validated}</span>/{validatedStats.total} validadas.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button variant="outline" onClick={() => setIsFinishedModalOpen(false)} disabled={isExporting}>
