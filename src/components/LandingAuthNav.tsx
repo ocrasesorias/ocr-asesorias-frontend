@@ -74,7 +74,7 @@ export function LandingAuthNav() {
         <button
           type="button"
           onClick={handleLogout}
-          className="text-foreground hover:text-primary transition-colors font-medium"
+          className="text-red-700 hover:text-red-800 transition-colors font-medium"
           disabled={isLoading}
         >
           Cerrar sesión

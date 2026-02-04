@@ -31,5 +31,8 @@ export interface ArchivoSubido {
   storagePath?: string;
   fechaSubida: string;
   estado: 'pendiente' | 'procesando' | 'procesado' | 'error';
+  // Estado real en BD (tabla invoices)
+  dbStatus?: 'uploaded' | 'processing' | 'needs_review' | 'ready' | 'error' | null;
+  dbErrorMessage?: string | null;
 }
 

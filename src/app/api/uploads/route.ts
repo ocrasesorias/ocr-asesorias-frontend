@@ -47,6 +47,8 @@ export async function GET(request: Request) {
         updated_at,
         invoices (
           id,
+          status,
+          error_message,
           original_filename,
           mime_type,
           file_size_bytes,

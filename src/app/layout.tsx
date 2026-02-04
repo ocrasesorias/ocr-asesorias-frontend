@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Lexend } from "next/font/google";
 import "./globals.css";
-import { ToastProvider } from "@/contexts/ToastContext";
+import { Providers } from "@/app/providers";
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -31,9 +31,7 @@ export default function RootLayout({
       <body
         className={`${lexend.variable} antialiased font-light`}
       >
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

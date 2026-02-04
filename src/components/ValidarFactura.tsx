@@ -31,6 +31,7 @@ const FieldRow = ({
 
 interface ValidarFacturaProps {
   tipo?: 'gasto' | 'ingreso'
+  uppercaseNombreDireccion?: boolean
   factura: FacturaData;
   onValidar: (factura: FacturaData) => void;
   onAnterior?: () => void
@@ -44,6 +45,7 @@ interface ValidarFacturaProps {
 
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   tipo = 'gasto',
+  uppercaseNombreDireccion = false,
   factura: facturaInicial,
   onValidar,
   onSiguiente,
@@ -198,13 +200,30 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     const l4 = takeFirst(4)
 
     const lineas = [l21, l10, l4, ...remaining]
-    return { ...facturaInicial, lineas }
-  }, [facturaInicial])
+
+    const next = { ...facturaInicial, lineas }
+    if (uppercaseNombreDireccion) {
+      const toUpper = (s: unknown) => String(s ?? '').toLocaleUpperCase('es-ES')
+      next.proveedor = {
+        ...next.proveedor,
+        nombre: toUpper(next.proveedor?.nombre),
+        direccion: toUpper(next.proveedor?.direccion),
+      }
+    }
+    return next
+  }, [facturaInicial, uppercaseNombreDireccion])
 
   const [factura, setFactura] = useState<FacturaData>(() => applyAutoDates(facturaInicialCon3Lineas));
   const formRef = useRef<HTMLFormElement>(null);
 
   const handleChange = (path: string, value: string | boolean) => {
+    if (
+      uppercaseNombreDireccion &&
+      typeof value === 'string' &&
+      (path === 'proveedor.nombre' || path === 'proveedor.direccion')
+    ) {
+      value = value.toLocaleUpperCase('es-ES')
+    }
     setFactura(prev => {
       // Auto-reglas para fechas:
       // - factura.fecha: normaliza a ISO, calcula trimestre, y si vencimiento está vacío (o estaba igual que la fecha anterior), lo actualiza.
@@ -848,7 +867,9 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     size="md"
                     type="button"
                     onClick={() => (onParaDespues ? onParaDespues() : onSiguiente())}
-                    disabled={isLast || !canGoNext}
+                    // Permitir "Para después" también en la última factura.
+                    // Solo deshabilitamos si NO hay handler y no podemos avanzar.
+                    disabled={Boolean(!onParaDespues && (isLast || !canGoNext))}
                     className="px-4 py-2 text-sm font-bold whitespace-nowrap"
                   >
                     PARA DESPUÉS

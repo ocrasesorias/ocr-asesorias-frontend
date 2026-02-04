@@ -76,6 +76,17 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: error.message || 'Error guardando campos' }, { status: 500 })
     }
 
+    // Estado: ready (validada)
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status: 'ready', error_message: null })
+        .eq('id', invoiceId)
+        .eq('org_id', orgId)
+    } catch {
+      // noop (no bloqueamos la validación por esto)
+    }
+
     return NextResponse.json({ success: true, fields: data }, { status: 200 })
   } catch (error) {
     console.error('Error inesperado en PUT /api/invoices/[id]/fields:', error)

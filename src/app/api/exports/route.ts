@@ -49,6 +49,7 @@ type InvoiceFieldsRow = {
 
 type InvoiceWithFieldsRow = {
   id: string
+  org_id: string
   invoice_fields: InvoiceFieldsRow | InvoiceFieldsRow[] | null
 }
 
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
       .select(
         `
         id,
+        org_id,
         invoice_fields (
           supplier_name,
           supplier_tax_id,
@@ -117,7 +119,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message || 'Error cargando facturas' }, { status: 500 })
     }
 
-    const rows: ExportRow[] = ((data || []) as InvoiceWithFieldsRow[]).map((r) => {
+    const invoiceRows = (data || []) as InvoiceWithFieldsRow[]
+    const usedOrgIds = Array.from(new Set(invoiceRows.map((r) => String(r.org_id || '')).filter(Boolean)))
+    if (usedOrgIds.length !== 1) {
+      return NextResponse.json(
+        { error: 'Las facturas seleccionadas pertenecen a varias organizaciones' },
+        { status: 400 }
+      )
+    }
+
+    // Preferencia desde BD (a nivel de organización). Default ON.
+    let uppercaseNamesAddresses = true
+    try {
+      const { data: orgPref } = await db
+        .from('organizations')
+        .select('uppercase_names_addresses')
+        .eq('id', usedOrgIds[0])
+        .maybeSingle()
+      const orgPrefObj = orgPref && typeof orgPref === 'object' ? (orgPref as Record<string, unknown>) : null
+      const v = orgPrefObj?.uppercase_names_addresses
+      if (typeof v === 'boolean') uppercaseNamesAddresses = v
+    } catch {
+      // noop
+    }
+
+    // Permitir override por request (opcional)
+    if (body && typeof body === 'object' && typeof (body as Record<string, unknown>)?.uppercase_names_addresses === 'boolean') {
+      uppercaseNamesAddresses = (body as Record<string, unknown>).uppercase_names_addresses as boolean
+    }
+
+    const rows: ExportRow[] = invoiceRows.map((r) => {
       const f = Array.isArray(r.invoice_fields) ? r.invoice_fields[0] : r.invoice_fields
       return { invoice_id: r.id, ...(f || {}) }
     })
@@ -144,7 +175,8 @@ export async function POST(request: Request) {
       ...rows.map((r) => {
         const invoiceNumber = (r.invoice_number as string | null) || ''
         const invoiceDate = formatDateDDMMYYYY(r.invoice_date)
-        const name = (r.supplier_name as string | null) || ''
+        const rawName = (r.supplier_name as string | null) || ''
+        const name = uppercaseNamesAddresses ? rawName.toLocaleUpperCase('es-ES') : rawName
         const nif = (r.supplier_tax_id as string | null) || ''
         const vatRate = formatNumberES(r.vat_rate)
         const base = formatNumberES(r.base_amount)

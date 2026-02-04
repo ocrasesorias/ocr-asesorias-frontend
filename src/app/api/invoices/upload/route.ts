@@ -123,6 +123,8 @@ export async function POST(request: Request) {
         mime_type: contentType || null,
         file_size_bytes: file.size ?? null,
         uploaded_by: user.id,
+        status: 'uploaded',
+        error_message: null,
       })
       .select()
       .single()
@@ -162,6 +164,12 @@ export async function POST(request: Request) {
 
     if (shouldExtract && extractorUrl) {
       try {
+        // Estado: processing
+        await supabase
+          .from('invoices')
+          .update({ status: 'processing', error_message: null })
+          .eq('id', invoiceId)
+
         const fd = new FormData()
         fd.append('file', file)
         const tipoNorm = typeof tipo === 'string' ? tipo.trim().toUpperCase() : ''
@@ -176,7 +184,10 @@ export async function POST(request: Request) {
 
         if (!resp.ok || !json?.success) {
           const msg = json?.detail || json?.error || 'Error en extracción'
-          await supabase.from('invoices').update({ error_message: String(msg) }).eq('id', invoiceId)
+          await supabase
+            .from('invoices')
+            .update({ status: 'error', error_message: String(msg) })
+            .eq('id', invoiceId)
         } else {
           const factura = json?.factura ?? json
           extraction = factura
@@ -232,11 +243,20 @@ export async function POST(request: Request) {
             },
             { onConflict: 'invoice_id' }
           )
+
+          // Estado: needs_review (pendiente de validación)
+          await supabase
+            .from('invoices')
+            .update({ status: 'needs_review', error_message: null })
+            .eq('id', invoiceId)
         }
       } catch (e) {
         await supabase
           .from('invoices')
-          .update({ error_message: `Error extracción: ${e instanceof Error ? e.message : 'unknown'}` })
+          .update({
+            status: 'error',
+            error_message: `Error extracción: ${e instanceof Error ? e.message : 'unknown'}`,
+          })
           .eq('id', invoiceId)
       }
     }

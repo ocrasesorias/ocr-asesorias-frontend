@@ -14,6 +14,8 @@ type UploadInvoiceRow = {
   storage_path: string
   original_filename: string | null
   mime_type: string | null
+  status?: string | null
+  error_message?: string | null
   invoice_extractions?: Array<{
     raw_json: unknown
     created_at: string
@@ -114,42 +116,93 @@ function toNumLoose(value: unknown): number | null {
   return null
 }
 
-type ExtractedIvaLine = { base: number | null; porcentaje: number | null; iva: number | null }
+type ExtractedIvaLine = {
+  base: number | null
+  porcentaje: number | null
+  iva: number | null
+  recargoPorcentaje: number | null
+  recargo: number | null
+}
+
+function recargoPctForIvaPct(pct: number | null): number | null {
+  if (pct === null || !Number.isFinite(pct)) return null
+  if (Math.abs(pct - 21) < 0.01) return 5.2
+  if (Math.abs(pct - 10) < 0.01) return 1.4
+  if (Math.abs(pct - 4) < 0.01) return 0.5
+  return null
+}
 
 function extractIvaLinesFromExtraction(ex: Record<string, unknown> | null): ExtractedIvaLine[] {
   const raw = ex?.ivas
   if (!Array.isArray(raw)) return []
 
   const out: ExtractedIvaLine[] = []
+  const exObj = ex && typeof ex === 'object' ? (ex as Record<string, unknown>) : null
+  const topHasRecargo =
+    exObj?.recargo_equivalencia === true || (toNumLoose(exObj?.recargo_equivalencia_importe) || 0) > 0
+
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
     const it = item as Record<string, unknown>
     const base = toNumLoose(it.base_imponible ?? it.base)
     const porcentaje = toNumLoose(it.porcentaje_iva ?? it.porcentaje ?? it.tipo)
     const iva = toNumLoose(it.iva_importe ?? it.iva ?? it.cuota ?? it.cuota_iva)
-    if (base === null && porcentaje === null && iva === null) continue
-    out.push({ base, porcentaje, iva })
+    const recargoPorcentaje = toNumLoose(
+      it.porcentaje_recargo ??
+        it.recargo_porcentaje ??
+        it.porcentaje_recargo_equivalencia ??
+        it.recargo_equivalencia_porcentaje
+    )
+    const recargo = toNumLoose(
+      it.recargo_importe ??
+        it.recargo ??
+        it.importe_recargo ??
+        it.cuota_recargo ??
+        it.recargo_equivalencia_importe
+    )
+    if (base === null && porcentaje === null && iva === null && recargoPorcentaje === null && recargo === null) continue
+    out.push({ base, porcentaje, iva, recargoPorcentaje, recargo })
   }
 
+  const hasAnyRecargo =
+    topHasRecargo ||
+    out.some((l) => (l.recargoPorcentaje || 0) > 0 || (l.recargo || 0) > 0)
+
   // Consolidar por porcentaje (evita duplicados)
-  const merged = new Map<number, { base: number; iva: number }>()
+  const merged = new Map<number, { base: number; iva: number; recargo: number; recPct: number | null }>()
   for (const l of out) {
     const pct = l.porcentaje
     if (pct === null || !Number.isFinite(pct)) continue
     const key = Math.round(pct * 100) / 100
-    const cur = merged.get(key) || { base: 0, iva: 0 }
+    const cur = merged.get(key) || { base: 0, iva: 0, recargo: 0, recPct: null as number | null }
     merged.set(key, {
       base: cur.base + (l.base ?? 0),
       iva: cur.iva + (l.iva ?? 0),
+      recargo: cur.recargo + (l.recargo ?? 0),
+      recPct:
+        cur.recPct ??
+        (typeof l.recargoPorcentaje === 'number' && Number.isFinite(l.recargoPorcentaje) ? l.recargoPorcentaje : null),
     })
   }
 
   const result: ExtractedIvaLine[] = []
   for (const [pct, vals] of merged.entries()) {
+    const recPct =
+      typeof vals.recPct === 'number' && Number.isFinite(vals.recPct)
+        ? vals.recPct
+        : hasAnyRecargo
+          ? recargoPctForIvaPct(pct)
+          : null
+    let recAmount = Math.round(vals.recargo * 100) / 100
+    if (hasAnyRecargo && (recAmount || 0) === 0 && (vals.base || 0) > 0 && recPct) {
+      recAmount = Math.round(((vals.base * recPct) / 100) * 100) / 100
+    }
     result.push({
       porcentaje: pct,
       base: Math.round(vals.base * 100) / 100,
       iva: Math.round(vals.iva * 100) / 100,
+      recargoPorcentaje: recPct,
+      recargo: hasAnyRecargo ? recAmount : null,
     })
   }
 
@@ -198,6 +251,20 @@ function applyExtractedIvasToLineas(params: {
     if (overwrite || !cur.porcentajeIva?.trim()) cur.porcentajeIva = String(pct)
     if (l.base !== null && (overwrite || !cur.base?.trim())) cur.base = String(l.base)
     if (l.iva !== null && (overwrite || !cur.cuotaIva?.trim())) cur.cuotaIva = String(l.iva)
+    if (
+      l.recargoPorcentaje !== null &&
+      Number.isFinite(l.recargoPorcentaje) &&
+      (overwrite || !cur.porcentajeRecargo?.trim() || cur.porcentajeRecargo.trim() === '0')
+    ) {
+      cur.porcentajeRecargo = String(l.recargoPorcentaje)
+    }
+    if (
+      l.recargo !== null &&
+      Number.isFinite(l.recargo) &&
+      (overwrite || !cur.cuotaRecargo?.trim() || cur.cuotaRecargo.trim() === '0' || cur.cuotaRecargo.trim() === '0.00')
+    ) {
+      cur.cuotaRecargo = String(l.recargo)
+    }
     lineas[idx] = cur
   }
 
@@ -314,8 +381,12 @@ export default function ValidarUploadPage() {
   const [clienteNombre, setClienteNombre] = useState<string>('')
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
 
+  const viewParam = (searchParams.get('view') || '').toLowerCase()
+  const viewMode: 'pending' | 'all' = viewParam === 'all' ? 'all' : 'pending'
+
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [uppercasePref, setUppercasePref] = useState(true)
 
   const statusStats = useMemo(() => {
     const total = invoiceRows.length
@@ -344,6 +415,12 @@ export default function ValidarUploadPage() {
     const percent = total > 0 ? Math.round((validated / total) * 100) : 0
     return { total, validated, percent }
   }, [invoiceRows, validatedByInvoiceId])
+
+  const pendingInvoiceIds = useMemo(() => {
+    return invoiceRows.map((i) => i.id).filter((id) => !validatedByInvoiceId[id])
+  }, [invoiceRows, validatedByInvoiceId])
+
+  // Si entramos en modo "solo pendientes" y no queda ninguna, mostramos pantalla de subida completada.
 
   const allValidated = useMemo(() => {
     return validatedStats.total > 0 && validatedStats.validated >= validatedStats.total
@@ -399,6 +476,22 @@ export default function ValidarUploadPage() {
     return need > 0 && prefixDoneCount >= need
   }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
 
+  // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
+    if (viewMode !== 'pending') return
+    const ids = invoiceRows.map((i) => i.id)
+    const maxIdx = Math.max(-1, unlockedMaxIndex)
+    for (let idx = 0; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id) continue
+      if (!validatedByInvoiceId[id]) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+  }, [invoiceRows, unlockedMaxIndex, validatedByInvoiceId, viewMode])
+
   useEffect(() => {
     // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
     setToastConfig({ position: 'top-center', maxToasts: 1 })
@@ -434,6 +527,19 @@ export default function ValidarUploadPage() {
         if (!resp.ok) throw new Error(data?.error || 'Error cargando la subida')
 
         const upload = data.upload
+        const uploadOrgId = typeof upload?.org_id === 'string' ? upload.org_id : null
+        if (uploadOrgId) {
+          try {
+            const prefResp = await fetch(`/api/organizations/${encodeURIComponent(uploadOrgId)}/preferences`)
+            const prefJson = await prefResp.json().catch(() => null)
+            if (prefResp.ok) {
+              const v = prefJson?.uppercase_names_addresses
+              setUppercasePref(typeof v === 'boolean' ? v : true)
+            }
+          } catch {
+            // noop: default true
+          }
+        }
         const uploadTipo = String(upload?.tipo || '').toLowerCase()
         const tipoLocal = (uploadTipo === 'gasto' || uploadTipo === 'ingreso' ? uploadTipo : 'gasto') as
           | 'gasto'
@@ -483,6 +589,8 @@ export default function ValidarUploadPage() {
         const visRec: Record<string, true> = {}
         for (const inv of invoices) {
           if (validatedSet.has(inv.id)) vRec[inv.id] = true
+          // Fuente de verdad: si está validada en BD, marcamos como validada aquí.
+          if (typeof inv.status === 'string' && inv.status === 'ready') vRec[inv.id] = true
           if (deferredSet.has(inv.id)) dRec[inv.id] = true
           if (visitedSet.has(inv.id)) visRec[inv.id] = true
         }
@@ -494,6 +602,7 @@ export default function ValidarUploadPage() {
         const initialStatus: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {}
         for (const inv of invoices) {
           const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
+          const stDb = typeof inv.status === 'string' ? inv.status : null
           const latestEx = getLatestExtraction(inv)
           const hasFields = Boolean(
             f?.supplier_name ||
@@ -514,7 +623,18 @@ export default function ValidarUploadPage() {
           const exHasIvas = Array.isArray(exIvasValue) && exIvasValue.length > 0
           const needsReextract = Boolean(vatRateN === 0 && (vatAmountN || 0) > 0 && !exHasIvas)
 
-          initialStatus[inv.id] = needsReextract ? 'idle' : hasFields || hasExtraction ? 'ready' : 'idle'
+          initialStatus[inv.id] =
+            stDb === 'error'
+              ? 'error'
+              : stDb === 'processing'
+                ? 'processing'
+                : stDb === 'needs_review' || stDb === 'ready'
+                  ? 'ready'
+                  : needsReextract
+                    ? 'idle'
+                    : hasFields || hasExtraction
+                      ? 'ready'
+                      : 'idle'
         }
         setInvoiceStatus(initialStatus)
         startedRef.current = {}
@@ -815,7 +935,9 @@ export default function ValidarUploadPage() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            supplier_name: factura.proveedor.nombre || null,
+            supplier_name:
+              (uppercasePref ? String(factura.proveedor.nombre || '').toLocaleUpperCase('es-ES') : factura.proveedor.nombre) ||
+              null,
             supplier_tax_id: factura.proveedor.cif || null,
             invoice_number: factura.factura.numero || null,
             invoice_date: toISODate(factura.factura.fecha) || null,
@@ -890,14 +1012,51 @@ export default function ValidarUploadPage() {
 
   const handleParaDespues = () => {
     const invoiceId = facturas[facturaActual]?.archivo?.invoiceId
+    const nextDeferred = invoiceId ? { ...deferredByInvoiceId, [invoiceId]: true as const } : deferredByInvoiceId
+
     if (invoiceId && !validatedByInvoiceId[invoiceId]) {
-      setDeferredByInvoiceId((prev) => {
-        const next = { ...prev, [invoiceId]: true as const }
-        persistIdSet(`upload:${uploadId}:deferredIds`, next)
-        return next
+      setDeferredByInvoiceId(() => {
+        persistIdSet(`upload:${uploadId}:deferredIds`, nextDeferred)
+        return nextDeferred
       })
+      // Persistir estado en BD (needs_review). Best-effort.
+      void fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'needs_review' }),
+      }).catch(() => null)
     }
-    handleSiguiente()
+
+    // Si no podemos avanzar (última del bloque o última total), NO mostramos el aviso del bloque.
+    // En su lugar saltamos a la primera pendiente dentro del bloque ya desbloqueado.
+    const ids = invoiceRows.map((i) => i.id)
+    const maxIdx = Math.max(-1, unlockedMaxIndex)
+
+    const isPending = (id: string) => !validatedByInvoiceId[id]
+    const isDeferred = (id: string) => Boolean(nextDeferred[id])
+
+    // 1) Prioridad: pendientes "para después" (incluye las ya marcadas)
+    for (let idx = 0; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isPending(id) && isDeferred(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 2) Si no hay, saltar a la primera pendiente normal dentro del bloque
+    for (let idx = 0; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isPending(id) && !isDeferred(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 3) No hay ninguna más pendiente accesible: abrimos modal de finalización/exportación
+    setIsFinishedModalOpen(true)
   }
 
   const jumpToIndex = (idx: number) => {
@@ -906,10 +1065,30 @@ export default function ValidarUploadPage() {
       showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
       return
     }
+    const id = invoiceRows[idx]?.id
+    if (viewMode === 'pending' && id && validatedByInvoiceId[id]) {
+      showInfo('Esta factura ya está validada. Cambia a "Ver todas" para revisarla.')
+      return
+    }
     setFacturaActual(idx)
   }
 
   const handleSiguiente = () => {
+    if (viewMode === 'pending') {
+      const ids = invoiceRows.map((i) => i.id)
+      const maxIdx = Math.max(-1, unlockedMaxIndex)
+      for (let idx = facturaActual + 1; idx <= maxIdx; idx += 1) {
+        const id = ids[idx]
+        if (!id) continue
+        if (!validatedByInvoiceId[id]) {
+          setFacturaActual(idx)
+          return
+        }
+      }
+      setIsFinishedModalOpen(true)
+      return
+    }
+
     const next = facturaActual + 1
     if (next > unlockedMaxIndex) {
       showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
@@ -919,8 +1098,31 @@ export default function ValidarUploadPage() {
   }
 
   const handleAnterior = () => {
+    if (viewMode === 'pending') {
+      const ids = invoiceRows.map((i) => i.id)
+      for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
+        const id = ids[idx]
+        if (!id) continue
+        if (!validatedByInvoiceId[id]) {
+          setFacturaActual(idx)
+          return
+        }
+      }
+      return
+    }
     if (facturaActual > 0) setFacturaActual(facturaActual - 1)
   }
+
+  const hasPrevPending = useMemo(() => {
+    if (viewMode !== 'pending') return facturaActual > 0
+    const ids = invoiceRows.map((i) => i.id)
+    for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
+      const id = ids[idx]
+      if (!id) continue
+      if (!validatedByInvoiceId[id]) return true
+    }
+    return false
+  }, [facturaActual, invoiceRows, validatedByInvoiceId, viewMode])
 
   const handleGenerarExport = async () => {
     if (validatedInvoiceIds.length === 0) {
@@ -934,7 +1136,10 @@ export default function ValidarUploadPage() {
       const resp = await fetch('/api/exports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice_ids: validatedInvoiceIds, program }),
+        body: JSON.stringify({
+          invoice_ids: validatedInvoiceIds,
+          program,
+        }),
       })
       const data = await resp.json()
       if (!resp.ok) throw new Error(data?.error || 'Error generando export')
@@ -984,6 +1189,22 @@ export default function ValidarUploadPage() {
           <p className="text-foreground-secondary mb-6">Esta subida no contiene facturas.</p>
           <Button variant="primary" onClick={() => router.push('/dashboard')}>
             Volver al Dashboard
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (viewMode === 'pending' && pendingInvoiceIds.length === 0) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-bold text-foreground mb-3">No hay facturas pendientes</h2>
+          <p className="text-foreground-secondary mb-6">
+            Esta subida ya está completada (todas las facturas están validadas).
+          </p>
+          <Button variant="primary" onClick={() => router.back()}>
+            Volver
           </Button>
         </div>
       </div>
@@ -1047,7 +1268,7 @@ export default function ValidarUploadPage() {
             <button
               type="button"
               onClick={handleAnterior}
-              disabled={facturaActual === 0}
+              disabled={viewMode === 'pending' ? !hasPrevPending : facturaActual === 0}
               className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Volver a la factura anterior"
               title="Anterior"
@@ -1058,18 +1279,21 @@ export default function ValidarUploadPage() {
               <span>Anterior</span>
             </button>
 
-            <Button
-              variant="primary"
-              onClick={() => setIsFinishedModalOpen(true)}
-              disabled={validatedInvoiceIds.length === 0}
+            <span
               title={
                 validatedInvoiceIds.length === 0
                   ? 'Valida al menos una factura para exportar'
                   : `Exportar ${validatedInvoiceIds.length} facturas validadas`
               }
             >
-              Finalizar / Exportar
-            </Button>
+              <Button
+                variant="primary"
+                onClick={() => setIsFinishedModalOpen(true)}
+                disabled={validatedInvoiceIds.length === 0}
+              >
+                Finalizar / Exportar
+              </Button>
+            </span>
           </div>
         </div>
 
@@ -1077,7 +1301,9 @@ export default function ValidarUploadPage() {
         <div className="mt-3 -mx-6">
           <div className="px-6 pb-1 flex justify-end">
             <div className="text-[11px] text-slate-500 whitespace-nowrap">
-              {validatedStats.validated}/{validatedStats.total} validadas
+              {viewMode === 'pending'
+                ? `${pendingInvoiceIds.length} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''}`
+                : `${validatedStats.validated}/${validatedStats.total} validadas`}
             </div>
           </div>
           {/* Barra segmentada clicable:
@@ -1087,11 +1313,14 @@ export default function ValidarUploadPage() {
               - transparente: no visitada */}
           <div className="h-2 w-full border border-slate-200 bg-transparent overflow-hidden">
             <div className="h-full w-full flex">
-              {invoiceRows.map((inv, idx) => {
+              {(viewMode === 'pending'
+                ? invoiceRows.map((inv, allIdx) => ({ inv, allIdx })).filter(({ inv }) => !validatedByInvoiceId[inv.id])
+                : invoiceRows.map((inv, allIdx) => ({ inv, allIdx }))
+              ).map(({ inv, allIdx }, visibleIdx, arr) => {
                 const isValidated = Boolean(validatedByInvoiceId[inv.id])
                 const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated
                 const isVisited = Boolean(visitedByInvoiceId[inv.id])
-                const isCurrent = idx === facturaActual
+                const isCurrent = allIdx === facturaActual
 
                 const bgClass = isValidated
                   ? 'bg-secondary'
@@ -1105,17 +1334,17 @@ export default function ValidarUploadPage() {
                   <button
                     key={inv.id}
                     type="button"
-                    onClick={() => jumpToIndex(idx)}
+                    onClick={() => jumpToIndex(allIdx)}
                     className={[
                       'h-full flex-1 transition-colors',
                       bgClass,
-                      idx === invoiceRows.length - 1 ? '' : 'border-r border-slate-200',
+                      visibleIdx === arr.length - 1 ? '' : 'border-r border-slate-200',
                       isCurrent ? 'ring-2 ring-primary ring-inset' : '',
-                      idx > unlockedMaxIndex ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                      allIdx > unlockedMaxIndex ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                     ].join(' ')}
-                    title={`Factura ${idx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : ''}`}
-                    aria-label={`Ir a factura ${idx + 1}`}
-                    disabled={idx > unlockedMaxIndex}
+                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : ''}`}
+                    aria-label={`Ir a factura ${allIdx + 1}`}
+                    disabled={allIdx > unlockedMaxIndex}
                   />
                 )
               })}
@@ -1168,9 +1397,10 @@ export default function ValidarUploadPage() {
             <ValidarFactura
               key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
               tipo={tipoFactura}
+              uppercaseNombreDireccion={uppercasePref}
               factura={facturas[facturaActual]}
               onValidar={handleValidar}
-              onAnterior={facturaActual > 0 ? handleAnterior : undefined}
+              onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
               onSiguiente={handleSiguiente}
               onParaDespues={handleParaDespues}
               isLast={isLast}

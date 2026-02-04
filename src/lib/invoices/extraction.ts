@@ -55,7 +55,7 @@ export async function extractInvoiceAndPersist(params: {
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
-    .select('id, org_id, bucket, storage_path, original_filename, mime_type')
+    .select('id, org_id, bucket, storage_path, original_filename, mime_type, status')
     .eq('id', invoiceId)
     .single()
 
@@ -64,6 +64,30 @@ export async function extractInvoiceAndPersist(params: {
   }
   if (invoice.org_id !== orgId) {
     return { ok: false as const, error: 'Sin permisos' }
+  }
+
+  const invoiceObj = invoice && typeof invoice === 'object' ? (invoice as Record<string, unknown>) : null
+  const currentStatus = typeof invoiceObj?.status === 'string' ? invoiceObj.status : null
+
+  const fail = async (msg: string) => {
+    try {
+      // No degradamos una factura ya validada
+      if (currentStatus !== 'ready') {
+        await supabase.from('invoices').update({ status: 'error', error_message: msg }).eq('id', invoiceId)
+      }
+    } catch {
+      // noop
+    }
+    return { ok: false as const, error: msg }
+  }
+
+  // Estado: processing (si no está ya validada)
+  if (currentStatus !== 'ready') {
+    try {
+      await supabase.from('invoices').update({ status: 'processing', error_message: null }).eq('id', invoiceId)
+    } catch {
+      // noop
+    }
   }
 
   // Backend ahora soporta PDF con texto, PDF escaneado (OCR) e imágenes (OCR).
@@ -76,12 +100,12 @@ export async function extractInvoiceAndPersist(params: {
   )
 
   if (!signedUrl) {
-    return { ok: false as const, error: 'No se pudo obtener URL firmada del archivo' }
+    return await fail('No se pudo obtener URL firmada del archivo')
   }
 
   const fileResp = await fetch(signedUrl)
   if (!fileResp.ok) {
-    return { ok: false as const, error: `No se pudo descargar el archivo (${fileResp.status})` }
+    return await fail(`No se pudo descargar el archivo (${fileResp.status})`)
   }
 
   const arrayBuf = await fileResp.arrayBuffer()
@@ -122,8 +146,7 @@ export async function extractInvoiceAndPersist(params: {
       facturaErr ||
       json?.message ||
       'Error en extracción'
-    await supabase.from('invoices').update({ error_message: String(msg) }).eq('id', invoiceId)
-    return { ok: false as const, error: String(msg) }
+    return await fail(String(msg))
   }
 
   const factura = json?.factura ?? json
@@ -192,7 +215,19 @@ export async function extractInvoiceAndPersist(params: {
     .single()
 
   if (fieldsError) {
-    return { ok: false as const, error: fieldsError.message || 'Error guardando campos' }
+    return await fail(fieldsError.message || 'Error guardando campos')
+  }
+
+  // Estado: needs_review (si no está ya validada)
+  if (currentStatus !== 'ready') {
+    try {
+      await supabase
+        .from('invoices')
+        .update({ status: 'needs_review', error_message: null })
+        .eq('id', invoiceId)
+    } catch {
+      // noop
+    }
   }
 
   return { ok: true as const, extraction: factura, fields }
