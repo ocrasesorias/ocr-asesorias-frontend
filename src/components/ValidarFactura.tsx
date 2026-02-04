@@ -272,6 +272,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       }
       
       current[keys[keys.length - 1]] = value;
+
+      // Retención: no mostramos checkbox; el estado "aplica" se deriva de si hay datos.
+      if (keys[0] === 'retencion') {
+        const r = newFactura.retencion
+        const hasAny =
+          Boolean(r.tipo) || Boolean(r.porcentaje) || Boolean(String(r.cantidad || '').trim())
+        r.aplica = hasAny
+        if (!hasAny) {
+          // Mantenerlo limpio cuando no hay retención
+          r.tipo = ''
+          r.porcentaje = ''
+          r.cantidad = ''
+        }
+      }
       return newFactura;
     });
   };
@@ -315,11 +329,33 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   // Solo necesitamos prevenir el submit en textareas
 
   const trimestres = ['Q1', 'Q2', 'Q3', 'Q4'];
-  const porcentajesRetencion = ['7%', '15%', '17%', '19%'];
-  const tiposRetencion = ['AUTÓNOMO', 'PROFESIONAL'];
+  const porcentajesRetencion = ['7%', '15%', '19%'];
+  const tiposRetencion: Array<{ value: FacturaData['retencion']['tipo']; label: string }> = [
+    { value: 'PROFESIONAL', label: 'Profesionales' },
+    { value: 'ALQUILERES', label: 'Alquileres' },
+  ]
+
+  const inferRetencionTipo = (porcentaje: string): FacturaData['retencion']['tipo'] => {
+    const p = String(porcentaje || '').replace('%', '').trim()
+    const n = Number(p.replace(',', '.'))
+    if (!Number.isFinite(n)) return ''
+    const r = Math.round(Math.abs(n))
+    // Feedback cliente:
+    // - Profesionales: 7% ó 15%
+    // - Alquileres: 19%
+    if (r === 19) return 'ALQUILERES'
+    if (r === 7 || r === 15) return 'PROFESIONAL'
+    return ''
+  }
+
+  const isTipoCompatible = (tipoRet: FacturaData['retencion']['tipo'], porcentaje: string): boolean => {
+    const inferred = inferRetencionTipo(porcentaje)
+    // Si no podemos inferir, no imponemos compatibilidad
+    if (!inferred) return true
+    return tipoRet === inferred
+  }
 
   const contraparteTitle = tipo === 'ingreso' ? 'CLIENTE' : 'PROVEEDOR'
-  const subcuentaLabel = tipo === 'ingreso' ? 'SUBCUENTA VENTA' : 'SUBCUENTA'
   const subcuentas = tipo === 'ingreso'
     ? [
         { value: '700', label: '700 - Ventas' },
@@ -616,7 +652,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
 
                 <div className="mt-2 border-t border-slate-100 pt-2">
-                  <FieldRow label={subcuentaLabel} widthClass="w-20">
+                  <FieldRow label="SUBCUENTA" widthClass="w-20">
                     <select
                       value={factura.subcuentaGasto}
                       onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
@@ -747,80 +783,63 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
 
                 <div className="mt-2 border-t border-slate-100 pt-2">
-                  <div className="grid grid-cols-4 gap-2 items-stretch border border-gray-200 rounded-lg p-1">
-                  {/* RETENCIÓN + Sí (centrado) */}
-                  <div className="flex flex-col items-center justify-center text-center gap-1">
-                    <div className="text-xs font-medium text-foreground">RETENCIÓN</div>
-                    <label className="inline-flex items-center justify-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={factura.retencion.aplica}
-                        onChange={(e) => handleChange('retencion.aplica', e.target.checked)}
-                        className="mr-0.5"
-                      />
-                      <span className="text-xs">Sí</span>
-                    </label>
+                  <div className="grid grid-cols-[5.5rem_1fr_6rem_1fr] gap-2 items-center border border-gray-200 rounded-lg p-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Retención
                   </div>
 
-                  {/* TIPO (centrado) */}
-                  <div className="flex flex-col items-center justify-center text-center gap-1 min-w-0">
-                    <div className="text-xs font-medium text-foreground">TIPO</div>
-                    <select
-                      value={factura.retencion.tipo}
-                      onChange={(e) => handleChange('retencion.tipo', e.target.value)}
-                      disabled={!factura.retencion.aplica}
-                      className="w-full max-w-[220px] px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">-</option>
-                      {tiposRetencion.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={factura.retencion.tipo}
+                    onChange={(e) => handleChange('retencion.tipo', e.target.value)}
+                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">Tipo…</option>
+                    {tiposRetencion.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
 
-                  {/* % (centrado) */}
-                  <div className="flex flex-col items-center justify-center text-center gap-1 min-w-0">
-                    <div className="text-xs font-medium text-foreground">%</div>
-                    <select
-                      value={factura.retencion.porcentaje}
-                      onChange={(e) => handleChange('retencion.porcentaje', e.target.value)}
-                      disabled={!factura.retencion.aplica}
-                      className="w-full max-w-[220px] px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                      <option value="">-</option>
-                      {porcentajesRetencion.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={factura.retencion.porcentaje}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      handleChange('retencion.porcentaje', v)
+                      const inferred = inferRetencionTipo(v)
+                      if (!inferred) return
+                      if (!factura.retencion.tipo || !isTipoCompatible(factura.retencion.tipo, v)) {
+                        handleChange('retencion.tipo', inferred)
+                      }
+                    }}
+                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">%…</option>
+                    {porcentajesRetencion.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
 
-                  {/* CANT. (centrado) */}
-                  <div className="flex flex-col items-center justify-center text-center gap-1 min-w-0">
-                    <div className="text-xs font-medium text-foreground">CANT.</div>
-                    <input
-                      type="text"
-                      value={moneyValue('retencion:cantidad', factura.retencion.cantidad)}
-                      onChange={(e) => {
-                        const valorLimpio = e.target.value.replace('€', '').trim()
-                        handleChange('retencion.cantidad', valorLimpio)
-                      }}
-                      onFocus={() => setMoneyFocusKey('retencion:cantidad')}
-                      onBlur={() => {
-                        setMoneyFocusKey(null)
-                        setFactura((prev) => ({
-                          ...prev,
-                          retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
-                        }))
-                      }}
-                      disabled={!factura.retencion.aplica}
-                      className="w-full max-w-[220px] px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      placeholder="0.00€"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={moneyValue('retencion:cantidad', factura.retencion.cantidad)}
+                    onChange={(e) => {
+                      const valorLimpio = e.target.value.replace('€', '').trim()
+                      handleChange('retencion.cantidad', valorLimpio)
+                    }}
+                    onFocus={() => setMoneyFocusKey('retencion:cantidad')}
+                    onBlur={() => {
+                      setMoneyFocusKey(null)
+                      setFactura((prev) => ({
+                        ...prev,
+                        retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
+                      }))
+                    }}
+                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    placeholder="Importe…"
+                  />
                 </div>
               </div>
               </div>

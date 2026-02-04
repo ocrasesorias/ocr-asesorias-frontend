@@ -96,13 +96,24 @@ function toRetencionPorcentaje(pct: number | null): RetencionPorcentaje {
   const r = Math.round(Math.abs(pct))
   if (r === 7) return '7%'
   if (r === 15) return '15%'
-  if (r === 17) return '17%'
   if (r === 19) return '19%'
   return ''
 }
 
-function defaultRetencionTipo(hasRetencion: boolean): RetencionTipo {
-  return hasRetencion ? 'PROFESIONAL' : ''
+function inferRetencionTipoFromPct(pct: number | null): RetencionTipo {
+  if (pct === null) return ''
+  const r = Math.round(Math.abs(pct))
+  // Feedback cliente:
+  // - Profesionales: 7% ó 15%
+  // - Alquileres: 19%
+  if (r === 19) return 'ALQUILERES'
+  if (r === 7 || r === 15) return 'PROFESIONAL'
+  return ''
+}
+
+function defaultRetencionTipo(hasRetencion: boolean, pct: number | null): RetencionTipo {
+  if (!hasRetencion) return ''
+  return inferRetencionTipoFromPct(pct) || 'PROFESIONAL'
 }
 
 function toNumLoose(value: unknown): number | null {
@@ -340,7 +351,7 @@ function toFacturaData(
       aplica: hasRetencion,
       porcentaje: toRetencionPorcentaje(exRetPct),
       // No tenemos tipo en extracción; por defecto "PROFESIONAL" si hay retención
-      tipo: defaultRetencionTipo(hasRetencion),
+      tipo: defaultRetencionTipo(hasRetencion, exRetPct),
       cantidad: exRetImp !== null ? String(Math.abs(exRetImp)) : '',
     },
     lineas,
@@ -755,6 +766,10 @@ export default function ValidarUploadPage() {
     }
     if (!next.retencion.cantidad && retImp !== null) {
       next.retencion.cantidad = String(retImp)
+    }
+    if (!next.retencion.tipo && next.retencion.aplica) {
+      // Si la extracción nos dio % y no hay tipo, lo inferimos.
+      next.retencion.tipo = inferRetencionTipoFromPct(retPct) || next.retencion.tipo
     }
 
     return next
