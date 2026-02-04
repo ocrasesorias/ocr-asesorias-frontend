@@ -1,23 +1,18 @@
 import React from 'react';
 
-interface ButtonProps {
-  children: React.ReactNode;
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'outline';
   size?: 'sm' | 'md' | 'lg';
-  className?: string;
-  onClick?: () => void;
-  type?: 'button' | 'submit' | 'reset';
-  disabled?: boolean;
-}
+};
 
 export const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
   size = 'md',
   className = '',
-  onClick,
   type = 'button',
-  disabled = false
+  disabled = false,
+  ...rest
 }) => {
   const baseClasses = 'font-semibold rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
   
@@ -43,8 +38,8 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       className={classes}
-      onClick={onClick}
       disabled={disabled}
+      {...rest}
     >
       {children}
     </button>
