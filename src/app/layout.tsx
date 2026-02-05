@@ -1,7 +1,9 @@
+import { Providers } from "@/app/providers";
 import type { Metadata, Viewport } from "next";
 import { Lexend } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/app/providers";
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -32,6 +34,8 @@ export default function RootLayout({
         className={`${lexend.variable} antialiased font-light`}
       >
         <Providers>{children}</Providers>
+        <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
