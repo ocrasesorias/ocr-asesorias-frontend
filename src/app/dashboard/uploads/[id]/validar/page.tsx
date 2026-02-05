@@ -391,6 +391,7 @@ export default function ValidarUploadPage() {
   const startedRef = useRef<Record<string, true>>({})
   const [clienteNombre, setClienteNombre] = useState<string>('')
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
+  const [hasInitializedPosition, setHasInitializedPosition] = useState(false)
 
   const viewParam = (searchParams.get('view') || '').toLowerCase()
   const viewMode: 'pending' | 'all' = viewParam === 'all' ? 'all' : 'pending'
@@ -472,6 +473,11 @@ export default function ValidarUploadPage() {
     // Importante: el último bloque puede tener 1..5 facturas (si total no es múltiplo de 6).
     if (invoiceRows.length === 0) return -1
     const total = invoiceRows.length
+
+    // UX: si hay 6 o menos facturas, permitimos navegar por todas aunque aún se estén procesando.
+    // (ver PDF y decidir validar/para después sin que te "rebote" al inicio).
+    if (total <= BLOCK_SIZE) return total - 1
+
     let unlockedCount = 0
     for (let start = 0; start < total; start += BLOCK_SIZE) {
       const end = Math.min(total, start + BLOCK_SIZE) // fin exclusivo del bloque
@@ -488,7 +494,9 @@ export default function ValidarUploadPage() {
   }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
 
   // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
+  // Este efecto solo actúa una vez (tras cargar invoiceRows) para no "robar" el foco tras cada acción manual.
   useEffect(() => {
+    if (hasInitializedPosition) return
     if (invoiceRows.length === 0) return
     if (viewMode !== 'pending') return
     const ids = invoiceRows.map((i) => i.id)
@@ -498,10 +506,16 @@ export default function ValidarUploadPage() {
       if (!id) continue
       if (!validatedByInvoiceId[id]) {
         setFacturaActual(idx)
+        setHasInitializedPosition(true)
         return
       }
     }
-  }, [invoiceRows, unlockedMaxIndex, validatedByInvoiceId, viewMode])
+  }, [invoiceRows.length, unlockedMaxIndex, validatedByInvoiceId, viewMode, hasInitializedPosition])
+
+  // Resetear flag cuando el usuario cambia viewMode (permite reposicionamiento en ese caso).
+  useEffect(() => {
+    setHasInitializedPosition(false)
+  }, [viewMode])
 
   useEffect(() => {
     // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
@@ -1049,22 +1063,70 @@ export default function ValidarUploadPage() {
 
     const isPending = (id: string) => !validatedByInvoiceId[id]
     const isDeferred = (id: string) => Boolean(nextDeferred[id])
+    const isVisited = (id: string) => Boolean(visitedByInvoiceId[id])
+    const isUndecided = (id: string) => isPending(id) && !isDeferred(id)
+    const isPendingDeferred = (id: string) => isPending(id) && isDeferred(id)
 
-    // 1) Prioridad: pendientes "para después" (incluye las ya marcadas)
-    for (let idx = 0; idx <= maxIdx; idx += 1) {
+    // Regla UX: al marcar "Para después" queremos ir a la siguiente factura NO decidida
+    // (ni validada ni para después). Solo cuando no quede ninguna, recorremos las "para después".
+    const curIdx = facturaActual
+
+    // 0) Siguiente PENDIENTE y NO visitada (primer pase).
+    // Esto evita volver a facturas ya vistas/diferidas si aún queda alguna sin pasar.
+    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isPending(id) && isDeferred(id)) {
+      if (!isVisited(id) && isPending(id)) {
         setFacturaActual(idx)
         return
       }
     }
 
-    // 2) Si no hay, saltar a la primera pendiente normal dentro del bloque
+    // 1) Primera PENDIENTE y NO visitada (desde el inicio)
     for (let idx = 0; idx <= maxIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isPending(id) && !isDeferred(id)) {
+      if (!isVisited(id) && isPending(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 2) Siguiente NO decidida (hacia delante)
+    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isUndecided(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 3) Primera NO decidida (desde el inicio)
+    for (let idx = 0; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isUndecided(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 4) Si no hay NO decididas, recorrer "para después" (hacia delante)
+    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isPendingDeferred(id)) {
+        setFacturaActual(idx)
+        return
+      }
+    }
+
+    // 5) O desde el inicio
+    for (let idx = 0; idx <= maxIdx; idx += 1) {
+      const id = ids[idx]
+      if (!id || id === invoiceId) continue
+      if (isPendingDeferred(id)) {
         setFacturaActual(idx)
         return
       }
