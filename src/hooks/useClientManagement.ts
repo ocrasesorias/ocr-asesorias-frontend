@@ -1,0 +1,247 @@
+import { useState, useCallback, useEffect } from 'react';
+import { useToast } from '@/contexts/ToastContext';
+import { translateError } from '@/utils/errorMessages';
+import { Cliente } from '@/types/dashboard';
+
+/**
+ * Hook para gestionar clientes (CRUD completo)
+ */
+export function useClientManagement(orgId: string | null) {
+  const { showError, showSuccess } = useToast();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false);
+  const [nuevoCliente, setNuevoCliente] = useState({
+    name: '',
+    tax_id: '',
+    preferred_income_account: '700',
+    preferred_expense_account: '600',
+  });
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [isDeleteClientModalOpen, setIsDeleteClientModalOpen] = useState(false);
+  const [clientParaEditar, setClientParaEditar] = useState<Cliente | null>(null);
+  const [clientParaEliminar, setClientParaEliminar] = useState<Cliente | null>(null);
+  const [isUpdatingClient, setIsUpdatingClient] = useState(false);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
+  const [editCliente, setEditCliente] = useState({
+    name: '',
+    tax_id: '',
+    preferred_income_account: '700',
+    preferred_expense_account: '600',
+  });
+
+  // Cargar clientes al montar
+  useEffect(() => {
+    if (!orgId) return;
+
+    const loadClients = async () => {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: clients, error: clientsError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false });
+
+      if (clientsError) {
+        console.error('Error al cargar clientes:', clientsError);
+        showError('Error al cargar los clientes');
+      } else if (clients) {
+        setClientes(clients as Cliente[]);
+      }
+    };
+
+    loadClients();
+  }, [orgId, showError]);
+
+  // Manejar cambio de cliente seleccionado
+  const handleClienteChange = useCallback((clienteId: string, onClientChange?: (clienteId: string) => void) => {
+    const cliente = clientes.find(c => c.id === clienteId);
+    setClienteSeleccionado(cliente || null);
+
+    // Persistir selección
+    if (orgId) {
+      const key = `dashboard:selectedClientId:${orgId}`;
+      if (clienteId) sessionStorage.setItem(key, clienteId);
+      else sessionStorage.removeItem(key);
+    }
+
+    // Callback externo para resetear subidas
+    if (onClientChange) {
+      onClientChange(clienteId);
+    }
+  }, [clientes, orgId]);
+
+  // Restaurar cliente seleccionado desde sessionStorage
+  useEffect(() => {
+    if (!orgId) return;
+    if (clienteSeleccionado) return;
+    if (clientes.length === 0) return;
+
+    const key = `dashboard:selectedClientId:${orgId}`;
+    const savedId = sessionStorage.getItem(key);
+    if (!savedId) return;
+
+    const exists = clientes.some(c => c.id === savedId);
+    if (exists) handleClienteChange(savedId);
+  }, [orgId, clientes, clienteSeleccionado, handleClienteChange]);
+
+  // Crear cliente
+  const handleCrearCliente = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!nuevoCliente.name.trim()) {
+      showError('El nombre del cliente es requerido');
+      return;
+    }
+
+    setIsCreatingClient(true);
+
+    try {
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: nuevoCliente.name.trim(),
+          tax_id: nuevoCliente.tax_id.trim() || null,
+          preferred_income_account: nuevoCliente.preferred_income_account || null,
+          preferred_expense_account: nuevoCliente.preferred_expense_account || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        showError(translateError(data.error || 'Error al crear el cliente'));
+        setIsCreatingClient(false);
+        return;
+      }
+
+      // Agregar el nuevo cliente a la lista
+      setClientes(prev => [data.client, ...prev]);
+
+      // Seleccionar el nuevo cliente automáticamente
+      setClienteSeleccionado(data.client);
+      if (orgId) {
+        sessionStorage.setItem(`dashboard:selectedClientId:${orgId}`, data.client.id);
+      }
+
+      // Limpiar el formulario y cerrar
+      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600' });
+      setMostrarNuevoCliente(false);
+
+      showSuccess('Cliente creado exitosamente');
+    } catch (error) {
+      console.error('Error al crear cliente:', error);
+      showError('Error al crear el cliente. Por favor, intenta de nuevo.');
+    } finally {
+      setIsCreatingClient(false);
+    }
+  };
+
+  // Abrir modal de edición
+  const openEditClient = (c: Cliente) => {
+    setClientParaEditar(c);
+    setEditCliente({
+      name: c.name || '',
+      tax_id: c.tax_id || '',
+      preferred_income_account: c.preferred_income_account || '700',
+      preferred_expense_account: c.preferred_expense_account || '600',
+    });
+    setIsEditClientModalOpen(true);
+  };
+
+  // Guardar edición de cliente
+  const handleGuardarEdicionCliente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientParaEditar) return;
+    if (!editCliente.name.trim()) {
+      showError('El nombre del cliente es requerido');
+      return;
+    }
+    setIsUpdatingClient(true);
+    try {
+      const resp = await fetch(`/api/clients/${clientParaEditar.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editCliente.name.trim(),
+          tax_id: editCliente.tax_id.trim() || null,
+          preferred_income_account: editCliente.preferred_income_account || null,
+          preferred_expense_account: editCliente.preferred_expense_account || null,
+        }),
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(data?.error || 'Error actualizando el cliente');
+
+      const updated = data?.client as Cliente;
+      setClientes((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      setClienteSeleccionado(updated);
+      showSuccess('Cliente actualizado');
+      setIsEditClientModalOpen(false);
+      setClientParaEditar(null);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error actualizando el cliente');
+    } finally {
+      setIsUpdatingClient(false);
+    }
+  };
+
+  // Confirmar eliminación de cliente
+  const handleConfirmEliminarCliente = useCallback(async () => {
+    if (!clientParaEliminar) return;
+    setIsDeletingClient(true);
+    try {
+      const resp = await fetch(`/api/clients/${clientParaEliminar.id}`, { method: 'DELETE' });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(data?.error || 'Error eliminando el cliente');
+
+      setClientes((prev) => prev.filter((c) => c.id !== clientParaEliminar.id));
+      if (clienteSeleccionado?.id === clientParaEliminar.id) setClienteSeleccionado(null);
+      showSuccess('Cliente eliminado');
+      setIsDeleteClientModalOpen(false);
+      setClientParaEliminar(null);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Error eliminando el cliente');
+    } finally {
+      setIsDeletingClient(false);
+    }
+  }, [clientParaEliminar, clienteSeleccionado?.id, showError, showSuccess]);
+
+  return {
+    clientes,
+    clienteSeleccionado,
+    mostrarNuevoCliente,
+    setMostrarNuevoCliente,
+    nuevoCliente,
+    setNuevoCliente,
+    isCreatingClient,
+    isEditModalOpen: isEditClientModalOpen,
+    editCliente,
+    setEditCliente,
+    isUpdatingClient,
+    isDeleteModalOpen: isDeleteClientModalOpen,
+    clienteParaEliminar: clientParaEliminar,
+    isDeletingClient,
+    handleClienteChange,
+    handleCrearCliente,
+    handleEditClient: openEditClient,
+    handleSaveEditClient: handleGuardarEdicionCliente,
+    handleCancelEditClient: () => {
+      setIsEditClientModalOpen(false);
+      setClientParaEditar(null);
+    },
+    handleDeleteClient: (client: Cliente) => {
+      setClientParaEliminar(client);
+      setIsDeleteClientModalOpen(true);
+    },
+    handleConfirmDeleteClient: handleConfirmEliminarCliente,
+    handleCancelDeleteClient: () => {
+      setIsDeleteClientModalOpen(false);
+      setClientParaEliminar(null);
+    },
+  };
+}
