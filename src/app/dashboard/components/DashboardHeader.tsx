@@ -1,9 +1,13 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
+import { SuggestionsModal } from './modals/SuggestionsModal';
 
 interface DashboardHeaderProps {
   organizationName: string;
@@ -20,6 +24,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const router = useRouter();
   const { showError, showSuccess } = useToast();
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -53,6 +58,29 @@ export function DashboardHeader({
             <span className="text-2xl font-bold text-primary">KontaScan</span>
           </Link>
           <nav className="flex items-center space-x-4">
+            <button
+              type="button"
+              onClick={() => setIsSuggestionsOpen(true)}
+              className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
+              aria-label="Buzón de sugerencias"
+              title="Buzón de sugerencias"
+            >
+              <span className="sr-only">Buzón de sugerencias</span>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" aria-hidden="true">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <Link
+              href="/dashboard/admin/suggestions"
+              className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
+              aria-label="Panel admin - Sugerencias"
+              title="Panel admin - Sugerencias"
+            >
+              <span className="sr-only">Panel admin</span>
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
             <Link
               href="/dashboard/preferencias"
               className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
@@ -107,6 +135,8 @@ export function DashboardHeader({
           </div>
         </div>
       </div>
+
+      <SuggestionsModal isOpen={isSuggestionsOpen} onClose={() => setIsSuggestionsOpen(false)} />
     </header>
   );
 }

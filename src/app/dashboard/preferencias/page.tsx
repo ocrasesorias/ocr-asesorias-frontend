@@ -19,6 +19,7 @@ import { Switch } from '@heroui/react';
    const [orgId, setOrgId] = useState<string | null>(null);
    const [orgName, setOrgName] = useState<string>('');
    const [uppercaseNamesAddresses, setUppercaseNamesAddresses] = useState(true);
+   const [workingQuarter, setWorkingQuarter] = useState<string>('');
    const [canEdit, setCanEdit] = useState(true);
  
    useEffect(() => {
@@ -69,6 +70,8 @@ import { Switch } from '@heroui/react';
          } else {
            const v = prefJson?.uppercase_names_addresses;
            setUppercaseNamesAddresses(typeof v === 'boolean' ? v : true);
+           const wq = prefJson?.working_quarter;
+           setWorkingQuarter(typeof wq === 'string' && /^Q[1-4]$/.test(wq) ? wq : '');
          }
        } catch (err) {
          console.error('Error cargando preferencias:', err);
@@ -88,7 +91,10 @@ import { Switch } from '@heroui/react';
        const resp = await fetch(`/api/organizations/${encodeURIComponent(orgId)}/preferences`, {
          method: 'PUT',
          headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ uppercase_names_addresses: uppercaseNamesAddresses }),
+         body: JSON.stringify({
+           uppercase_names_addresses: uppercaseNamesAddresses,
+           working_quarter: workingQuarter || null,
+         }),
        });
        const data = await resp.json().catch(() => null);
        if (!resp.ok) {
@@ -182,7 +188,38 @@ import { Switch } from '@heroui/react';
               }}
             />
            </div>
- 
+
+           <div className="mt-8 pt-6 border-t border-gray-200">
+             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+               <div className="min-w-0">
+                 <h2 className="text-lg font-semibold text-foreground">
+                   Trimestre de trabajo
+                 </h2>
+                 <p className="text-sm text-foreground-secondary mt-2">
+                   Trimestre sobre el que se están registrando facturas. Al validar, si la fecha de la factura no corresponde a este trimestre, se mostrará un aviso (no se bloquea la validación).
+                 </p>
+                 {!canEdit && (
+                   <p className="text-sm text-amber-600 mt-2">
+                     Solo el propietario puede modificar esta preferencia.
+                   </p>
+                 )}
+               </div>
+               <select
+                 value={workingQuarter}
+                 onChange={(e) => setWorkingQuarter(e.target.value)}
+                 disabled={!canEdit}
+                 className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
+                 aria-label="Trimestre de trabajo"
+               >
+                 <option value="">No definido</option>
+                 <option value="Q1">Q1 (Ene–Mar)</option>
+                 <option value="Q2">Q2 (Abr–Jun)</option>
+                 <option value="Q3">Q3 (Jul–Sep)</option>
+                 <option value="Q4">Q4 (Oct–Dic)</option>
+               </select>
+             </div>
+           </div>
+
            <div className="mt-6 flex justify-end">
              <Button
                variant="primary"

@@ -199,6 +199,18 @@ export async function POST(request: Request) {
         const tipoNorm = typeof tipo === 'string' ? tipo.trim().toUpperCase() : ''
         if (tipoNorm === 'INGRESO' || tipoNorm === 'GASTO') fd.append('tipo', tipoNorm)
 
+        // Si es GASTO, enviar CIF de la empresa (cliente contable) para que el extractor identifique al proveedor
+        if (tipoNorm === 'GASTO' && clientId) {
+          const { data: clientRow } = await supabase
+            .from('clients')
+            .select('tax_id')
+            .eq('id', clientId)
+            .eq('org_id', orgId)
+            .single()
+          const cifEmpresa = typeof clientRow?.tax_id === 'string' ? clientRow.tax_id.trim() : ''
+          if (cifEmpresa) fd.append('cif_empresa', cifEmpresa)
+        }
+
         const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
           method: 'POST',
           body: fd,

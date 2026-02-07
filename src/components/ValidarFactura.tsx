@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import Image from 'next/image';
+import { Tooltip } from '@heroui/react';
 import { FacturaData } from '@/types/factura';
+import { validarNifCif } from '@/lib/validarNifCif';
 import { Card } from './Card';
 import { Button } from './Button';
 
@@ -32,6 +34,8 @@ const FieldRow = ({
 interface ValidarFacturaProps {
   tipo?: 'gasto' | 'ingreso'
   uppercaseNombreDireccion?: boolean
+  /** Trimestre de trabajo configurado en preferencias (Q1–Q4). Si la factura no coincide, se muestra aviso. */
+  workingQuarter?: string
   factura: FacturaData;
   onValidar: (factura: FacturaData) => void;
   onAnterior?: () => void
@@ -46,6 +50,7 @@ interface ValidarFacturaProps {
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   tipo = 'gasto',
   uppercaseNombreDireccion = false,
+  workingQuarter = '',
   factura: facturaInicial,
   onValidar,
   onSiguiente,
@@ -112,9 +117,9 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   }
 
   const moneyValue = (key: string, raw: string) => {
-    // En foco: dejamos el valor "editable" (sin €), pero ya con notación ES si estaba normalizado.
-    if (moneyFocusKey === key) return normalizeEuroString(raw)
-    // Fuera de foco: mostramos siempre con miles/decimales y €.
+    // En foco: mostramos el valor en bruto para poder editar y borrar con normalidad (sin reformatear en cada tecla).
+    if (moneyFocusKey === key) return raw ?? ''
+    // Fuera de foco: mostramos con miles/decimales y €.
     const n = parseEuroNumber(raw)
     if (n === null) return raw || ''
     return formatEuroNumber(n)
@@ -320,6 +325,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (disableValidar) return
+    if (ivaVerification.hasErrors) return
+    if (cifVerification.hasErrors) return
     onValidar(factura);
     // En la última factura no intentamos avanzar (evita error de "siguiente bloque").
     if (!isLast && canGoNext) onSiguiente();
@@ -334,6 +341,39 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     { value: 'PROFESIONAL', label: 'Profesionales' },
     { value: 'ALQUILERES', label: 'Alquileres' },
   ]
+
+  // Verificación CIF/NIF: válidos según algoritmo (módulo 23 para DNI/NIE, dígito de control para CIF)
+  const cifVerification = (() => {
+    const empresaCif = (factura.empresa?.cif ?? '').trim()
+    const proveedorCif = (factura.proveedor?.cif ?? '').trim()
+    const resEmpresa = validarNifCif(empresaCif)
+    const resProveedor = validarNifCif(proveedorCif)
+    return {
+      hasErrors: !resEmpresa.valido || !resProveedor.valido,
+      empresaError: resEmpresa.valido ? undefined : resEmpresa.error,
+      proveedorError: resProveedor.valido ? undefined : resProveedor.error,
+    }
+  })()
+
+  // Verificación de operación IVA: base × (%/100) ≈ cuota (sin margen)
+  const ivaVerification = (() => {
+    const errors: number[] = []
+    for (let i = 0; i < (factura.lineas?.length || 0); i++) {
+      const l = factura.lineas[i]
+      if (!l) continue
+      const baseN = parseEuroNumber(l.base)
+      const cuotaN = parseEuroNumber(l.cuotaIva)
+      const pctRaw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
+      const pctN = Number(pctRaw)
+      if (baseN === null && cuotaN === null) continue
+      if (!Number.isFinite(pctN) || pctN < 0) continue
+      const expected = baseN !== null ? baseN * (pctN / 100) : null
+      if (expected === null || cuotaN === null) continue
+      const diff = Math.abs(cuotaN - expected)
+      if (diff > 0.002) errors.push(i)
+    }
+    return { hasErrors: errors.length > 0, errorLineIndices: errors }
+  })()
 
   const inferRetencionTipo = (porcentaje: string): FacturaData['retencion']['tipo'] => {
     const p = String(porcentaje || '').replace('%', '').trim()
@@ -488,12 +528,41 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">
                       CIF
                     </div>
-                    <input
-                      type="text"
-                      value={factura.empresa.cif}
-                      onChange={(e) => handleChange('empresa.cif', e.target.value)}
-                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    />
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={factura.empresa.cif}
+                        onChange={(e) => handleChange('empresa.cif', e.target.value)}
+                        className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
+                          cifVerification.empresaError ? 'border-red-500 bg-red-50 pr-7' : 'border-gray-200'
+                        }`}
+                        aria-invalid={Boolean(cifVerification.empresaError)}
+                        title={cifVerification.empresaError ?? undefined}
+                      />
+                      {cifVerification.empresaError && (
+                        <Tooltip
+                          content={
+                            <span className="block bg-slate-800 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                              {cifVerification.empresaError}
+                            </span>
+                          }
+                          placement="bottom"
+                          showArrow
+                          classNames={{
+                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-slate-800 data-[placement=bottom]:before:!-top-0.5',
+                          }}
+                        >
+                          <span
+                            className="absolute right-0 top-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
+                            aria-label={cifVerification.empresaError}
+                          >
+                            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
@@ -512,18 +581,41 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-7 shrink-0">
                       Tri.
                     </div>
-                    <select
-                      value={factura.empresa.trimestre}
-                      onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
-                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    >
-                      <option value="">-</option>
-                      {trimestres.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const trimestreFactura = (factura.empresa?.trimestre ?? '').trim()
+                      const trimestreConfig = (workingQuarter ?? '').trim()
+                      const noCoincide = trimestreConfig && trimestreFactura && trimestreFactura !== trimestreConfig
+                      const selectEl = (
+                        <select
+                          value={factura.empresa.trimestre}
+                          onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
+                          className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
+                            noCoincide ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                          }`}
+                          aria-invalid={noCoincide ? 'true' : undefined}
+                        >
+                          <option value="">-</option>
+                          {trimestres.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                      if (noCoincide) {
+                        const tooltipMsg = `El trimestre de esta factura (${trimestreFactura}) no coincide con el trimestre de trabajo configurado (${trimestreConfig}).`
+                        return (
+                          <div className="relative inline-block w-18 shrink-0 group">
+                            {selectEl}
+                            <div className="absolute right-full top-1/2 mr-1 -translate-y-1/2 z-50 px-2 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                              {tooltipMsg}
+                              <span className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-800" aria-hidden="true" />
+                            </div>
+                          </div>
+                        )
+                      }
+                      return selectEl
+                    })()}
                   </div>
                 </div>
               </div>
@@ -555,14 +647,43 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </FieldRow>
               </div>
                   <div className="grid grid-cols-3 gap-1">
-                <div>
+                <div className="min-w-0">
                   <FieldRow label="CIF" widthClass="w-10">
-                    <input
-                      type="text"
-                      value={factura.proveedor.cif}
-                      onChange={(e) => handleChange('proveedor.cif', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    />
+                    <div className="relative min-w-0">
+                      <input
+                        type="text"
+                        value={factura.proveedor.cif}
+                        onChange={(e) => handleChange('proveedor.cif', e.target.value)}
+                        className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
+                          cifVerification.proveedorError ? 'border-red-500 bg-red-50 pr-7' : 'border-gray-200'
+                        }`}
+                        aria-invalid={Boolean(cifVerification.proveedorError)}
+                        title={cifVerification.proveedorError ?? undefined}
+                      />
+                      {cifVerification.proveedorError && (
+                        <Tooltip
+                          content={
+                            <span className="block bg-slate-800 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                              {cifVerification.proveedorError}
+                            </span>
+                          }
+                          placement="top"
+                          showArrow
+                          classNames={{
+                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-slate-800 data-[placement=top]:before:!-bottom-0.5',
+                          }}
+                        >
+                          <span
+                            className="absolute right-0 bottom-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
+                            aria-label={cifVerification.proveedorError}
+                          >
+                            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </span>
+                        </Tooltip>
+                      )}
+                    </div>
                   </FieldRow>
                 </div>
                 <div>
@@ -681,6 +802,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       + Línea
                     </button>
                   </div>
+                  {ivaVerification.hasErrors && (
+                    <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className="flex items-center gap-2 text-amber-800">
+                        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs font-medium">
+                          Operación IVA: base × % no coincide con la cuota en {ivaVerification.errorLineIndices.length} línea(s). Revisa los importes.
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="overflow-hidden">
                     <table className="w-full border-collapse text-[10px]">
                 <colgroup>
@@ -692,16 +825,19 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </colgroup>
                 <thead>
                   <tr className="bg-gray-100">
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left font-semibold">BASE</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left font-semibold">% IVA</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left font-semibold">CUOTA</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left font-semibold">% REC</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left font-semibold">CUOTA REC</th>
+                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
+                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
+                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
+                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
+                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
                   </tr>
                 </thead>
                 <tbody>
                   {factura.lineas.map((linea, index) => (
-                    <tr key={index}>
+                    <tr
+                      key={index}
+                      className={ivaVerification.errorLineIndices.includes(index) ? 'bg-amber-50' : undefined}
+                    >
                       <td className="border border-gray-200 px-0.5 py-0.5">
                         <input
                           type="text"
@@ -716,7 +852,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                               return { ...prev, lineas: newLineas }
                             })
                           }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -744,7 +880,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                               return { ...prev, lineas: newLineas }
                             })
                           }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
                         />
                       </td>
                       <td className="border border-gray-200 px-0.5 py-0.5">
@@ -772,7 +908,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                               return { ...prev, lineas: newLineas }
                             })
                           }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
                         />
                       </td>
                     </tr>
@@ -897,10 +1033,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     variant="secondary"
                     size="md"
                     type="submit"
-                    disabled={disableValidar}
+                    disabled={disableValidar || ivaVerification.hasErrors || cifVerification.hasErrors}
                     className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
                   >
-                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : 'VALIDAR')}</span>
+                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : cifVerification.hasErrors ? 'REVISA CIF/NIF' : 'VALIDAR')}</span>
                     <svg
                       className="w-5 h-5 text-white"
                       fill="currentColor"

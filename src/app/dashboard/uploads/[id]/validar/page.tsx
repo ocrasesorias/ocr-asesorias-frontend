@@ -398,6 +398,7 @@ export default function ValidarUploadPage() {
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [uppercasePref, setUppercasePref] = useState(true)
+  const [workingQuarter, setWorkingQuarter] = useState<string>('')
 
   const statusStats = useMemo(() => {
     const total = invoiceRows.length
@@ -595,6 +596,8 @@ export default function ValidarUploadPage() {
             if (prefResp.ok) {
               const v = prefJson?.uppercase_names_addresses
               setUppercasePref(typeof v === 'boolean' ? v : true)
+              const wq = prefJson?.working_quarter
+              setWorkingQuarter(typeof wq === 'string' && /^Q[1-4]$/.test(wq) ? wq : '')
             }
           } catch {
             // noop: default true
@@ -1473,6 +1476,7 @@ export default function ValidarUploadPage() {
               key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
               tipo={tipoFactura}
               uppercaseNombreDireccion={uppercasePref}
+              workingQuarter={workingQuarter}
               factura={facturas[facturaActual]}
               onValidar={handleValidar}
               onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
