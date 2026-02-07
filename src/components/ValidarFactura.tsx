@@ -101,14 +101,12 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   }
 
   const formatEuroNumber = (n: number): string => {
-    const formatted = new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(n)
-    // Intl usa NBSP antes del símbolo; lo cambiamos por espacio normal.
-    return formatted.replace(/\u00A0€/g, ' €')
+    // Formato español: punto (.) miles, coma (,) decimales. Ej: 1089 → "1.089,00 €"
+    const fixed = n.toFixed(2)
+    const [intPart, decPart] = fixed.split('.')
+    const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    const formatted = `${withThousands},${decPart} €`
+    return formatted
   }
 
   const normalizeEuroString = (value: string): string => {
@@ -328,6 +326,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     e.preventDefault();
     if (disableValidar) return
     if (ivaVerification.hasErrors) return
+    if (totalVerification.hasErrors) return
     if (cifVerification.hasErrors) return
     onValidar(factura);
     // En la última factura no intentamos avanzar (evita error de "siguiente bloque").
@@ -387,6 +386,30 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       if (diff > 0.05) errors.push(i)
     }
     return { hasErrors: errors.length > 0, errorLineIndices: errors }
+  })()
+
+  // Validación: suma de filas (base + IVA + recargo) - retención debe coincidir con el total de la factura (total a pagar)
+  const totalVerification = (() => {
+    let sumBase = 0
+    let sumIva = 0
+    let sumRecargo = 0
+    for (const l of factura.lineas || []) {
+      const b = parseEuroNumber(l.base)
+      const i = parseEuroNumber(l.cuotaIva)
+      const r = parseEuroNumber(l.cuotaRecargo)
+      if (b !== null) sumBase += b
+      if (i !== null) sumIva += i
+      if (r !== null) sumRecargo += r
+    }
+    const retencionN = parseEuroNumber(factura.retencion?.cantidad ?? '') ?? 0
+    const tableTotalNeto = sumBase + sumIva + sumRecargo - retencionN
+    const facturaTotal = parseEuroNumber(factura.total)
+    if (facturaTotal === null && !factura.total?.trim()) return { hasErrors: false }
+    if (facturaTotal === null) return { hasErrors: false } // total no numérico: no bloqueamos
+    const diff = Math.abs(tableTotalNeto - facturaTotal)
+    return {
+      hasErrors: diff > 0.05,
+    }
   })()
 
   const inferRetencionTipo = (porcentaje: string): FacturaData['retencion']['tipo'] => {
@@ -847,6 +870,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       </div>
                     </div>
                   )}
+                  {totalVerification.hasErrors && (
+                    <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className="flex items-center gap-2 text-amber-800">
+                        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs font-medium">
+                          La suma de las filas (base + IVA + recargo) no coincide con el total de la factura. Revisa los importes.
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="overflow-hidden">
                     <table className="w-full border-collapse text-[10px]">
                 <colgroup>
@@ -1044,9 +1079,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
                     TOTAL FACTURA
                   </div>
-                  <div className="text-2xl font-bold text-foreground truncate">
-                    {moneyValue('total', factura.total)}
-                  </div>
+                  <input
+                    type="text"
+                    value={moneyValue('total', factura.total)}
+                    onChange={(e) => handleChange('total', e.target.value)}
+                    onFocus={() => setMoneyFocusKey('total')}
+                    onBlur={() => {
+                      setMoneyFocusKey(null)
+                      handleChange('total', normalizeEuroString(factura.total))
+                    }}
+                    className={`w-full text-2xl font-bold text-foreground border rounded px-2 py-0.5 focus:ring-0 focus:outline-none ${
+                      totalVerification.hasErrors ? 'bg-amber-100 border-amber-300' : 'bg-transparent border-gray-200 focus:border-primary'
+                    }`}
+                    aria-invalid={totalVerification.hasErrors}
+                  />
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1066,10 +1112,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     variant="secondary"
                     size="md"
                     type="submit"
-                    disabled={disableValidar || ivaVerification.hasErrors || cifVerification.hasErrors}
+                    disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || cifVerification.hasErrors}
                     className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
                   >
-                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : cifVerification.hasErrors ? 'REVISA CIF/NIF' : 'VALIDAR')}</span>
+                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : cifVerification.hasErrors ? 'REVISA CIF/NIF' : 'VALIDAR')}</span>
                     <svg
                       className="w-5 h-5 text-white"
                       fill="currentColor"
