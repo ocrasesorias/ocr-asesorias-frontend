@@ -1429,7 +1429,7 @@ export default function ValidarUploadPage() {
                       'h-full flex-1 transition-colors',
                       bgClass,
                       visibleIdx === arr.length - 1 ? '' : 'border-r border-slate-200',
-                      isCurrent ? 'ring-2 ring-primary ring-inset' : '',
+                      isCurrent ? 'ring-1 ring-primary ring-inset' : '',
                       invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
                         ? 'cursor-not-allowed opacity-60'
                         : 'cursor-pointer',
