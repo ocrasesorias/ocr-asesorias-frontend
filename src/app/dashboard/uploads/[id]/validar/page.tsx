@@ -375,7 +375,6 @@ export default function ValidarUploadPage() {
   const uploadId = params.id
   const { showError, showSuccess, showInfo, setToastConfig } = useToast()
 
-  const BLOCK_SIZE = 6
   const MAX_CONCURRENCY = 3
 
   const [isLoading, setIsLoading] = useState(true)
@@ -432,6 +431,14 @@ export default function ValidarUploadPage() {
     return invoiceRows.map((i) => i.id).filter((id) => !validatedByInvoiceId[id])
   }, [invoiceRows, validatedByInvoiceId])
 
+  const isAllDone = useMemo(() => {
+    if (invoiceRows.length === 0) return false
+    return invoiceRows.every((inv) => {
+      const st = invoiceStatus[inv.id]
+      return st === 'ready' || st === 'error'
+    })
+  }, [invoiceRows, invoiceStatus])
+
   // Si entramos en modo "solo pendientes" y no queda ninguna, mostramos pantalla de subida completada.
 
   const allValidated = useMemo(() => {
@@ -457,41 +464,68 @@ export default function ValidarUploadPage() {
     return new Set()
   }
 
-  const prefixDoneCount = useMemo(() => {
-    // cuántas facturas consecutivas (desde la primera) ya están "procesadas" (ready o error)
-    let c = 0
-    for (const inv of invoiceRows) {
-      const st = invoiceStatus[inv.id]
-      if (st === 'ready' || st === 'error') c += 1
-      else break
-    }
-    return c
-  }, [invoiceRows, invoiceStatus])
 
-  const unlockedMaxIndex = useMemo(() => {
-    // desbloqueamos navegación por bloques de 6 (0-5, luego 0-11, etc.)
-    // Importante: el último bloque puede tener 1..5 facturas (si total no es múltiplo de 6).
-    if (invoiceRows.length === 0) return -1
-    const total = invoiceRows.length
 
-    // UX: si hay 6 o menos facturas, permitimos navegar por todas aunque aún se estén procesando.
-    // (ver PDF y decidir validar/para después sin que te "rebote" al inicio).
-    if (total <= BLOCK_SIZE) return total - 1
+  // Reconciliar estados locales con datos que llegan en invoiceRows (solo subir estado, nunca degradar).
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
+    setInvoiceStatus((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const inv of invoiceRows) {
+        const current = next[inv.id]
+        if (current === 'ready' || current === 'error') continue
+        const stDb = typeof inv.status === 'string' ? inv.status : null
+        const fieldsRow = coerceInvoiceFieldsRow(
+          Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : (inv.invoice_fields as unknown)
+        )
+        const hasFields = Boolean(
+          fieldsRow?.supplier_name ||
+            fieldsRow?.supplier_tax_id ||
+            fieldsRow?.invoice_number ||
+            fieldsRow?.invoice_date ||
+            fieldsRow?.base_amount ||
+            fieldsRow?.vat_amount ||
+            fieldsRow?.total_amount
+        )
+        const hasExtraction = Boolean(getLatestExtraction(inv))
 
-    let unlockedCount = 0
-    for (let start = 0; start < total; start += BLOCK_SIZE) {
-      const end = Math.min(total, start + BLOCK_SIZE) // fin exclusivo del bloque
-      if (prefixDoneCount >= end) unlockedCount = end
-      else break
-    }
-    return unlockedCount - 1
-  }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
+        if (stDb === 'error') {
+          next[inv.id] = 'error'
+          changed = true
+        } else if (stDb === 'needs_review' || stDb === 'ready' || hasFields || hasExtraction) {
+          next[inv.id] = 'ready'
+          changed = true
+        } else if (!current && stDb === 'processing') {
+          next[inv.id] = 'processing'
+          changed = true
+        } else if (!current && (stDb === null || stDb === 'idle')) {
+          next[inv.id] = 'idle'
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [invoiceRows])
 
-  const initialGateReady = useMemo(() => {
-    // no mostramos validar hasta que estén listas las primeras 6 (o menos si hay <6)
-    const need = Math.min(BLOCK_SIZE, invoiceRows.length)
-    return need > 0 && prefixDoneCount >= need
-  }, [invoiceRows.length, prefixDoneCount, BLOCK_SIZE])
+  useEffect(() => {
+    if (isAllDone || !uploadId) return
+    const timeout = setTimeout(() => {
+      void (async () => {
+        try {
+          const resp = await fetch(`/api/uploads/${uploadId}`)
+          const data = await resp.json().catch(() => null)
+          const invoices = Array.isArray(data?.invoices) ? (data.invoices as UploadInvoiceRow[]) : null
+          if (!invoices) return
+          setInvoiceRows(invoices)
+        } catch {
+          // noop
+        }
+      })()
+    }, 4000)
+
+    return () => clearTimeout(timeout)
+  }, [isAllDone, uploadId])
 
   // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
   // Este efecto solo actúa una vez (tras cargar invoiceRows) para no "robar" el foco tras cada acción manual.
@@ -499,9 +533,10 @@ export default function ValidarUploadPage() {
     if (hasInitializedPosition) return
     if (invoiceRows.length === 0) return
     if (viewMode !== 'pending') return
+    if (!isAllDone) return
+
     const ids = invoiceRows.map((i) => i.id)
-    const maxIdx = Math.max(-1, unlockedMaxIndex)
-    for (let idx = 0; idx <= maxIdx; idx += 1) {
+    for (let idx = 0; idx < ids.length; idx += 1) {
       const id = ids[idx]
       if (!id) continue
       if (!validatedByInvoiceId[id]) {
@@ -510,7 +545,7 @@ export default function ValidarUploadPage() {
         return
       }
     }
-  }, [invoiceRows.length, unlockedMaxIndex, validatedByInvoiceId, viewMode, hasInitializedPosition])
+  }, [invoiceRows, isAllDone, validatedByInvoiceId, viewMode, hasInitializedPosition])
 
   // Resetear flag cuando el usuario cambia viewMode (permite reposicionamiento en ese caso).
   useEffect(() => {
@@ -835,11 +870,8 @@ export default function ValidarUploadPage() {
       updateInvoiceFromExtraction(invoiceId, data?.extraction, data?.fields)
       setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'ready' }))
     } catch (e) {
+      console.error(`[Extract Error] ${invoiceId}:`, e)
       setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'error' }))
-      // no spameamos toast por cada una; mostramos solo si es la actual
-      const currentId = facturas?.[facturaActual]?.archivo?.invoiceId
-      if (currentId === invoiceId) showError(e instanceof Error ? e.message : 'Error extrayendo factura')
-      throw e
     } finally {
       inFlightRef.current -= 1
     }
@@ -854,7 +886,7 @@ export default function ValidarUploadPage() {
       for (const id of orderedIds) {
         if (inFlightRef.current >= MAX_CONCURRENCY) break
         const st = invoiceStatus[id]
-        if (st === 'idle') void startExtract(id)
+        if (!st || st === 'idle') void startExtract(id)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1017,26 +1049,33 @@ export default function ValidarUploadPage() {
       return
     }
 
-    // Si es la última (en orden) pero quedan pendientes, volvemos a la primera pendiente.
-    if (isLast) {
-      const pendingCount = Math.max(0, totalCount - nextValidatedCount)
-      showInfo(`Te faltan ${pendingCount} por validar. Volvemos a la primera pendiente.`)
-      // Recalcular primera pendiente (usando invoiceRows actuales)
-      const ids = invoiceRows.map((i) => i.id)
-      let target = 0
-      for (let idx = 0; idx < ids.length; idx += 1) {
-        const id = ids[idx]
-        const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
-        if (!isVal) {
-          target = idx
-          break
-        }
+    showSuccess('Factura validada')
+
+    const ids = invoiceRows.map((i) => i.id)
+    // Regla: NUNCA navegamos a una factura que aún se esté procesando (datos vacíos).
+    // Pero como estamos en modo "toda la subida lista", ya todas deberían estar listas.
+
+    // 1) Siguiente pendiente (hacia adelante)
+    for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
+      const id = ids[idx]
+      const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
+      if (!isVal) {
+        setFacturaActual(idx)
+        return
       }
-      setFacturaActual(target)
-      return
     }
 
-    showSuccess('Factura validada')
+    // 2) Primera pendiente (desde el inicio)
+    for (let idx = 0; idx < ids.length; idx += 1) {
+      const id = ids[idx]
+      const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
+      if (!isVal) {
+        const pendingCount = Math.max(0, totalCount - nextValidatedCount)
+        showInfo(`Te faltan ${pendingCount} por validar. Volvemos a la primera pendiente.`)
+        setFacturaActual(idx)
+        return
+      }
+    }
   }
 
   const handleParaDespues = () => {
@@ -1056,94 +1095,59 @@ export default function ValidarUploadPage() {
       }).catch(() => null)
     }
 
-    // Si no podemos avanzar (última del bloque o última total), NO mostramos el aviso del bloque.
-    // En su lugar saltamos a la primera pendiente dentro del bloque ya desbloqueado.
     const ids = invoiceRows.map((i) => i.id)
-    const maxIdx = Math.max(-1, unlockedMaxIndex)
-
+    const lastIdx = ids.length - 1
     const isPending = (id: string) => !validatedByInvoiceId[id]
     const isDeferred = (id: string) => Boolean(nextDeferred[id])
     const isVisited = (id: string) => Boolean(visitedByInvoiceId[id])
     const isUndecided = (id: string) => isPending(id) && !isDeferred(id)
     const isPendingDeferred = (id: string) => isPending(id) && isDeferred(id)
 
-    // Regla UX: al marcar "Para después" queremos ir a la siguiente factura NO decidida
-    // (ni validada ni para después). Solo cuando no quede ninguna, recorremos las "para después".
     const curIdx = facturaActual
 
-    // 0) Siguiente PENDIENTE y NO visitada (primer pase).
-    // Esto evita volver a facturas ya vistas/diferidas si aún queda alguna sin pasar.
-    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
+    for (let idx = curIdx + 1; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (!isVisited(id) && isPending(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (!isVisited(id) && isPending(id)) { setFacturaActual(idx); return }
     }
 
-    // 1) Primera PENDIENTE y NO visitada (desde el inicio)
-    for (let idx = 0; idx <= maxIdx; idx += 1) {
+    for (let idx = 0; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (!isVisited(id) && isPending(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (!isVisited(id) && isPending(id)) { setFacturaActual(idx); return }
     }
 
-    // 2) Siguiente NO decidida (hacia delante)
-    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
+    for (let idx = curIdx + 1; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isUndecided(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (isUndecided(id)) { setFacturaActual(idx); return }
     }
 
-    // 3) Primera NO decidida (desde el inicio)
-    for (let idx = 0; idx <= maxIdx; idx += 1) {
+    for (let idx = 0; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isUndecided(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (isUndecided(id)) { setFacturaActual(idx); return }
     }
 
-    // 4) Si no hay NO decididas, recorrer "para después" (hacia delante)
-    for (let idx = curIdx + 1; idx <= maxIdx; idx += 1) {
+    for (let idx = curIdx + 1; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isPendingDeferred(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (isPendingDeferred(id)) { setFacturaActual(idx); return }
     }
 
-    // 5) O desde el inicio
-    for (let idx = 0; idx <= maxIdx; idx += 1) {
+    for (let idx = 0; idx <= lastIdx; idx += 1) {
       const id = ids[idx]
       if (!id || id === invoiceId) continue
-      if (isPendingDeferred(id)) {
-        setFacturaActual(idx)
-        return
-      }
+      if (isPendingDeferred(id)) { setFacturaActual(idx); return }
     }
 
-    // 3) No hay ninguna más pendiente accesible: abrimos modal de finalización/exportación
+    // Si llegamos aquí es que no quedan pendientes
     setIsFinishedModalOpen(true)
   }
 
   const jumpToIndex = (idx: number) => {
     if (idx < 0 || idx >= invoiceRows.length) return
-    if (idx > unlockedMaxIndex) {
-      showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
-      return
-    }
-    const id = invoiceRows[idx]?.id
-    if (viewMode === 'pending' && id && validatedByInvoiceId[id]) {
+    if (viewMode === 'pending' && validatedByInvoiceId[invoiceRows[idx].id]) {
       showInfo('Esta factura ya está validada. Cambia a "Ver todas" para revisarla.')
       return
     }
@@ -1151,10 +1155,11 @@ export default function ValidarUploadPage() {
   }
 
   const handleSiguiente = () => {
+    const ids = invoiceRows.map((i) => i.id)
+
     if (viewMode === 'pending') {
       const ids = invoiceRows.map((i) => i.id)
-      const maxIdx = Math.max(-1, unlockedMaxIndex)
-      for (let idx = facturaActual + 1; idx <= maxIdx; idx += 1) {
+      for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
         const id = ids[idx]
         if (!id) continue
         if (!validatedByInvoiceId[id]) {
@@ -1166,12 +1171,9 @@ export default function ValidarUploadPage() {
       return
     }
 
-    const next = facturaActual + 1
-    if (next > unlockedMaxIndex) {
-      showError('Aún se están procesando las siguientes facturas. Espera al siguiente bloque.')
-      return
-    }
-    if (facturaActual < facturas.length - 1) setFacturaActual(next)
+    const nextIdx = facturaActual + 1
+    if (nextIdx >= ids.length) return
+    setFacturaActual(nextIdx)
   }
 
   const handleAnterior = () => {
@@ -1226,7 +1228,6 @@ export default function ValidarUploadPage() {
       setIsFinishedModalOpen(false)
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Error generando export')
-    } finally {
       setIsExporting(false)
     }
   }
@@ -1234,26 +1235,19 @@ export default function ValidarUploadPage() {
   if (isLoading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground-secondary">Cargando subida...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
 
-  // No mostramos la pantalla de validación hasta que estén procesadas las primeras 6 (o menos si hay <6).
-  if (!initialGateReady) {
-    const need = Math.min(BLOCK_SIZE, invoiceRows.length)
+  const currentId = invoiceRows[facturaActual]?.id || facturas[facturaActual]?.archivo?.invoiceId
+  const currentStatus = currentId ? invoiceStatus[currentId] : undefined
+  const isCurrentReady = currentStatus === 'ready' || currentStatus === 'error'
+
+  if (!isCurrentReady && facturas.length > 0) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground-secondary">Procesando las primeras {need} facturas…</p>
-          <p className="text-xs text-foreground-secondary mt-2">
-            {Math.min(prefixDoneCount, need)}/{need} listas
-          </p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     )
   }
@@ -1417,11 +1411,13 @@ export default function ValidarUploadPage() {
                       bgClass,
                       visibleIdx === arr.length - 1 ? '' : 'border-r border-slate-200',
                       isCurrent ? 'ring-2 ring-primary ring-inset' : '',
-                      allIdx > unlockedMaxIndex ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                      invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
+                        ? 'cursor-not-allowed opacity-60'
+                        : 'cursor-pointer',
                     ].join(' ')}
-                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : ''}`}
+                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error' ? ' · procesando…' : ''}`}
                     aria-label={`Ir a factura ${allIdx + 1}`}
-                    disabled={allIdx > unlockedMaxIndex}
+                    disabled={invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'}
                   />
                 )
               })}
@@ -1453,22 +1449,20 @@ export default function ValidarUploadPage() {
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {(() => {
-          const currentId = facturas[facturaActual]?.archivo?.invoiceId
-          const st = currentId ? invoiceStatus[currentId] : undefined
-          const isLast = facturaActual === facturas.length - 1
-          const canGoNext = facturaActual + 1 <= unlockedMaxIndex
-          // Regla UX: si esta factura es "la última disponible" pero todavía no podemos pasar al siguiente bloque,
-          // NO dejamos validarla (evita validar y quedarse bloqueado con toast de error).
-          const mustWaitForNextBlock = !isLast && !canGoNext
+          const totalCount = invoiceRows.length
+          const isLast = facturaActual === totalCount - 1
+          const canGoNext = true // Navigation is now unlocked
 
-          const disableValidar = Boolean(!currentId || st !== 'ready' || mustWaitForNextBlock)
-          const validarText = mustWaitForNextBlock
-            ? 'ESPERA AL SIGUIENTE BLOQUE…'
-            : st === 'processing'
+          const disableValidar = Boolean(!currentId || (currentStatus !== 'ready' && currentStatus !== 'error') || !isAllDone)
+          const validarText = !isAllDone
+            ? 'ESPERANDO PROCESO TOTAL…'
+            : currentStatus === 'processing'
               ? 'PROCESANDO…'
-              : st === 'error'
-                ? 'ERROR (REINTENTA)'
-                : undefined
+              : currentStatus === 'idle'
+                ? 'ESPERANDO EXTRACCIÓN…'
+                : currentStatus === 'error'
+                  ? 'ERROR (REINTENTA)'
+                  : undefined
 
           return (
             <ValidarFactura

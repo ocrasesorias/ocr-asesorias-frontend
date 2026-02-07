@@ -109,21 +109,21 @@ export default function DashboardPage() {
     [currentSessionInvoiceIds, invoiceIdsInOrder]
   )
 
-  const firstBlockIds = useMemo(() => activeInvoiceIds.slice(0, BLOCK_SIZE), [activeInvoiceIds, BLOCK_SIZE])
-  const requiredFirstCount = useMemo(() => Math.min(BLOCK_SIZE, activeInvoiceIds.length), [activeInvoiceIds.length, BLOCK_SIZE])
-  const firstBlockReadyCount = useMemo(() => {
-    const ids = firstBlockIds.slice(0, requiredFirstCount)
-    return ids.filter((id) => extractStatusByInvoiceId[id] === 'ready').length
-  }, [firstBlockIds, requiredFirstCount, extractStatusByInvoiceId])
+  const isAllReady = useMemo(() => {
+    if (activeInvoiceIds.length === 0) return false
+    return activeInvoiceIds.every((id) => {
+      const st = extractStatusByInvoiceId[id]
+      return st === 'ready' || st === 'error'
+    })
+  }, [activeInvoiceIds, extractStatusByInvoiceId])
 
   const canValidate =
     !!subidaActual?.uploadId &&
     archivosSubidos.length > 0 &&
     !archivosSubidos.some((a) => a.estado === 'error') &&
     !hasUploadingFiles &&
-    requiredFirstCount > 0 &&
-    // si es una subida antigua (no se subió en esta sesión), dejamos entrar y que valide procese allí
-    (currentSessionInvoiceIds.length === 0 || firstBlockReadyCount >= requiredFirstCount)
+    // si es una subida antigua (no se subió en esta sesión), dejamos entrar
+    (currentSessionInvoiceIds.length === 0 || isAllReady)
 
   const processingCount = useMemo(
     () => invoiceIdsInOrder.filter((id) => extractStatusByInvoiceId[id] === 'processing').length,
@@ -165,15 +165,13 @@ export default function DashboardPage() {
   const dynamicMessages = useMemo(() => {
     const total = archivosSubidos.length
     const uploaded = invoiceIdsInOrder.length
-    const need = Math.min(BLOCK_SIZE, total)
-    const isSmallUpload = total > 0 && total <= BLOCK_SIZE
 
     const msgs: string[] = []
     if (hasUploadingFiles) {
       msgs.push(`Subiendo facturas… (${uploaded}/${total})`)
     }
 
-    // Subida histórica: no mostramos mensajes de “Procesando…” si no hay procesamiento real.
+    // Subida histórica
     if (!hasUploadingFiles && currentSessionInvoiceIds.length === 0 && dbCounts.withDb > 0) {
       if (dbCounts.processing > 0) {
         msgs.push(`Procesando facturas… (${dbCounts.processing} en curso)`)
@@ -191,14 +189,14 @@ export default function DashboardPage() {
       return msgs
     }
 
-    if (uploaded > 0 && firstBlockReadyCount < Math.min(BLOCK_SIZE, uploaded)) {
-      msgs.push(isSmallUpload ? 'Procesando facturas…' : `Procesando las primeras ${Math.min(BLOCK_SIZE, uploaded)} para empezar a validar…`)
+    if (uploaded > 0 && !isAllReady) {
+      msgs.push(`Procesando facturas… (${readyCount}/${uploaded} listas)`)
     }
-    if (!hasUploadingFiles && uploaded >= need && firstBlockReadyCount >= need) {
-      msgs.push(isSmallUpload ? 'Ya puedes empezar a validar.' : 'Ya puedes empezar a validar. Seguimos procesando el resto en segundo plano.')
+    if (!hasUploadingFiles && uploaded > 0 && isAllReady) {
+      msgs.push('¡Todo listo! Ya puedes empezar a validar.')
     }
     if (errorCount > 0) {
-      msgs.push('Algunas facturas fallaron al procesarse. Puedes eliminarlas o reintentar.')
+      msgs.push('Algunas facturas fallaron al procesarse.')
     }
     if (msgs.length === 0) {
       msgs.push('Sube tus facturas para empezar.')
@@ -208,7 +206,8 @@ export default function DashboardPage() {
     archivosSubidos.length,
     dbCounts,
     errorCount,
-    firstBlockReadyCount,
+    isAllReady,
+    readyCount,
     hasUploadingFiles,
     invoiceIdsInOrder.length,
     currentSessionInvoiceIds.length,
@@ -1033,13 +1032,7 @@ export default function DashboardPage() {
       return
     }
     if (!canValidate) {
-      showError(
-        requiredFirstCount > 0
-          ? (archivosSubidos.length <= BLOCK_SIZE
-            ? 'Estamos procesando las facturas. En cuanto estén listas, podrás validar.'
-            : `Estamos procesando las primeras ${requiredFirstCount} facturas (${firstBlockReadyCount}/${requiredFirstCount}). En cuanto estén listas, podrás validar.`)
-          : 'Estamos preparando las facturas. En cuanto estén listas, podrás validar.'
-      )
+      showError(`Estamos procesando las facturas (${readyCount}/${archivosSubidos.length} listas). En cuanto estén todas, podrás validar.`)
       return
     }
 
@@ -1059,8 +1052,7 @@ export default function DashboardPage() {
     showError,
     hasUploadingFiles,
     canValidate,
-    requiredFirstCount,
-    firstBlockReadyCount,
+    readyCount,
   ]);
 
   const handleLogout = async () => {
@@ -1777,10 +1769,10 @@ export default function DashboardPage() {
                             </>
                           ) : null}
                         </span>
-                        {sessionInvoiceIds.length > 0 && archivosSubidos.length > BLOCK_SIZE ? (
+                        {sessionInvoiceIds.length > 0 && archivosSubidos.length > 0 ? (
                           <span>
-                            Primer bloque: <span className="font-semibold text-foreground">{firstBlockReadyCount}</span>/
-                            <span className="font-semibold text-foreground">{requiredFirstCount || 0}</span> listas
+                            Progreso: <span className="font-semibold text-foreground">{readyCount}</span>/
+                            <span className="font-semibold text-foreground">{archivosSubidos.length}</span> listas
                           </span>
                         ) : null}
                       </div>
@@ -1815,11 +1807,9 @@ export default function DashboardPage() {
                           <span className="inline-flex items-center justify-center gap-2 font-light">
                             {hasUploadingFiles
                               ? `Subiendo… (${invoiceIdsInOrder.length}/${archivosSubidos.length})`
-                              : firstBlockReadyCount < requiredFirstCount
-                                ? (archivosSubidos.length <= BLOCK_SIZE
-                                  ? 'Procesando facturas…'
-                                  : `Procesando primeras ${requiredFirstCount}… (${firstBlockReadyCount}/${requiredFirstCount})`)
-                                : 'Validar'}
+                               : !isAllReady
+                                 ? `Procesando facturas… (${readyCount}/${archivosSubidos.length})`
+                                 : 'Validar'}
                             {!hasUploadingFiles && (
                               <svg
                                 className="w-5 h-5"
