@@ -14,11 +14,9 @@ function formatNumberES(value: unknown) {
   if (value === null || value === undefined || value === '') return ''
   const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'))
   if (!Number.isFinite(n)) return ''
-  // Español: punto de miles, coma decimal (ej: 1.234,56)
-  return new Intl.NumberFormat('es-ES', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(n)
+  // Sin separador de miles, coma decimal, sin ceros innecesarios
+  const s = n.toFixed(2).replace(/\.?0+$/, '') // "35.70" -> "35.7", "600.00" -> "600"
+  return s.replace('.', ',')
 }
 
 function formatDateDDMMYYYY(value: unknown) {
