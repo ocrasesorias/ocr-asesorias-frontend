@@ -4,79 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ValidarFactura } from '@/components/ValidarFactura';
 import { FacturaData } from '@/types/factura';
-import { ArchivoSubido } from '@/types/dashboard';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
-
-// Función para convertir archivos en facturas
-const convertirArchivosAFacturas = (archivos: ArchivoSubido[], clienteCif?: string): FacturaData[] => {
-  return archivos.map((archivo) => ({
-    empresa: {
-      cif: clienteCif || 'B12345678',
-      trimestre: 'Q1',
-      actividad: ''
-    },
-    proveedor: {
-      nombre: '',
-      cif: '',
-      direccion: '',
-      codigoPostal: '',
-      provincia: ''
-    },
-    factura: {
-      numero: '',
-      fecha: '',
-      fechaVencimiento: ''
-    },
-    subcuentaGasto: '',
-    retencion: {
-      aplica: false,
-      porcentaje: '',
-      tipo: '',
-      cantidad: ''
-    },
-    lineas: [
-      {
-        base: '',
-        porcentajeIva: '21',
-        cuotaIva: '',
-        porcentajeRecargo: '0',
-        cuotaRecargo: '0.00'
-      },
-      {
-        base: '',
-        porcentajeIva: '10',
-        cuotaIva: '',
-        porcentajeRecargo: '0',
-        cuotaRecargo: '0.00'
-      },
-      {
-        base: '',
-        porcentajeIva: '4',
-        cuotaIva: '',
-        porcentajeRecargo: '0',
-        cuotaRecargo: '0.00'
-      }
-    ],
-    anexosObservaciones: '',
-    total: '',
-    archivo: {
-      url: archivo.url,
-      tipo:
-        archivo.tipo === 'application/pdf' ||
-        archivo.tipo === 'application/x-pdf' ||
-        archivo.nombre.toLowerCase().endsWith('.pdf')
-          ? 'pdf'
-          : 'imagen',
-      nombre: archivo.nombre,
-      invoiceId: archivo.invoiceId,
-      bucket: archivo.bucket,
-      storagePath: archivo.storagePath
-    }
-  }));
-};
 
 const toISODate = (value: string) => {
   const v = (value || '').trim();
@@ -124,7 +55,6 @@ export default function ValidarFacturaPage() {
   const { showSuccess, showError } = useToast();
   const [facturaActual, setFacturaActual] = useState(0);
   const [facturas, setFacturas] = useState<FacturaData[]>([]);
-  const [clienteNombre, setClienteNombre] = useState<string>('');
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false);
@@ -295,7 +225,7 @@ export default function ValidarFacturaPage() {
           </Link>
           <div>
             <h1 className="text-sm font-semibold text-foreground">
-              {clienteNombre ? `${clienteNombre} · ` : ''}Validar facturas
+              Validar facturas
             </h1>
           </div>
         </div>
