@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     // Obtener los datos del cliente del body
     const body = await request.json();
-    const { name, tax_id, preferred_income_account, preferred_expense_account } = body;
+    const { name, tax_id, preferred_income_account, preferred_expense_account, activity_description } = body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
@@ -56,6 +56,10 @@ export async function POST(request: Request) {
         preferred_expense_account:
           typeof preferred_expense_account === 'string' && preferred_expense_account.trim()
             ? preferred_expense_account.trim()
+            : null,
+        activity_description:
+          typeof activity_description === 'string' && activity_description.trim()
+            ? activity_description.trim()
             : null,
       })
       .select()

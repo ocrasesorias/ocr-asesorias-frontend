@@ -1,49 +1,46 @@
 'use client';
 
-import { Cliente } from '@/types/dashboard';
 import { ClientForm } from './ClientForm';
 
-interface EditClientModalProps {
+interface CreateClientModalProps {
   isOpen: boolean;
-  client: Cliente | null;
-  editCliente: {
+  nuevoCliente: {
     name: string;
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;
   };
-  setEditCliente: React.Dispatch<React.SetStateAction<{
+  setNuevoCliente: React.Dispatch<React.SetStateAction<{
     name: string;
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;
   }>>;
-  isUpdating: boolean;
-  onSave: (e: React.FormEvent) => void;
+  isCreating: boolean;
+  onSubmit: (e: React.FormEvent) => void;
   onClose: () => void;
 }
 
-export function EditClientModal({
+export function CreateClientModal({
   isOpen,
-  client,
-  editCliente,
-  setEditCliente,
-  isUpdating,
-  onSave,
+  nuevoCliente,
+  setNuevoCliente,
+  isCreating,
+  onSubmit,
   onClose,
-}: EditClientModalProps) {
-  if (!isOpen || !client) return null;
+}: CreateClientModalProps) {
+  if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Editar cliente"
+      aria-label="Crear cliente"
       onMouseDown={() => {
-        if (isUpdating) return;
+        if (isCreating) return;
         onClose();
       }}
     >
@@ -51,18 +48,18 @@ export function EditClientModal({
         className="w-full max-w-lg rounded-xl bg-white shadow-xl border border-gray-200"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <form onSubmit={onSave}>
+        <form onSubmit={onSubmit}>
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-foreground">Editar cliente</h3>
+            <h3 className="text-lg font-semibold text-foreground">Crear cliente</h3>
             <p className="mt-2 text-sm text-foreground-secondary">
-              Actualiza los datos y las cuentas preferentes para que aparezcan por defecto al validar.
+              Introduce los datos del nuevo cliente. Las cuentas preferentes se usarán por defecto al validar facturas.
             </p>
 
             <div className="mt-4">
               <ClientForm
-                cliente={editCliente}
-                setCliente={setEditCliente}
-                isDisabled={isUpdating}
+                cliente={nuevoCliente}
+                setCliente={setNuevoCliente}
+                isDisabled={isCreating}
               />
             </div>
           </div>
@@ -71,7 +68,7 @@ export function EditClientModal({
             <button
               type="button"
               className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isUpdating}
+              disabled={isCreating}
               onClick={onClose}
             >
               Cancelar
@@ -79,9 +76,9 @@ export function EditClientModal({
             <button
               type="submit"
               className="px-5 py-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isUpdating}
+              disabled={isCreating}
             >
-              {isUpdating ? 'Guardando…' : 'Guardar'}
+              {isCreating ? 'Creando…' : 'Crear cliente'}
             </button>
           </div>
         </form>

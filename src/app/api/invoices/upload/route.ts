@@ -138,6 +138,30 @@ export async function POST(request: Request) {
       )
     }
 
+    // Consumir 1 crédito en el ledger (allow_negative=true para pay-as-you-go por ahora)
+    try {
+      await supabase.rpc('consume_credit', {
+        p_org_id: orgId,
+        p_invoice_id: invoiceId,
+        p_upload_id: uploadId || null,
+        p_allow_negative: true, // Cambiar a false cuando apliques límites estrictos por plan
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('insufficient_credits')) {
+        return NextResponse.json(
+          { error: 'No tienes créditos suficientes. Renueva tu plan o compra un pack.' },
+          { status: 402 }
+        )
+      }
+      // Fallback: increment_org_invoices_consumed si la migración ledger aún no está
+      try {
+        await supabase.rpc('increment_org_invoices_consumed', { p_org_id: orgId })
+      } catch {
+        // Ignorar si las migraciones aún no se han ejecutado
+      }
+    }
+
     // URL firmada para previsualización (válida 1h)
     const expiresIn = 60 * 60 * 24 * 7 // 7 días (como en el panel)
     let previewUrl: string | null = null

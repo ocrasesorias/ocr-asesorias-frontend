@@ -7,15 +7,15 @@ import { translateError } from '@/utils/errorMessages';
 
 interface DashboardHeaderProps {
   organizationName: string;
-  facturasGastadasOrgCount: number | null;
-  isLoadingFacturasGastadasOrgCount: boolean;
+  creditsBalance: number | null;
+  isLoadingCredits: boolean;
   orgId: string | null;
 }
 
 export function DashboardHeader({
   organizationName,
-  facturasGastadasOrgCount,
-  isLoadingFacturasGastadasOrgCount,
+  creditsBalance,
+  isLoadingCredits,
   orgId,
 }: DashboardHeaderProps) {
   const router = useRouter();
@@ -99,10 +99,10 @@ export function DashboardHeader({
 
           <div className="shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-right min-w-[170px]">
             <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Facturas gastadas
+              Créditos disponibles
             </div>
             <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
-              {isLoadingFacturasGastadasOrgCount ? '…' : (facturasGastadasOrgCount ?? '—')}
+              {isLoadingCredits ? '…' : (creditsBalance ?? '—')}
             </div>
           </div>
         </div>

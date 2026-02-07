@@ -285,7 +285,7 @@ function applyExtractedIvasToLineas(params: {
 function toFacturaData(
   inv: UploadInvoiceRow,
   previewUrl: string,
-  opts?: { clientTaxId?: string | null; defaultSubcuenta?: string }
+  opts?: { clientTaxId?: string | null; defaultSubcuenta?: string; actividad?: string | null }
 ): FacturaData {
   const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
   const ex = getLatestExtraction(inv)
@@ -333,7 +333,7 @@ function toFacturaData(
   const lineas = applyExtractedIvasToLineas({ lineas: baseLineas, extracted: extractedIvas, overwrite: true })
 
   return {
-    empresa: { cif: opts?.clientTaxId || 'B12345678', trimestre: 'Q1', actividad: '' },
+    empresa: { cif: opts?.clientTaxId || 'B12345678', trimestre: 'Q1', actividad: opts?.actividad ?? '' },
     proveedor: {
       nombre: f?.supplier_name || exCliente || '',
       cif: f?.supplier_tax_id || exNif || '',
@@ -635,7 +635,11 @@ export default function ValidarUploadPage() {
         setInvoiceRows(invoices)
 
         const mapped = invoices.map((inv) =>
-          toFacturaData(inv, previewRecord[inv.id] || '', { clientTaxId: client?.tax_id, defaultSubcuenta })
+          toFacturaData(inv, previewRecord[inv.id] || '', {
+            clientTaxId: client?.tax_id,
+            defaultSubcuenta,
+            actividad: (client as { activity_description?: string | null })?.activity_description ?? '',
+          })
         )
         setFacturas(mapped)
 

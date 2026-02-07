@@ -27,8 +27,8 @@ export default function DashboardPage() {
   
   // Invoice Counter
   const {
-    facturasGastadasOrgCount,
-    isLoading: isLoadingFacturasGastadasOrgCount,
+    creditsBalance,
+    isLoading: isLoadingCredits,
     refresh: refreshInvoiceCounter,
   } = useInvoiceCounter(orgId);
   
@@ -42,6 +42,7 @@ export default function DashboardPage() {
     setNuevoCliente,
     isCreatingClient,
     isEditModalOpen,
+    clienteParaEditar,
     editCliente,
     setEditCliente,
     isUpdatingClient,
@@ -50,6 +51,7 @@ export default function DashboardPage() {
     isDeletingClient,
     handleClienteChange,
     handleCrearCliente,
+    handleCancelCrearCliente,
     handleEditClient,
     handleSaveEditClient,
     handleCancelEditClient,
@@ -203,8 +205,8 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader
         organizationName={organizationName}
-        facturasGastadasOrgCount={facturasGastadasOrgCount}
-        isLoadingFacturasGastadasOrgCount={isLoadingFacturasGastadasOrgCount}
+        creditsBalance={creditsBalance}
+        isLoadingCredits={isLoadingCredits}
         orgId={orgId}
       />
 
@@ -222,6 +224,7 @@ export default function DashboardPage() {
               isCreatingClient={isCreatingClient}
               onClienteChange={handleClienteChangeWrapper}
               onCrearCliente={handleCrearCliente}
+              onCancelCrearCliente={handleCancelCrearCliente}
               onEditClient={handleEditClient}
               onDeleteClient={handleDeleteClient}
             />
@@ -278,7 +281,7 @@ export default function DashboardPage() {
       {/* Modals */}
       <EditClientModal
         isOpen={isEditModalOpen}
-        client={clienteParaEliminar}
+        client={clienteParaEditar}
         editCliente={editCliente}
         setEditCliente={setEditCliente}
         isUpdating={isUpdatingClient}

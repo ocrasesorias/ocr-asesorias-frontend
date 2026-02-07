@@ -38,6 +38,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       typeof body?.preferred_income_account === 'string' ? body.preferred_income_account.trim() : ''
     const preferred_expense_account =
       typeof body?.preferred_expense_account === 'string' ? body.preferred_expense_account.trim() : ''
+    const activity_description =
+      typeof body?.activity_description === 'string' ? body.activity_description.trim() : ''
 
     if (!name) {
       return NextResponse.json({ error: 'El nombre del cliente es requerido' }, { status: 400 })
@@ -50,6 +52,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         tax_id: tax_id || null,
         preferred_income_account: preferred_income_account || null,
         preferred_expense_account: preferred_expense_account || null,
+        activity_description: activity_description || null,
       })
       .eq('id', clientId)
       .in('org_id', orgIds)

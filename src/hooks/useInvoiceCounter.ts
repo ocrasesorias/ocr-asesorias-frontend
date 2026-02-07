@@ -1,40 +1,36 @@
 import { useState, useCallback, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 
 /**
- * Hook para gestionar el contador de facturas gastadas de la organización
+ * Hook para el saldo de créditos de la organización (billing ledger).
+ * credits_balance: créditos disponibles (restan al subir facturas).
  */
 export function useInvoiceCounter(orgId: string | null) {
-  const [facturasGastadasOrgCount, setFacturasGastadasOrgCount] = useState<number | null>(null);
-  const [isLoadingFacturasGastadasOrgCount, setIsLoadingFacturasGastadasOrgCount] = useState(false);
+  const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const refreshFacturasGastadasOrgCount = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!orgId) return;
-    setIsLoadingFacturasGastadasOrgCount(true);
+    setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { count, error } = await supabase
-        .from('invoices')
-        .select('id', { count: 'exact', head: true })
-        .eq('org_id', orgId);
-
-      if (error) throw new Error(error.message || 'Error contando facturas');
-      setFacturasGastadasOrgCount(typeof count === 'number' ? count : 0);
+      const resp = await fetch(`/api/organizations/${encodeURIComponent(orgId)}/invoice-stats`);
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(data?.error || 'Error cargando saldo');
+      const balance = typeof data?.credits_balance === 'number' ? data.credits_balance : 0;
+      setCreditsBalance(balance);
     } catch {
-      // Mejor no spamear toasts aquí. Mostramos "—" y seguimos.
-      setFacturasGastadasOrgCount(null);
+      setCreditsBalance(null);
     } finally {
-      setIsLoadingFacturasGastadasOrgCount(false);
+      setIsLoading(false);
     }
   }, [orgId]);
 
   useEffect(() => {
-    void refreshFacturasGastadasOrgCount();
-  }, [refreshFacturasGastadasOrgCount]);
+    void refresh();
+  }, [refresh]);
 
   return {
-    facturasGastadasOrgCount,
-    isLoading: isLoadingFacturasGastadasOrgCount,
-    refresh: refreshFacturasGastadasOrgCount,
+    creditsBalance,
+    isLoading,
+    refresh,
   };
 }

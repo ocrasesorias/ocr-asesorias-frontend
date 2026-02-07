@@ -6,12 +6,14 @@ interface ClientFormProps {
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
+    activity_description: string;
   };
   setCliente: React.Dispatch<React.SetStateAction<{
     name: string;
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
+    activity_description: string;
   }>>;
   isDisabled?: boolean;
 }
@@ -88,6 +90,21 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             <option value="628">628</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="client-activity" className="block text-sm font-medium text-foreground mb-2">
+          Actividad (opcional)
+        </label>
+        <textarea
+          id="client-activity"
+          rows={3}
+          value={cliente.activity_description}
+          onChange={(e) => setCliente({ ...cliente, activity_description: e.target.value })}
+          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+          placeholder="Ej: Comercio al por menor, Servicios profesionales..."
+          disabled={isDisabled}
+        />
       </div>
     </div>
   );

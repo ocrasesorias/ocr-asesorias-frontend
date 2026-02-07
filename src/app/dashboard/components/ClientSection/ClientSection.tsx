@@ -3,7 +3,7 @@
 import { Cliente } from '@/types/dashboard';
 import { ClientSelect } from '@/components/ClientSelect';
 import { Button } from '@/components/Button';
-import { ClientForm } from './ClientForm';
+import { CreateClientModal } from './CreateClientModal';
 
 interface ClientSectionProps {
   clientes: Cliente[];
@@ -15,16 +15,19 @@ interface ClientSectionProps {
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
+    activity_description: string;
   };
   setNuevoCliente: React.Dispatch<React.SetStateAction<{
     name: string;
     tax_id: string;
     preferred_income_account: string;
     preferred_expense_account: string;
+    activity_description: string;
   }>>;
   isCreatingClient: boolean;
   onClienteChange: (clienteId: string) => void;
   onCrearCliente: (e: React.FormEvent) => void;
+  onCancelCrearCliente: () => void;
   onEditClient: (client: Cliente) => void;
   onDeleteClient: (client: Cliente) => void;
 }
@@ -39,6 +42,7 @@ export function ClientSection({
   isCreatingClient,
   onClienteChange,
   onCrearCliente,
+  onCancelCrearCliente,
   onEditClient,
   onDeleteClient,
 }: ClientSectionProps) {
@@ -56,80 +60,49 @@ export function ClientSection({
         </button>
       </div>
 
-      {!mostrarNuevoCliente ? (
-        <>
-          <ClientSelect
-            clients={clientes}
-            value={clienteSeleccionado?.id || ''}
-            onChange={onClienteChange}
-          />
+      <ClientSelect
+        clients={clientes}
+        value={clienteSeleccionado?.id || ''}
+        onChange={onClienteChange}
+      />
 
-          {clienteSeleccionado && (
-            <div className="mt-3 flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                className="flex-1"
-                onClick={() => onEditClient(clienteSeleccionado)}
-              >
-                Editar
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="md"
-                className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
-                onClick={() => onDeleteClient(clienteSeleccionado)}
-              >
-                Eliminar
-              </Button>
-            </div>
-          )}
-
-          {clientes.length === 0 && (
-            <p className="mt-4 text-sm text-foreground-secondary text-center">
-              No hay clientes registrados. Crea uno nuevo.
-            </p>
-          )}
-        </>
-      ) : (
-        <form onSubmit={onCrearCliente}>
-          <ClientForm
-            cliente={nuevoCliente}
-            setCliente={setNuevoCliente}
-            isDisabled={isCreatingClient}
-          />
-          <div className="flex gap-2 mt-4">
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              className="flex-1"
-              disabled={isCreatingClient}
-            >
-              {isCreatingClient ? 'Creando...' : 'Crear cliente'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={() => {
-                setMostrarNuevoCliente(false);
-                setNuevoCliente({
-                  name: '',
-                  tax_id: '',
-                  preferred_income_account: '700',
-                  preferred_expense_account: '600',
-                });
-              }}
-              disabled={isCreatingClient}
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
+      {clienteSeleccionado && (
+        <div className="mt-3 flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="flex-1"
+            onClick={() => onEditClient(clienteSeleccionado)}
+          >
+            Editar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
+            onClick={() => onDeleteClient(clienteSeleccionado)}
+          >
+            Eliminar
+          </Button>
+        </div>
       )}
+
+      {clientes.length === 0 && (
+        <p className="mt-4 text-sm text-foreground-secondary text-center">
+          No hay clientes registrados. Crea uno nuevo.
+        </p>
+      )}
+
+      <CreateClientModal
+        isOpen={mostrarNuevoCliente}
+        nuevoCliente={nuevoCliente}
+        setNuevoCliente={setNuevoCliente}
+        isCreating={isCreatingClient}
+        onSubmit={onCrearCliente}
+        onClose={onCancelCrearCliente}
+      />
     </div>
   );
 }

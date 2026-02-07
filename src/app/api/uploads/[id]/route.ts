@@ -55,7 +55,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           name,
           tax_id,
           preferred_income_account,
-          preferred_expense_account
+          preferred_expense_account,
+          activity_description
         ),
         invoices (
           id,

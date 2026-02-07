@@ -16,6 +16,7 @@ export function useClientManagement(orgId: string | null) {
     tax_id: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
+    activity_description: '',
   });
   const [isCreatingClient, setIsCreatingClient] = useState(false);
   const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
@@ -29,6 +30,7 @@ export function useClientManagement(orgId: string | null) {
     tax_id: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
+    activity_description: '',
   });
 
   // Cargar clientes al montar
@@ -109,6 +111,7 @@ export function useClientManagement(orgId: string | null) {
           tax_id: nuevoCliente.tax_id.trim() || null,
           preferred_income_account: nuevoCliente.preferred_income_account || null,
           preferred_expense_account: nuevoCliente.preferred_expense_account || null,
+          activity_description: nuevoCliente.activity_description?.trim() || null,
         }),
       });
 
@@ -130,7 +133,7 @@ export function useClientManagement(orgId: string | null) {
       }
 
       // Limpiar el formulario y cerrar
-      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600' });
+      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
       setMostrarNuevoCliente(false);
 
       showSuccess('Cliente creado exitosamente');
@@ -150,6 +153,7 @@ export function useClientManagement(orgId: string | null) {
       tax_id: c.tax_id || '',
       preferred_income_account: c.preferred_income_account || '700',
       preferred_expense_account: c.preferred_expense_account || '600',
+      activity_description: c.activity_description || '',
     });
     setIsEditClientModalOpen(true);
   };
@@ -172,6 +176,7 @@ export function useClientManagement(orgId: string | null) {
           tax_id: editCliente.tax_id.trim() || null,
           preferred_income_account: editCliente.preferred_income_account || null,
           preferred_expense_account: editCliente.preferred_expense_account || null,
+          activity_description: editCliente.activity_description?.trim() || null,
         }),
       });
       const data = await resp.json().catch(() => null);
@@ -220,6 +225,7 @@ export function useClientManagement(orgId: string | null) {
     setNuevoCliente,
     isCreatingClient,
     isEditModalOpen: isEditClientModalOpen,
+    clienteParaEditar: clientParaEditar,
     editCliente,
     setEditCliente,
     isUpdatingClient,
@@ -228,6 +234,10 @@ export function useClientManagement(orgId: string | null) {
     isDeletingClient,
     handleClienteChange,
     handleCrearCliente,
+    handleCancelCrearCliente: () => {
+      setMostrarNuevoCliente(false);
+      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
+    },
     handleEditClient: openEditClient,
     handleSaveEditClient: handleGuardarEdicionCliente,
     handleCancelEditClient: () => {
