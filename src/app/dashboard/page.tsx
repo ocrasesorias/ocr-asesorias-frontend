@@ -62,8 +62,7 @@ export default function DashboardPage() {
   const [sessionInvoiceIds, setSessionInvoiceIds] = useState<string[]>([])
   const extractInFlightRef = useRef(0)
   const extractStartedRef = useRef<Record<string, true>>({})
-  const MAX_EXTRACT_CONCURRENCY = 3
-  const BLOCK_SIZE = 6
+  const MAX_EXTRACT_CONCURRENCY = 5
 
   const [statusMessageTick, setStatusMessageTick] = useState(0)
 
@@ -852,6 +851,8 @@ export default function DashboardPage() {
     // Subida real a Supabase vía API (una a una para simplificar estado/errores)
     let successCount = 0
 
+    const successfulInvoiceIds: string[] = []
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const placeholderId = placeholders[i].id
@@ -864,8 +865,6 @@ export default function DashboardPage() {
         fd.append('upload_id', realUploadId!)
         // Enviamos el tipo para que la IA sepa si es ingreso/gasto
         fd.append('tipo', String(subidaActual.tipo).toUpperCase())
-        // Importante: NO esperamos a la extracción aquí.
-        // La extracción OCR/IA se hará desde la pantalla de validación en cola (3 en paralelo).
 
         const resp = await fetch('/api/invoices/upload', { method: 'POST', body: fd })
         const data = await resp.json()
@@ -873,7 +872,6 @@ export default function DashboardPage() {
         if (!resp.ok) {
           throw new Error(data?.error || 'Error subiendo la factura')
         }
-        // El endpoint puede responder 200 con success=false (p.ej. fallo en extracción)
         if (data?.success === false) {
           throw new Error(data?.error || 'Error procesando la factura')
         }
@@ -915,24 +913,20 @@ export default function DashboardPage() {
           bucket: invoice.bucket || 'invoices',
           storagePath: invoice.storage_path,
           fechaSubida: invoice.created_at || new Date().toISOString(),
-          // subido; el procesamiento OCR/IA se hará en cola (3 en paralelo) desde este dashboard y/o validación
           estado: 'procesado',
           dbStatus,
           dbErrorMessage: typeof invoice.error_message === 'string' ? invoice.error_message : null,
         }
         successCount++
+        successfulInvoiceIds.push(invoice.id)
 
-        // Actualizar UI inmediatamente (para no esperar al final)
+        // Actualizar UI inmediatamente (sin encolar extracción todavía)
         setArchivosSubidos(prev => {
           const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a))
           setSubidasFacturas(sPrev => sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s)))
           setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null))
           return merged
         })
-
-        // Encolar extracción de esta factura
-        setExtractStatusByInvoiceId(prev => ({ ...prev, [invoice.id]: prev[invoice.id] || 'idle' }))
-        setSessionInvoiceIds(prev => (prev.includes(invoice.id) ? prev : [...prev, invoice.id]))
       } catch (e) {
         const nextArchivo: ArchivoSubido = { ...placeholders[i], estado: 'error', url: '' }
         setArchivosSubidos(prev => {
@@ -943,6 +937,24 @@ export default function DashboardPage() {
         })
         showError(e instanceof Error ? e.message : 'Error subiendo la factura')
       }
+    }
+
+    // Solo después de subir TODAS las facturas: encolar extracción (5 en paralelo, en orden de subida)
+    if (successfulInvoiceIds.length > 0) {
+      setExtractStatusByInvoiceId(prev => {
+        const next = { ...prev }
+        for (const id of successfulInvoiceIds) {
+          next[id] = next[id] || 'idle'
+        }
+        return next
+      })
+      setSessionInvoiceIds(prev => {
+        const next = [...prev]
+        for (const id of successfulInvoiceIds) {
+          if (!next.includes(id)) next.push(id)
+        }
+        return next
+      })
     }
 
     if (successCount > 0) {
