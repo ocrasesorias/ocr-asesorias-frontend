@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
+import { formatInteger } from '@/utils/formatNumber';
 import { SuggestionsModal } from './modals/SuggestionsModal';
 
 interface DashboardHeaderProps {
@@ -141,7 +142,7 @@ export function DashboardHeader({
               Créditos disponibles
             </div>
             <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
-              {isLoadingCredits ? '…' : (creditsBalance ?? '—')}
+              {isLoadingCredits ? '…' : (creditsBalance !== null && creditsBalance !== undefined ? formatInteger(creditsBalance) : '—')}
             </div>
           </div>
         </div>

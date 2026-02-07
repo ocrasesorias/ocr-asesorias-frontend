@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
+import { formatInteger } from '@/utils/formatNumber';
 import { DashboardHeader } from '../components/DashboardHeader';
 import { useInvoiceCounter } from '@/hooks/useInvoiceCounter';
 
@@ -260,7 +261,7 @@ export default function PendientesPage() {
           {total > 0 && (
             <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
               <p className="text-sm text-foreground-secondary">
-                Mostrando {from}-{to} de {total} facturas
+                Mostrando {formatInteger(from)}-{formatInteger(to)} de {formatInteger(total)} facturas
               </p>
               <div className="flex items-center gap-1">
                 <button

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
+import { formatInteger } from '@/utils/formatNumber';
 
 const TIPOS_OPTIONS = [
   { value: '', label: 'Todos los tipos' },
@@ -235,7 +236,7 @@ export default function AdminSuggestionsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-semibold text-foreground">{stats.nuevo}</p>
+              <p className="text-2xl font-semibold text-foreground">{formatInteger(stats.nuevo)}</p>
               <p className="text-sm text-foreground-secondary">Nuevos</p>
             </div>
           </div>
@@ -246,7 +247,7 @@ export default function AdminSuggestionsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-semibold text-foreground">{stats.en_proceso}</p>
+              <p className="text-2xl font-semibold text-foreground">{formatInteger(stats.en_proceso)}</p>
               <p className="text-sm text-foreground-secondary">En proceso</p>
             </div>
           </div>
@@ -257,7 +258,7 @@ export default function AdminSuggestionsPage() {
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-semibold text-foreground">{stats.resuelto}</p>
+              <p className="text-2xl font-semibold text-foreground">{formatInteger(stats.resuelto)}</p>
               <p className="text-sm text-foreground-secondary">Resueltos</p>
             </div>
           </div>
@@ -405,7 +406,7 @@ export default function AdminSuggestionsPage() {
           {total > 0 && (
             <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
               <p className="text-sm text-foreground-secondary">
-                Mostrando {from}-{to} de {total} registros
+                Mostrando {formatInteger(from)}-{formatInteger(to)} de {formatInteger(total)} registros
               </p>
               <div className="flex items-center gap-1">
                 <button
