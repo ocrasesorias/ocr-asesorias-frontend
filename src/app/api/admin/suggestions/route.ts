@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   }
 }
 
-async function getStats(admin: ReturnType<typeof createAdminClient>) {
+async function getStats(admin: NonNullable<ReturnType<typeof createAdminClient>>) {
   const [nuevo, enProceso, resuelto] = await Promise.all([
     admin.from('suggestions').select('id', { count: 'exact', head: true }).eq('status', 'nuevo'),
     admin.from('suggestions').select('id', { count: 'exact', head: true }).eq('status', 'en_proceso'),
