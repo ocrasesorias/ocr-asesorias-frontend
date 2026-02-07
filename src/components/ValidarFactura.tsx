@@ -988,14 +988,38 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
 
                 <div className="mt-2 border-t border-slate-100 pt-2">
                   <div className="grid grid-cols-[5.5rem_1fr_6rem_1fr] gap-2 items-center border border-gray-200 rounded-lg p-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Retención
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Retención
+                    </span>
+                    {factura.retencion.tipo === 'ALQUILERES' && (
+                      <Tooltip
+                        content={
+                          <span className="block bg-amber-50 text-amber-800 text-xs p-3 rounded-md shadow-lg border border-amber-200 min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                            Determinados programas contables necesitan marcar las retenciones de alquileres con un código específico para que lo lleven al modelo correspondiente.
+                          </span>
+                        }
+                        placement="top"
+                        showArrow
+                        classNames={{
+                          base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-50 before:!border-amber-200 data-[placement=top]:before:!-bottom-0.5',
+                        }}
+                      >
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 cursor-help" aria-label="Alquileres: info">
+                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      </Tooltip>
+                    )}
                   </div>
 
                   <select
                     value={factura.retencion.tipo}
                     onChange={(e) => handleChange('retencion.tipo', e.target.value)}
-                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
+                      factura.retencion.tipo === 'ALQUILERES' ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                    }`}
                   >
                     <option value="">Tipo…</option>
                     {tiposRetencion.map((t) => (
