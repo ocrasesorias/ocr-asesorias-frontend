@@ -1,7 +1,5 @@
 'use client';
 
-import { Button } from '@/components/Button';
-
 interface UploadTypeSelectorProps {
   onSelectTipo: (tipo: 'gasto' | 'ingreso') => void;
   onCancel: () => void;

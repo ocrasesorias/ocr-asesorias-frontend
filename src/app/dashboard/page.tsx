@@ -87,16 +87,12 @@ export default function DashboardPage() {
   // Invoice Processing
   const {
     archivosSubidos,
-    setArchivosSubidos,
     extractStatusByInvoiceId,
     sessionInvoiceIds,
     hasUploadingFiles,
-    invoiceIdsInOrder,
     currentSessionInvoiceIds,
     isAllReady,
-    processingCount,
     readyCount,
-    errorCount,
     dbCounts,
     statusMessage,
     canValidate,
@@ -267,7 +263,6 @@ export default function DashboardPage() {
               hasUploadingFiles={hasUploadingFiles}
               isAllReady={isAllReady}
               canValidate={canValidate}
-              invoiceIdsInOrder={invoiceIdsInOrder}
               onCrearSubida={handleCrearSubidaWrapper}
               onCrearSubidaConTipo={handleCrearSubidaConTipoWrapper}
               onCancelarTipoSubida={() => setIsChoosingTipoSubida(false)}

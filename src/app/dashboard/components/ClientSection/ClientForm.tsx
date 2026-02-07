@@ -1,7 +1,5 @@
 'use client';
 
-import { Cliente } from '@/types/dashboard';
-
 interface ClientFormProps {
   cliente: {
     name: string;

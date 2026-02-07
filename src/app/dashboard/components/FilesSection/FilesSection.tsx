@@ -28,7 +28,6 @@ interface FilesSectionProps {
   hasUploadingFiles: boolean;
   isAllReady: boolean;
   canValidate: boolean;
-  invoiceIdsInOrder: string[];
   onCrearSubida: () => void;
   onCrearSubidaConTipo: (tipo: 'gasto' | 'ingreso') => void;
   onCancelarTipoSubida: () => void;
@@ -51,7 +50,6 @@ export function FilesSection({
   hasUploadingFiles,
   isAllReady,
   canValidate,
-  invoiceIdsInOrder,
   onCrearSubida,
   onCrearSubidaConTipo,
   onCancelarTipoSubida,

@@ -553,16 +553,13 @@ export function useInvoiceProcessing() {
 
   return {
     archivosSubidos,
-    setArchivosSubidos,
     extractStatusByInvoiceId,
     sessionInvoiceIds,
     hasUploadingFiles,
     invoiceIdsInOrder,
     currentSessionInvoiceIds,
     isAllReady,
-    processingCount,
     readyCount,
-    errorCount,
     dbCounts,
     statusMessage,
     canValidate,
