@@ -355,7 +355,17 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     }
   })()
 
-  // Verificación de operación IVA: base × (%/100) ≈ cuota (sin margen)
+  // Verificación de operación IVA: base × (%/100) ≈ cuota (0.05). Con inversión del sujeto pasivo, cuota 0 es válida.
+  const inversionSujetoPasivo = Boolean(facturaInicial.inversion_sujeto_pasivo)
+  const tipoDocumento = facturaInicial.tipo_documento || 'factura'
+  const tipoDocumentoLabel =
+    tipoDocumento === 'albaran'
+      ? 'Albarán'
+      : tipoDocumento === 'nota_entrega'
+        ? 'Nota de entrega'
+        : tipoDocumento === 'otro'
+          ? 'Otro documento'
+          : 'Factura'
   const ivaVerification = (() => {
     const errors: number[] = []
     for (let i = 0; i < (factura.lineas?.length || 0); i++) {
@@ -367,10 +377,12 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       const pctN = Number(pctRaw)
       if (baseN === null && cuotaN === null) continue
       if (!Number.isFinite(pctN) || pctN < 0) continue
+      // Inversión del sujeto pasivo: cuota IVA 0 es correcta (IVA repercutido por el destinatario)
+      if (inversionSujetoPasivo && (cuotaN === null || cuotaN === 0)) continue
       const expected = baseN !== null ? baseN * (pctN / 100) : null
       if (expected === null || cuotaN === null) continue
       const diff = Math.abs(cuotaN - expected)
-      if (diff > 0.002) errors.push(i)
+      if (diff > 0.05) errors.push(i)
     }
     return { hasErrors: errors.length > 0, errorLineIndices: errors }
   })()
@@ -423,6 +435,25 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between text-sm">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-xs font-medium truncate">{factura.archivo?.nombre || 'Factura'}</span>
+                <span
+                  className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium ${
+                    tipoDocumento === 'factura'
+                      ? 'bg-slate-600 text-white'
+                      : tipoDocumento === 'albaran'
+                        ? 'bg-blue-500/90 text-white'
+                        : tipoDocumento === 'nota_entrega'
+                          ? 'bg-slate-500/90 text-white'
+                          : 'bg-slate-500/80 text-white'
+                  }`}
+                  title={tipoDocumento === 'factura' ? 'Documento fiscal para contabilidad' : tipoDocumento === 'albaran' ? 'Documento de entrega; la factura puede llegar por separado' : tipoDocumento === 'nota_entrega' ? 'Prueba de entrega' : 'Otro tipo de documento'}
+                >
+                  {tipoDocumentoLabel}
+                </span>
+                {inversionSujetoPasivo && (
+                  <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/90 text-slate-900" title="IVA repercutido por el destinatario (Art. 196)">
+                    Inversión sujeto pasivo
+                  </span>
+                )}
               </div>
               {factura.archivo?.url ? (
                 <a

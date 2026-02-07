@@ -365,7 +365,19 @@ function toFacturaData(
       bucket: inv.bucket,
       storagePath: inv.storage_path,
     },
+    inversion_sujeto_pasivo: Boolean(ex?.inversion_sujeto_pasivo),
+    tipo_documento: normalizeTipoDocumento(ex?.tipo_documento),
   }
+}
+
+function normalizeTipoDocumento(
+  v: unknown
+): 'factura' | 'albaran' | 'nota_entrega' | 'otro' {
+  const s = typeof v === 'string' ? v.trim().toLowerCase() : ''
+  if (s === 'albaran' || s === 'albarán') return 'albaran'
+  if (s === 'nota_entrega') return 'nota_entrega'
+  if (s === 'otro') return 'otro'
+  return 'factura'
 }
 
 export default function ValidarUploadPage() {
@@ -816,6 +828,12 @@ export default function ValidarUploadPage() {
 
     if (!next.retencion.aplica && ((retPct && retPct > 0) || (retImp && retImp > 0))) {
       next.retencion.aplica = true
+    }
+    if (ex?.inversion_sujeto_pasivo === true) {
+      next.inversion_sujeto_pasivo = true
+    }
+    if (ex?.tipo_documento !== undefined && ex?.tipo_documento !== null) {
+      next.tipo_documento = normalizeTipoDocumento(ex.tipo_documento)
     }
     if (!next.retencion.porcentaje && retPct !== null) {
       next.retencion.porcentaje = toRetencionPorcentaje(retPct)

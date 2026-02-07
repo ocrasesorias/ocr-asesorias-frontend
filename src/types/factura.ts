@@ -53,5 +53,11 @@ export interface FacturaData {
     bucket?: string;
     storagePath?: string;
   };
+
+  /** Inversión del sujeto pasivo (Art. 196): IVA repercutido por el destinatario; cuota IVA = 0 */
+  inversion_sujeto_pasivo?: boolean;
+
+  /** Clasificación del documento: factura, albarán, nota de entrega u otro */
+  tipo_documento?: 'factura' | 'albaran' | 'nota_entrega' | 'otro';
 }
 
