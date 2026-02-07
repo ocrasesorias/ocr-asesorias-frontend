@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/Button';
+import { formatMiles } from '@/utils/formatNumber';
 
 interface ValidationButtonsProps {
   canValidate: boolean;
@@ -51,9 +52,9 @@ export function ValidationButtons({
         >
           <span className="inline-flex items-center justify-center gap-2 font-light">
             {hasUploadingFiles
-              ? `Subiendo… (${readyCount}/${totalFiles})`
+              ? `Subiendo… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
                 : !isAllReady
-                  ? `Procesando facturas… (${readyCount}/${totalFiles})`
+                  ? `Procesando facturas… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
                   : 'Validar'}
             {!hasUploadingFiles && (
               <svg

@@ -32,6 +32,7 @@ const FieldRow = ({
 )
 
 interface ValidarFacturaProps {
+  empresaNombre: string
   tipo?: 'gasto' | 'ingreso'
   uppercaseNombreDireccion?: boolean
   /** Trimestre de trabajo configurado en preferencias (Q1–Q4). Si la factura no coincide, se muestra aviso. */
@@ -48,6 +49,7 @@ interface ValidarFacturaProps {
 }
 
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
+  empresaNombre,
   tipo = 'gasto',
   uppercaseNombreDireccion = false,
   workingQuarter = '',
@@ -550,7 +552,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     />
                   </svg>
                   <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                    Empresa
+                    Empresa - {empresaNombre}
                   </div>
                 </div>
 
@@ -685,7 +687,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="text"
                         value={factura.proveedor.cif}
                         onChange={(e) => handleChange('proveedor.cif', e.target.value)}
-                        className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
+                        className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${
                           cifVerification.proveedorError ? 'border-red-500 bg-red-50 pr-7' : 'border-gray-200'
                         }`}
                         aria-invalid={Boolean(cifVerification.proveedorError)}

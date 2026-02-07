@@ -303,6 +303,7 @@ export default function ValidarFacturaPage() {
       {/* Componente de validación */}
       <div className="flex-1 overflow-y-auto min-h-0">
         <ValidarFactura
+          empresaNombre=""
           factura={facturas[facturaActual]}
           onValidar={handleValidar}
           onSiguiente={handleSiguiente}

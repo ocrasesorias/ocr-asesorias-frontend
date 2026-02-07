@@ -2,6 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { ArchivoSubido } from '@/types/dashboard';
+import { formatMiles } from '@/utils/formatNumber';
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
@@ -124,7 +125,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         <div className="bg-white rounded-lg border border-gray-200 p-4 text-foreground">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h3 className="text-sm font-semibold text-foreground">
-              Facturas ({totalCount})
+              Facturas ({formatMiles(totalCount, 0)})
             </h3>
             {maxVisibleFiles && totalCount > visibleCount && (
               <button
@@ -132,7 +133,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 className="text-xs text-primary hover:text-primary-hover font-medium"
                 onClick={() => setShowAll((v) => !v)}
               >
-                {showAll ? 'Ver menos' : `Ver todas (${totalCount})`}
+                {showAll ? 'Ver menos' : `Ver todas (${formatMiles(totalCount, 0)})`}
               </button>
             )}
           </div>
@@ -207,7 +208,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
           {isCollapsed && (
             <div className="mt-3 text-xs text-foreground-secondary">
-              Mostrando {displayedFiles.length} de {totalCount}. Hay más facturas procesándose…
+              Mostrando {formatMiles(displayedFiles.length, 0)} de {formatMiles(totalCount, 0)}. Hay más facturas procesándose…
             </div>
           )}
         </div>

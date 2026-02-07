@@ -6,6 +6,7 @@ import { Button } from '@/components/Button'
 import { ValidarFactura } from '@/components/ValidarFactura'
 import { FacturaData } from '@/types/factura'
 import { useToast } from '@/contexts/ToastContext'
+import { formatMiles } from '@/utils/formatNumber'
 import { createClient } from '@/lib/supabase/client'
 
 type UploadInvoiceRow = {
@@ -451,12 +452,6 @@ export default function ValidarUploadPage() {
       return st === 'ready' || st === 'error'
     })
   }, [invoiceRows, invoiceStatus])
-
-  // Si entramos en modo "solo pendientes" y no queda ninguna, mostramos pantalla de subida completada.
-
-  const allValidated = useMemo(() => {
-    return validatedStats.total > 0 && validatedStats.validated >= validatedStats.total
-  }, [validatedStats.total, validatedStats.validated])
 
   const persistIdSet = (key: string, rec: Record<string, true>) => {
     try {
@@ -1054,13 +1049,12 @@ export default function ValidarUploadPage() {
       // Si estaba "para después", lo quitamos.
       setDeferredByInvoiceId((prev) => {
         if (!prev[invoiceId]) return prev
-        const { [invoiceId]: _omit, ...rest } = prev
+        const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
         persistIdSet(`upload:${uploadId}:deferredIds`, rest)
         return rest
       })
     }
 
-    const isLast = facturaActual === facturas.length - 1
     // Calculamos "all validated" incluyendo esta factura (sin esperar al setState async)
     const totalCount = invoiceRows.length
     const prevValidatedCount = validatedStats.validated
@@ -1351,7 +1345,7 @@ export default function ValidarUploadPage() {
           <div className="flex items-center gap-4 shrink-0">
             <div className="flex flex-col items-end">
               <span className="text-xs font-medium text-slate-500">
-                {statusStats.done}/{statusStats.total} procesadas
+                {formatMiles(statusStats.done, 0)}/{formatMiles(statusStats.total, 0)} procesadas
               </span>
               <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
                 <div
@@ -1379,7 +1373,7 @@ export default function ValidarUploadPage() {
               title={
                 validatedInvoiceIds.length === 0
                   ? 'Valida al menos una factura para exportar'
-                  : `Exportar ${validatedInvoiceIds.length} facturas validadas`
+                  : `Exportar ${formatMiles(validatedInvoiceIds.length, 0)} facturas validadas`
               }
             >
               <Button
@@ -1398,8 +1392,8 @@ export default function ValidarUploadPage() {
           <div className="px-6 pb-1 flex justify-end">
             <div className="text-[11px] text-slate-500 whitespace-nowrap">
               {viewMode === 'pending'
-                ? `${pendingInvoiceIds.length} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''}`
-                : `${validatedStats.validated}/${validatedStats.total} validadas`}
+                ? `${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''}`
+                : `${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas`}
             </div>
           </div>
           {/* Barra segmentada clicable:
@@ -1458,7 +1452,7 @@ export default function ValidarUploadPage() {
             <h2 className="text-xl font-semibold mb-2">Exportar facturas validadas</h2>
             <p className="text-sm text-foreground-secondary mb-6">
               Se generará el Excel con las facturas marcadas como validadas.
-              <span className="font-medium">{' '}{validatedStats.validated}</span>/{validatedStats.total} validadas.
+              <span className="font-medium">{' '}{formatMiles(validatedStats.validated, 0)}</span>/{formatMiles(validatedStats.total, 0)} validadas.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button variant="outline" onClick={() => setIsFinishedModalOpen(false)} disabled={isExporting}>
@@ -1492,6 +1486,7 @@ export default function ValidarUploadPage() {
           return (
             <ValidarFactura
               key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
+              empresaNombre={clienteNombre}
               tipo={tipoFactura}
               uppercaseNombreDireccion={uppercasePref}
               workingQuarter={workingQuarter}
