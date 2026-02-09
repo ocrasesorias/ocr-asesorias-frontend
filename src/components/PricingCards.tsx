@@ -13,7 +13,7 @@ const PLANS = [
     annualPrice: 290,
     invoices: 100,
     extraPrice: '0,35',
-    ideal: 'Autónomos o gestores freelance que empiezan.',
+    ideal: 'Autónomos o gestores freelance.',
     cta: 'Empezar',
     featured: false,
     priceColor: 'text-foreground' as const,
