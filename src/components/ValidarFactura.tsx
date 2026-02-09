@@ -709,13 +709,12 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               {/* Proveedor/Acreedor */}
               <div className="border border-gray-200 rounded-lg p-2">
                 <div className="flex items-center gap-2 mb-2">
-                  <svg
-                    className="w-4 h-4 text-secondary shrink-0"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M16.5177 17H3.39249c-.70639 0-1.22802-.69699-.96159-1.33799C3.66709 12.69799 6.57126 10.99999 9.95417 10.99999c3.38394 0 6.2881 1.698 7.52429 4.662 0.26642.641-.2552 1.338-.96076 1.338zM5.87198 5c0-2.206 1.83233-4 4.08319-4 2.25188 0 4.08318 1.794 4.08318 4s-1.8313 4-4.08318 4C7.70431 9 5.87198 7.206 5.87198 5zm12.95472 11.636c-.74211-3.359-3.06341-5.838-6.11865-6.963 1.61898-1.277 2.56322-3.342 2.21615-5.603C14.52243 1.447 12.29505-.652 9.60627-.958 5.89466-1.381 2.74652 1.449 2.74652 5c0 1.89.89422 3.574 2.28863 4.673-3.05626 1.125-5.37654 3.604-6.11967 6.963C-1.35498 17.857-.35052 19 0.92445 19H16.8162c1.27599 0 2.28046-1.143 2.0105-2.364z" />
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" aria-hidden="true">
+                    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+                    <g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g>
+                    <g id="SVGRepo_iconCarrier">
+                      <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
+                    </g>
                   </svg>
                   <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
                     {contraparteTitle} - {factura.proveedor.nombre}
