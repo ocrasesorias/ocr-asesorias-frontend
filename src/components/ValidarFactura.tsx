@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
-import Image from 'next/image';
-import { Tooltip } from '@heroui/react';
-import { FacturaData } from '@/types/factura';
 import { validarNifCif } from '@/lib/validarNifCif';
-import { Card } from './Card';
+import { FacturaData } from '@/types/factura';
+import { Tooltip } from '@heroui/react';
+import Image from 'next/image';
+import React, { useMemo, useRef, useState } from 'react';
 import { Button } from './Button';
+import { Card } from './Card';
 
 const FieldRow = ({
   label,
@@ -21,9 +21,8 @@ const FieldRow = ({
 }) => (
   <div className={`flex ${alignTop ? 'items-start' : 'items-center'} gap-2`}>
     <span
-      className={`text-xs font-medium text-foreground shrink-0 ${widthClass} ${
-        alignTop ? 'pt-0.5' : ''
-      }`}
+      className={`text-xs font-medium text-foreground shrink-0 ${widthClass} ${alignTop ? 'pt-0.5' : ''
+        }`}
     >
       {label}
     </span>
@@ -273,13 +272,13 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       const keys = path.split('.');
       const newFactura = { ...prev };
       let current: Record<string, unknown> = newFactura;
-      
+
       for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i];
         const nextValue = current[key];
         current = current[key] = { ...(nextValue as Record<string, unknown>) };
       }
-      
+
       current[keys[keys.length - 1]] = value;
 
       // Retención: no mostramos checkbox; el estado "aplica" se deriva de si hay datos.
@@ -331,7 +330,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     if (disableValidar) return
     if (ivaVerification.hasErrors) return
     if (totalVerification.hasErrors) return
-    if (cifVerification.hasErrors) return
+    // CIF/NIF: solo advertencia, no bloquea el envío
     onValidar(factura);
     // En la última factura no intentamos avanzar (evita error de "siguiente bloque").
     if (!isLast && canGoNext) onSiguiente();
@@ -439,16 +438,16 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const contraparteTitle = tipo === 'ingreso' ? 'CLIENTE' : 'PROVEEDOR'
   const subcuentas = tipo === 'ingreso'
     ? [
-        { value: '700', label: '700 - Ventas' },
-        { value: '705', label: '705 - Prestaciones de servicios' },
-        { value: '708', label: '708 - Devoluciones y descuentos' },
-      ]
+      { value: '700', label: '700 - Ventas' },
+      { value: '705', label: '705 - Prestaciones de servicios' },
+      { value: '708', label: '708 - Devoluciones y descuentos' },
+    ]
     : [
-        { value: '600', label: '600' },
-        { value: '620', label: '620' },
-        { value: '621', label: '621' },
-        { value: '628', label: '628' },
-      ]
+      { value: '600', label: '600' },
+      { value: '620', label: '620' },
+      { value: '621', label: '621' },
+      { value: '628', label: '628' },
+    ]
 
   return (
     <div className="bg-background p-1 flex flex-col min-h-0 h-full">
@@ -465,15 +464,14 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-xs font-medium truncate">{factura.archivo?.nombre || 'Factura'}</span>
                 <span
-                  className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium ${
-                    tipoDocumento === 'factura'
-                      ? 'bg-slate-600 text-white'
-                      : tipoDocumento === 'albaran'
-                        ? 'bg-blue-500/90 text-white'
-                        : tipoDocumento === 'nota_entrega'
-                          ? 'bg-slate-500/90 text-white'
-                          : 'bg-slate-500/80 text-white'
-                  }`}
+                  className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium ${tipoDocumento === 'factura'
+                    ? 'bg-slate-600 text-white'
+                    : tipoDocumento === 'albaran'
+                      ? 'bg-blue-500/90 text-white'
+                      : tipoDocumento === 'nota_entrega'
+                        ? 'bg-slate-500/90 text-white'
+                        : 'bg-slate-500/80 text-white'
+                    }`}
                   title={tipoDocumento === 'factura' ? 'Documento fiscal para contabilidad' : tipoDocumento === 'albaran' ? 'Documento de entrega; la factura puede llegar por separado' : tipoDocumento === 'nota_entrega' ? 'Prueba de entrega' : 'Otro tipo de documento'}
                 >
                   {tipoDocumentoLabel}
@@ -620,31 +618,30 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="text"
                         value={factura.empresa.cif}
                         onChange={(e) => handleChange('empresa.cif', e.target.value)}
-                        className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
-                          cifVerification.empresaError ? 'border-red-500 bg-red-50 pr-7' : 'border-gray-200'
-                        }`}
-                        aria-invalid={Boolean(cifVerification.empresaError)}
-                        title={cifVerification.empresaError ?? undefined}
+                        className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${cifVerification.empresaError ? 'border-amber-500 bg-amber-50/70 pr-7' : 'border-gray-200'
+                          }`}
+                        aria-describedby={cifVerification.empresaError ? 'cif-empresa-warning' : undefined}
+                        title={cifVerification.empresaError ? `${cifVerification.empresaError}` : undefined}
                       />
                       {cifVerification.empresaError && (
                         <Tooltip
                           content={
-                            <span className="block bg-slate-800 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                            <span id="cif-empresa-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
                               {cifVerification.empresaError}
                             </span>
                           }
                           placement="bottom"
                           showArrow
                           classNames={{
-                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-slate-800 data-[placement=bottom]:before:!-top-0.5',
+                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-600 data-[placement=bottom]:before:!-top-0.5',
                           }}
                         >
                           <span
                             className="absolute right-0 top-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
-                            aria-label={cifVerification.empresaError}
+                            aria-label={`${cifVerification.empresaError}`}
                           >
-                            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </span>
                         </Tooltip>
@@ -676,9 +673,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         <select
                           value={factura.empresa.trimestre}
                           onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
-                          className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
-                            noCoincide ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
-                          }`}
+                          className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${noCoincide ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                            }`}
                           aria-invalid={noCoincide ? 'true' : undefined}
                         >
                           <option value="">-</option>
@@ -723,87 +719,86 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </div>
                 </div>
                 <div className="space-y-1">
-              <div>
-                <FieldRow label="NOMBRE" widthClass="w-16">
-                  <input
-                    type="text"
-                    value={factura.proveedor.nombre}
-                    onChange={(e) => handleChange('proveedor.nombre', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
-                  <div className="grid grid-cols-3 gap-1">
-                <div className="min-w-0">
-                  <FieldRow label="CIF" widthClass="w-10">
-                    <div className="relative min-w-0">
+                  <div>
+                    <FieldRow label="NOMBRE" widthClass="w-16">
                       <input
                         type="text"
-                        value={factura.proveedor.cif}
-                        onChange={(e) => handleChange('proveedor.cif', e.target.value)}
-                        className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${
-                          cifVerification.proveedorError ? 'border-red-500 bg-red-50 pr-7' : 'border-gray-200'
-                        }`}
-                        aria-invalid={Boolean(cifVerification.proveedorError)}
-                        title={cifVerification.proveedorError ?? undefined}
-                      />
-                      {cifVerification.proveedorError && (
-                        <Tooltip
-                          content={
-                            <span className="block bg-slate-800 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
-                              {cifVerification.proveedorError}
-                            </span>
-                          }
-                          placement="top"
-                          showArrow
-                          classNames={{
-                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-slate-800 data-[placement=top]:before:!-bottom-0.5',
-                          }}
-                        >
-                          <span
-                            className="absolute right-0 bottom-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
-                            aria-label={cifVerification.proveedorError}
-                          >
-                            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </span>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </FieldRow>
-                </div>
-                <div>
-                  <FieldRow label="C.P." widthClass="w-10">
-                    <input
-                      type="text"
-                      value={factura.proveedor.codigoPostal}
-                      onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    />
-                  </FieldRow>
-                </div>
-                <div>
-                  <FieldRow label="PROV." widthClass="w-12">
-                    <input
-                      type="text"
-                      value={factura.proveedor.provincia}
-                      onChange={(e) => handleChange('proveedor.provincia', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    />
-                  </FieldRow>
-                </div>
-              </div>
-              <div>
-                <FieldRow label="DIRECCIÓN" widthClass="w-20">
-                  <input
-                    type="text"
-                    value={factura.proveedor.direccion}
-                    onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
+                        value={factura.proveedor.nombre}
+                        onChange={(e) => handleChange('proveedor.nombre', e.target.value)}
                         className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
+                      />
+                    </FieldRow>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    <div className="min-w-0">
+                      <FieldRow label="CIF" widthClass="w-10">
+                        <div className="relative min-w-0">
+                          <input
+                            type="text"
+                            value={factura.proveedor.cif}
+                            onChange={(e) => handleChange('proveedor.cif', e.target.value)}
+                            className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${cifVerification.proveedorError ? 'border-amber-500 bg-amber-50/70 pr-7' : 'border-gray-200'
+                              }`}
+                            aria-describedby={cifVerification.proveedorError ? 'cif-proveedor-warning' : undefined}
+                            title={cifVerification.proveedorError ? `${cifVerification.proveedorError}` : undefined}
+                          />
+                          {cifVerification.proveedorError && (
+                            <Tooltip
+                              content={
+                                <span id="cif-proveedor-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                                  {cifVerification.proveedorError}
+                                </span>
+                              }
+                              placement="top"
+                              showArrow
+                              classNames={{
+                                base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-600 data-[placement=top]:before:!-bottom-0.5',
+                              }}
+                            >
+                              <span
+                                className="absolute right-0 bottom-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
+                                aria-label={`${cifVerification.proveedorError}`}
+                              >
+                                <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              </span>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </FieldRow>
+                    </div>
+                    <div>
+                      <FieldRow label="C.P." widthClass="w-10">
+                        <input
+                          type="text"
+                          value={factura.proveedor.codigoPostal}
+                          onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </FieldRow>
+                    </div>
+                    <div>
+                      <FieldRow label="PROV." widthClass="w-12">
+                        <input
+                          type="text"
+                          value={factura.proveedor.provincia}
+                          onChange={(e) => handleChange('proveedor.provincia', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </FieldRow>
+                    </div>
+                  </div>
+                  <div>
+                    <FieldRow label="DIRECCIÓN" widthClass="w-20">
+                      <input
+                        type="text"
+                        value={factura.proveedor.direccion}
+                        onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
+                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      />
+                    </FieldRow>
+                  </div>
                 </div>
               </div>
 
@@ -827,36 +822,36 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-              <div>
-                <FieldRow label="Nº" widthClass="w-8">
-                  <input
-                    type="text"
-                    value={factura.factura.numero}
-                    onChange={(e) => handleChange('factura.numero', e.target.value)}
+                  <div>
+                    <FieldRow label="Nº" widthClass="w-8">
+                      <input
+                        type="text"
+                        value={factura.factura.numero}
+                        onChange={(e) => handleChange('factura.numero', e.target.value)}
                         className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
-              <div>
-                <FieldRow label="FECHA" widthClass="w-12">
-                  <input
-                    type="date"
-                    value={factura.factura.fecha}
-                    onChange={(e) => handleChange('factura.fecha', e.target.value)}
+                      />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="FECHA" widthClass="w-12">
+                      <input
+                        type="date"
+                        value={factura.factura.fecha}
+                        onChange={(e) => handleChange('factura.fecha', e.target.value)}
                         className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
-              <div>
-                <FieldRow label="VENC." widthClass="w-12">
-                  <input
-                    type="date"
-                    value={factura.factura.fechaVencimiento}
-                    onChange={(e) => handleChange('factura.fechaVencimiento', e.target.value)}
+                      />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="VENC." widthClass="w-12">
+                      <input
+                        type="date"
+                        value={factura.factura.fechaVencimiento}
+                        onChange={(e) => handleChange('factura.fechaVencimiento', e.target.value)}
                         className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  />
-                </FieldRow>
-              </div>
+                      />
+                    </FieldRow>
+                  </div>
                 </div>
 
                 <div className="mt-2 border-t border-slate-100 pt-2">
@@ -915,192 +910,191 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   )}
                   <div className="overflow-hidden">
                     <table className="w-full border-collapse text-[10px]">
-                <colgroup>
-                  <col className="w-auto" />
-                  <col className="w-12" />
-                  <col className="w-auto" />
-                  <col className="w-12" />
-                  <col className="w-auto" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
-                    <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {factura.lineas.map((linea, index) => (
-                    <tr
-                      key={index}
-                      className={ivaVerification.errorLineIndices.includes(index) ? 'bg-amber-50' : undefined}
-                    >
-                      <td className="border border-gray-200 px-0.5 py-0.5">
-                        <input
-                          type="text"
-                          value={moneyValue(`linea:${index}:base`, linea.base)}
-                          onChange={(e) => handleLineaChange(index, 'base', e.target.value)}
-                          onFocus={() => setMoneyFocusKey(`linea:${index}:base`)}
-                          onBlur={() => {
-                            setMoneyFocusKey(null)
-                            setFactura((prev) => {
-                              const newLineas = [...prev.lineas]
-                              newLineas[index] = { ...newLineas[index], base: normalizeEuroString(newLineas[index].base) }
-                              return { ...prev, lineas: newLineas }
-                            })
-                          }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
-                        />
-                      </td>
-                      <td className="border border-gray-200 px-0.5 py-0.5">
-                        <input
-                          type="text"
-                          value={linea.porcentajeIva}
-                          onChange={(e) => handleLineaChange(index, 'porcentajeIva', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
-                        />
-                      </td>
-                      <td className="border border-gray-200 px-0.5 py-0.5">
-                        <input
-                          type="text"
-                          value={moneyValue(`linea:${index}:cuotaIva`, linea.cuotaIva)}
-                          onChange={(e) => handleLineaChange(index, 'cuotaIva', e.target.value)}
-                          onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaIva`)}
-                          onBlur={() => {
-                            setMoneyFocusKey(null)
-                            setFactura((prev) => {
-                              const newLineas = [...prev.lineas]
-                              newLineas[index] = {
-                                ...newLineas[index],
-                                cuotaIva: normalizeEuroString(newLineas[index].cuotaIva),
-                              }
-                              return { ...prev, lineas: newLineas }
-                            })
-                          }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
-                        />
-                      </td>
-                      <td className="border border-gray-200 px-0.5 py-0.5">
-                        <input
-                          type="text"
-                          value={linea.porcentajeRecargo}
-                          onChange={(e) => handleLineaChange(index, 'porcentajeRecargo', e.target.value)}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
-                        />
-                      </td>
-                      <td className="border border-gray-200 px-0.5 py-0.5">
-                        <input
-                          type="text"
-                          value={moneyValue(`linea:${index}:cuotaRecargo`, linea.cuotaRecargo)}
-                          onChange={(e) => handleLineaChange(index, 'cuotaRecargo', e.target.value)}
-                          onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaRecargo`)}
-                          onBlur={() => {
-                            setMoneyFocusKey(null)
-                            setFactura((prev) => {
-                              const newLineas = [...prev.lineas]
-                              newLineas[index] = {
-                                ...newLineas[index],
-                                cuotaRecargo: normalizeEuroString(newLineas[index].cuotaRecargo),
-                              }
-                              return { ...prev, lineas: newLineas }
-                            })
-                          }}
-                          className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                      <colgroup>
+                        <col className="w-auto" />
+                        <col className="w-12" />
+                        <col className="w-auto" />
+                        <col className="w-12" />
+                        <col className="w-auto" />
+                      </colgroup>
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {factura.lineas.map((linea, index) => (
+                          <tr
+                            key={index}
+                            className={ivaVerification.errorLineIndices.includes(index) ? 'bg-amber-50' : undefined}
+                          >
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              <input
+                                type="text"
+                                value={moneyValue(`linea:${index}:base`, linea.base)}
+                                onChange={(e) => handleLineaChange(index, 'base', e.target.value)}
+                                onFocus={() => setMoneyFocusKey(`linea:${index}:base`)}
+                                onBlur={() => {
+                                  setMoneyFocusKey(null)
+                                  setFactura((prev) => {
+                                    const newLineas = [...prev.lineas]
+                                    newLineas[index] = { ...newLineas[index], base: normalizeEuroString(newLineas[index].base) }
+                                    return { ...prev, lineas: newLineas }
+                                  })
+                                }}
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              <input
+                                type="text"
+                                value={linea.porcentajeIva}
+                                onChange={(e) => handleLineaChange(index, 'porcentajeIva', e.target.value)}
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              <input
+                                type="text"
+                                value={moneyValue(`linea:${index}:cuotaIva`, linea.cuotaIva)}
+                                onChange={(e) => handleLineaChange(index, 'cuotaIva', e.target.value)}
+                                onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaIva`)}
+                                onBlur={() => {
+                                  setMoneyFocusKey(null)
+                                  setFactura((prev) => {
+                                    const newLineas = [...prev.lineas]
+                                    newLineas[index] = {
+                                      ...newLineas[index],
+                                      cuotaIva: normalizeEuroString(newLineas[index].cuotaIva),
+                                    }
+                                    return { ...prev, lineas: newLineas }
+                                  })
+                                }}
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              <input
+                                type="text"
+                                value={linea.porcentajeRecargo}
+                                onChange={(e) => handleLineaChange(index, 'porcentajeRecargo', e.target.value)}
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                              />
+                            </td>
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              <input
+                                type="text"
+                                value={moneyValue(`linea:${index}:cuotaRecargo`, linea.cuotaRecargo)}
+                                onChange={(e) => handleLineaChange(index, 'cuotaRecargo', e.target.value)}
+                                onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaRecargo`)}
+                                onBlur={() => {
+                                  setMoneyFocusKey(null)
+                                  setFactura((prev) => {
+                                    const newLineas = [...prev.lineas]
+                                    newLineas[index] = {
+                                      ...newLineas[index],
+                                      cuotaRecargo: normalizeEuroString(newLineas[index].cuotaRecargo),
+                                    }
+                                    return { ...prev, lineas: newLineas }
+                                  })
+                                }}
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
                     </table>
                   </div>
                 </div>
 
                 <div className="mt-2 border-t border-slate-100 pt-2">
                   <div className="grid grid-cols-[5.5rem_1fr_6rem_1fr] gap-2 items-center border border-gray-200 rounded-lg p-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Retención
-                    </span>
-                    {factura.retencion.tipo === 'ALQUILERES' && (
-                      <Tooltip
-                        content={
-                          <span className="block bg-amber-50 text-amber-800 text-xs p-3 rounded-md shadow-lg border border-amber-200 min-w-[260px] max-w-[320px] text-center whitespace-normal">
-                            Determinados programas contables necesitan marcar las retenciones de alquileres con un código específico para que lo lleven al modelo correspondiente.
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Retención
+                      </span>
+                      {factura.retencion.tipo === 'ALQUILERES' && (
+                        <Tooltip
+                          content={
+                            <span className="block bg-amber-50 text-amber-800 text-xs p-3 rounded-md shadow-lg border border-amber-200 min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                              Determinados programas contables necesitan marcar las retenciones de alquileres con un código específico para que lo lleven al modelo correspondiente.
+                            </span>
+                          }
+                          placement="top"
+                          showArrow
+                          classNames={{
+                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-50 before:!border-amber-200 data-[placement=top]:before:!-bottom-0.5',
+                          }}
+                        >
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 cursor-help" aria-label="Alquileres: info">
+                            <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            </svg>
                           </span>
+                        </Tooltip>
+                      )}
+                    </div>
+
+                    <select
+                      value={factura.retencion.tipo}
+                      onChange={(e) => handleChange('retencion.tipo', e.target.value)}
+                      className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${factura.retencion.tipo === 'ALQUILERES' ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                        }`}
+                    >
+                      <option value="">Tipo…</option>
+                      {tiposRetencion.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={factura.retencion.porcentaje}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        handleChange('retencion.porcentaje', v)
+                        const inferred = inferRetencionTipo(v)
+                        if (!inferred) return
+                        if (!factura.retencion.tipo || !isTipoCompatible(factura.retencion.tipo, v)) {
+                          handleChange('retencion.tipo', inferred)
                         }
-                        placement="top"
-                        showArrow
-                        classNames={{
-                          base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-50 before:!border-amber-200 data-[placement=top]:before:!-bottom-0.5',
-                        }}
-                      >
-                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 cursor-help" aria-label="Alquileres: info">
-                          <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                          </svg>
-                        </span>
-                      </Tooltip>
-                    )}
+                      }}
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">%…</option>
+                      {porcentajesRetencion.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      type="text"
+                      value={moneyValue('retencion:cantidad', factura.retencion.cantidad)}
+                      onChange={(e) => {
+                        const valorLimpio = e.target.value.replace('€', '').trim()
+                        handleChange('retencion.cantidad', valorLimpio)
+                      }}
+                      onFocus={() => setMoneyFocusKey('retencion:cantidad')}
+                      onBlur={() => {
+                        setMoneyFocusKey(null)
+                        setFactura((prev) => ({
+                          ...prev,
+                          retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
+                        }))
+                      }}
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      placeholder="Importe…"
+                    />
                   </div>
-
-                  <select
-                    value={factura.retencion.tipo}
-                    onChange={(e) => handleChange('retencion.tipo', e.target.value)}
-                    className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${
-                      factura.retencion.tipo === 'ALQUILERES' ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <option value="">Tipo…</option>
-                    {tiposRetencion.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={factura.retencion.porcentaje}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      handleChange('retencion.porcentaje', v)
-                      const inferred = inferRetencionTipo(v)
-                      if (!inferred) return
-                      if (!factura.retencion.tipo || !isTipoCompatible(factura.retencion.tipo, v)) {
-                        handleChange('retencion.tipo', inferred)
-                      }
-                    }}
-                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                  >
-                    <option value="">%…</option>
-                    {porcentajesRetencion.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="text"
-                    value={moneyValue('retencion:cantidad', factura.retencion.cantidad)}
-                    onChange={(e) => {
-                      const valorLimpio = e.target.value.replace('€', '').trim()
-                      handleChange('retencion.cantidad', valorLimpio)
-                    }}
-                    onFocus={() => setMoneyFocusKey('retencion:cantidad')}
-                    onBlur={() => {
-                      setMoneyFocusKey(null)
-                      setFactura((prev) => ({
-                        ...prev,
-                        retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
-                      }))
-                    }}
-                    className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                    placeholder="Importe…"
-                  />
                 </div>
-              </div>
               </div>
 
               {/* Observaciones */}
@@ -1143,9 +1137,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       setMoneyFocusKey(null)
                       handleChange('total', normalizeEuroString(factura.total))
                     }}
-                    className={`w-full text-2xl font-bold text-foreground border rounded px-2 py-0.5 focus:ring-0 focus:outline-none ${
-                      totalVerification.hasErrors ? 'bg-amber-100 border-amber-300' : 'bg-transparent border-gray-200 focus:border-primary'
-                    }`}
+                    className={`w-full text-2xl font-bold text-foreground border rounded px-2 py-0.5 focus:ring-0 focus:outline-none ${totalVerification.hasErrors ? 'bg-amber-100 border-amber-300' : 'bg-transparent border-gray-200 focus:border-primary'
+                      }`}
                     aria-invalid={totalVerification.hasErrors}
                   />
                 </div>
@@ -1167,10 +1160,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     variant="secondary"
                     size="md"
                     type="submit"
-                    disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || cifVerification.hasErrors}
+                    disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors}
                     className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
                   >
-                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : cifVerification.hasErrors ? 'REVISA CIF/NIF' : 'VALIDAR')}</span>
+                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}</span>
                     <svg
                       className="w-5 h-5 text-white"
                       fill="currentColor"

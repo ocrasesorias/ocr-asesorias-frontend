@@ -309,14 +309,9 @@ export function useInvoiceProcessing() {
     );
     setSubidaActual(prev => (prev ? { ...prev, archivos: archivosConPlaceholders } : null));
 
-    // Subir archivos
-    let successCount = 0;
-    const successfulInvoiceIds: string[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const placeholderId = placeholders[i].id;
-
+    // Subir archivos en paralelo (todas a la vez)
+    const uploadOne = async (file: File, index: number): Promise<string | null> => {
+      const placeholderId = placeholders[index].id;
       try {
         const fd = new FormData();
         fd.append('file', file);
@@ -375,8 +370,6 @@ export function useInvoiceProcessing() {
           dbStatus,
           dbErrorMessage: typeof invoice.error_message === 'string' ? invoice.error_message : null,
         };
-        successCount++;
-        successfulInvoiceIds.push(invoice.id);
 
         setArchivosSubidos(prev => {
           const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a));
@@ -384,8 +377,9 @@ export function useInvoiceProcessing() {
           setSubidaActual(sPrev => (sPrev ? { ...sPrev, archivos: merged } : null));
           return merged;
         });
+        return invoice.id;
       } catch (e) {
-        const nextArchivo: ArchivoSubido = { ...placeholders[i], estado: 'error', url: '' };
+        const nextArchivo: ArchivoSubido = { ...placeholders[index], estado: 'error', url: '' };
         setArchivosSubidos(prev => {
           const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a));
           setSubidasFacturas(sPrev => sPrev.map(s => (s.uploadId === realUploadId ? { ...s, archivos: merged } : s)));
@@ -393,8 +387,15 @@ export function useInvoiceProcessing() {
           return merged;
         });
         showError(e instanceof Error ? e.message : 'Error subiendo la factura');
+        return null;
       }
-    }
+    };
+
+    const results = await Promise.allSettled(files.map((file, i) => uploadOne(file, i)));
+    const successfulInvoiceIds = results
+      .filter((r): r is PromiseFulfilledResult<string | null> => r.status === 'fulfilled' && r.value != null)
+      .map(r => r.value as string);
+    const successCount = successfulInvoiceIds.length;
 
     // Encolar extracción
     if (successfulInvoiceIds.length > 0) {

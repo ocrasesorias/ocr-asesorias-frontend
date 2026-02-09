@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/supabase/auth-guard'
+import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
 
@@ -8,13 +8,31 @@ const ALLOWED = new Set(['uploaded', 'processing', 'needs_review', 'ready', 'err
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: invoiceId } = await context.params
-    const [authResult, body] = await Promise.all([
-      requireAuth(),
+    const [supabase, body] = await Promise.all([
+      createClient(),
       request.json().catch(() => null),
     ])
-    const { data: auth, response: authError } = authResult
-    if (authError) return authError
-    const { supabase, orgId } = auth
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from('organization_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .limit(1)
+
+    if (membershipError || !memberships || memberships.length === 0) {
+      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
+    }
+
+    const orgId = memberships[0].org_id as string
 
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
