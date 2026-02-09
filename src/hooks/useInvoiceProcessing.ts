@@ -3,8 +3,8 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
 
-/** Tamaño de bloque inicial para permitir entrar a validar */
-const BATCH_SIZE = 5;
+/** Máximo de extracts en paralelo (frontend); al completar uno se lanza el siguiente */
+const MAX_EXTRACT_CONCURRENCY = 5;
 
 /**
  * Hook para gestionar el procesamiento de facturas (upload, OCR/IA, validación)
@@ -54,17 +54,6 @@ export function useInvoiceProcessing() {
     });
   }, [activeInvoiceIds, extractStatusByInvoiceId]);
 
-  /** El primer bloque (0..BATCH_SIZE-1) está completamente listo */
-  const isFirstBatchReady = useMemo(() => {
-    if (activeInvoiceIds.length === 0) return false;
-    const end = Math.min(BATCH_SIZE, activeInvoiceIds.length);
-    for (let i = 0; i < end; i++) {
-      const st = extractStatusByInvoiceId[activeInvoiceIds[i]];
-      if (st !== 'ready' && st !== 'error') return false;
-    }
-    return true;
-  }, [activeInvoiceIds, extractStatusByInvoiceId]);
-
   const processingCount = useMemo(
     () => invoiceIdsInOrder.filter((id) => extractStatusByInvoiceId[id] === 'processing').length,
     [extractStatusByInvoiceId, invoiceIdsInOrder]
@@ -111,12 +100,12 @@ export function useInvoiceProcessing() {
       msgs.push(`Subiendo facturas… (${uploaded}/${total})`);
     }
 
-    // Subida histórica
+    // Subida histórica (sin session: ya cargada de antes)
     if (!hasUploadingFiles && currentSessionInvoiceIds.length === 0 && dbCounts.withDb > 0) {
       if (dbCounts.processing > 0) {
         msgs.push(`Procesando facturas… (${dbCounts.processing} en curso)`);
       } else if (dbCounts.uploaded > 0) {
-        msgs.push(`Hay facturas en cola (${dbCounts.uploaded}). Entra a validar para procesarlas.`);
+        msgs.push(`${dbCounts.uploaded} factura${dbCounts.uploaded !== 1 ? 's' : ''} pendientes de procesar.`);
       } else if (dbCounts.needsReview > 0) {
         msgs.push(`Tienes ${dbCounts.needsReview} factura${dbCounts.needsReview !== 1 ? 's' : ''} por validar.`);
       } else if (dbCounts.ready > 0 && dbCounts.error === 0) {
@@ -129,11 +118,8 @@ export function useInvoiceProcessing() {
       return msgs;
     }
 
-    if (uploaded > 0 && !isFirstBatchReady) {
-      msgs.push(`Procesando primer bloque… (${readyCount}/${Math.min(BATCH_SIZE, uploaded)} listas)`);
-    }
-    if (!hasUploadingFiles && uploaded > 0 && isFirstBatchReady && !isAllReady) {
-      msgs.push(`Primer bloque listo. Ya puedes validar. (${readyCount}/${uploaded} procesadas)`);
+    if (uploaded > 0 && !isAllReady) {
+      msgs.push(`Procesando… (${readyCount + errorCount}/${uploaded} listas). Máx. 5 en paralelo.`);
     }
     if (!hasUploadingFiles && uploaded > 0 && isAllReady) {
       msgs.push('¡Todo listo! Ya puedes empezar a validar.');
@@ -150,7 +136,6 @@ export function useInvoiceProcessing() {
     dbCounts,
     errorCount,
     isAllReady,
-    isFirstBatchReady,
     readyCount,
     hasUploadingFiles,
     invoiceIdsInOrder.length,
@@ -159,16 +144,15 @@ export function useInvoiceProcessing() {
 
   const statusMessage = dynamicMessages[statusMessageTick % dynamicMessages.length];
 
+  // Solo permitir validar cuando todas las facturas están procesadas (ready/error) o es subida histórica ya lista
   const canValidate = useMemo(() => {
     return (
       archivosSubidos.length > 0 &&
       !archivosSubidos.some((a) => a.estado === 'error') &&
       !hasUploadingFiles &&
-      // Para subidas nuevas: basta con que el primer bloque esté listo
-      // Para subidas históricas (sin sessionIds): siempre se puede entrar
-      (currentSessionInvoiceIds.length === 0 || isFirstBatchReady)
+      (currentSessionInvoiceIds.length === 0 || isAllReady)
     );
-  }, [archivosSubidos, hasUploadingFiles, currentSessionInvoiceIds.length, isFirstBatchReady]);
+  }, [archivosSubidos, hasUploadingFiles, currentSessionInvoiceIds.length, isAllReady]);
 
   // Rotar mensajes cada 2.5s
   useEffect(() => {
@@ -250,9 +234,11 @@ export function useInvoiceProcessing() {
     []
   );
 
-  // Lanzar extract para todas las facturas en idle; el backend limita a 5 en paralelo con su cola
+  // Lanzar hasta 5 extracts en paralelo; al completar uno el efecto re-ejecuta y lanza el siguiente
   const pumpExtractQueue = useCallback((setSubidasFacturas: React.Dispatch<React.SetStateAction<SubidaFacturas[]>>, setSubidaActual: React.Dispatch<React.SetStateAction<SubidaFacturas | null>>) => {
+    if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) return;
     for (const invoiceId of sessionInvoiceIds) {
+      if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) break;
       const st = extractStatusByInvoiceId[invoiceId] || 'idle';
       if (st === 'idle') void startExtract(invoiceId, setSubidasFacturas, setSubidaActual);
     }
@@ -522,7 +508,8 @@ export function useInvoiceProcessing() {
       return;
     }
     if (!canValidate) {
-      showError(`Procesando primer bloque (${readyCount}/${Math.min(BATCH_SIZE, archivosSubidos.length)} listas). Podrás validar cuando las primeras ${BATCH_SIZE} estén listas.`);
+      const total = archivosSubidos.filter((a) => a.invoiceId).length;
+      showError(`Espera a que todas las facturas estén procesadas (${readyCount + errorCount}/${total} listas).`);
       return;
     }
 
@@ -535,7 +522,7 @@ export function useInvoiceProcessing() {
     router.push(
       `/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`
     );
-  }, [archivosSubidos, router, showError, hasUploadingFiles, canValidate, readyCount]);
+  }, [archivosSubidos, router, showError, hasUploadingFiles, canValidate, readyCount, errorCount]);
 
   // Reset de estado al cambiar de cliente/subida
   const resetProcessingState = useCallback(() => {
@@ -547,12 +534,14 @@ export function useInvoiceProcessing() {
     setStatusMessageTick(0);
   }, []);
 
-  // Sincronizar estado al seleccionar subida existente
+  // Sincronizar estado al seleccionar subida existente (incl. IDs para que el pump lance extracts)
   const syncProcessingStateForUpload = useCallback((subida: SubidaFacturas) => {
     setArchivosSubidos(subida.archivos);
+    const idsInOrder: string[] = [];
     const nextExtract: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {};
     for (const a of subida.archivos) {
       if (!a.invoiceId) continue;
+      idsInOrder.push(a.invoiceId);
       const st = a.dbStatus || null;
       nextExtract[a.invoiceId] =
         st === 'processing'
@@ -564,6 +553,7 @@ export function useInvoiceProcessing() {
               : 'idle';
     }
     setExtractStatusByInvoiceId((prev) => ({ ...prev, ...nextExtract }));
+    setSessionInvoiceIds(idsInOrder);
     setStatusMessageTick(0);
   }, []);
 
