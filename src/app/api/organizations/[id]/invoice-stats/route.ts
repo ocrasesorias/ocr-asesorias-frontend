@@ -4,6 +4,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
+function isAdmin(email: string | undefined): boolean {
+  if (!email) return false
+  const list = process.env.ADMIN_EMAILS ?? ''
+  const emails = list.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+  return emails.includes(email.toLowerCase())
+}
+
 /**
  * GET /api/organizations/[id]/invoice-stats
  * Devuelve credits_balance (saldo de créditos actual) e invoices_consumed_count (legacy)
@@ -13,7 +20,15 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { id: orgId } = await context.params
     const { data: auth, response: authError } = await requireOrgMembership(orgId)
     if (authError) return authError
-    const { supabase } = auth
+    const { supabase, user } = auth
+
+    // Admins: créditos ilimitados
+    if (isAdmin(user.email ?? undefined)) {
+      return NextResponse.json(
+        { success: true, unlimited: true, credits_balance: null },
+        { status: 200 }
+      )
+    }
 
     const admin = createAdminClient()
     const db = admin ?? supabase
@@ -37,7 +52,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         : 0
 
     return NextResponse.json(
-      { success: true, credits_balance: creditsBalance },
+      { success: true, unlimited: false, credits_balance: creditsBalance },
       { status: 200 }
     )
   } catch (error) {

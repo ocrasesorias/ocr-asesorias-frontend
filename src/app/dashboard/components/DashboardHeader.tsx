@@ -15,6 +15,7 @@ interface DashboardHeaderProps {
   organizationName: string;
   creditsBalance: number | null;
   isLoadingCredits: boolean;
+  isUnlimitedCredits?: boolean;
   orgId: string | null;
 }
 
@@ -22,6 +23,7 @@ export function DashboardHeader({
   organizationName,
   creditsBalance,
   isLoadingCredits,
+  isUnlimitedCredits = false,
   orgId,
 }: DashboardHeaderProps) {
   const router = useRouter();
@@ -143,7 +145,11 @@ export function DashboardHeader({
               Créditos disponibles
             </div>
             <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
-              {isLoadingCredits ? '…' : (creditsBalance != null ? formatMiles(creditsBalance, 0) : '—')}
+              {isLoadingCredits
+                ? '…'
+                : isUnlimitedCredits
+                  ? 'Ilimitados'
+                  : (creditsBalance != null ? formatMiles(creditsBalance, 0) : '—')}
             </div>
           </div>
         </div>

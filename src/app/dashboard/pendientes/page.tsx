@@ -43,7 +43,7 @@ function formatDate(iso: string) {
 
 export default function PendientesPage() {
   const { organizationName, orgId, isLoading: isLoadingAuth } = useDashboardAuth();
-  const { creditsBalance, isLoading: isLoadingCredits } = useInvoiceCounter(orgId);
+  const { creditsBalance, isUnlimited: isUnlimitedCredits, isLoading: isLoadingCredits } = useInvoiceCounter(orgId);
   const { showError } = useToast();
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -125,6 +125,7 @@ export default function PendientesPage() {
         organizationName={organizationName}
         creditsBalance={creditsBalance}
         isLoadingCredits={isLoadingCredits}
+        isUnlimitedCredits={isUnlimitedCredits}
         orgId={orgId}
       />
 

@@ -43,6 +43,7 @@ export default function DashboardPage() {
   // Invoice Counter
   const {
     creditsBalance,
+    isUnlimited: isUnlimitedCredits,
     isLoading: isLoadingCredits,
     refresh: refreshInvoiceCounter,
   } = useInvoiceCounter(orgId);
@@ -222,6 +223,7 @@ export default function DashboardPage() {
         organizationName={organizationName}
         creditsBalance={creditsBalance}
         isLoadingCredits={isLoadingCredits}
+        isUnlimitedCredits={isUnlimitedCredits}
         orgId={orgId}
       />
 
