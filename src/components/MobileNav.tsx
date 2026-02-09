@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const NAV_LINKS = [
   { href: '#beneficios', label: 'Beneficios' },
   { href: '#como-funciona', label: 'Cómo funciona' },
   { href: '#planes', label: 'Planes' },
-  { href: '#integraciones', label: 'Integraciones' },
   { href: '#contacto', label: 'Contacto' },
 ] as const;
 
@@ -96,9 +95,8 @@ export function MobileNav() {
         id="mobile-menu"
         role="navigation"
         aria-label="Menú móvil"
-        className={`fixed top-[73px] left-0 right-0 z-50 bg-background border-b border-gray-200 shadow-lg transform transition-transform duration-200 ease-out md:hidden ${
-          isOpen ? 'translate-y-0' : '-translate-y-full pointer-events-none'
-        }`}
+        className={`fixed top-[73px] left-0 right-0 z-50 bg-background border-b border-gray-200 shadow-lg transform transition-transform duration-200 ease-out md:hidden ${isOpen ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+          }`}
       >
         <ul className="flex flex-col py-4 px-6 space-y-1">
           {NAV_LINKS.map(({ href, label }) => (

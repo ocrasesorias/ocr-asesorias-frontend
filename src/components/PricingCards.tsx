@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { ScrollReveal } from '@/components/ScrollReveal';
 
 type Billing = 'monthly' | 'annual';
 
@@ -57,16 +58,17 @@ export function PricingCards() {
   return (
     <section id="planes" className="py-20 bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h2 className="text-4xl font-bold text-foreground mb-4">
-            Planes que se adaptan a ti
-          </h2>
-          <p className="text-xl text-foreground-secondary max-w-2xl mx-auto mb-8">
-            Elige mensual o anual y llevaté 2 meses gratis.
-          </p>
+        <ScrollReveal>
+          <div className="text-center mb-10">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              Planes que se adaptan a ti
+            </h2>
+            <p className="text-xl text-foreground-secondary max-w-2xl mx-auto mb-8">
+              Elige mensual o anual y llevaté 2 meses gratis.
+            </p>
 
-          {/* Switch Mensual / Anual */}
-          <div className="inline-flex items-center gap-3 p-1.5 bg-white rounded-full border border-slate-200 shadow-sm">
+            {/* Switch Mensual / Anual */}
+            <div className="inline-flex items-center gap-3 p-1.5 bg-white rounded-full border border-slate-200 shadow-sm">
             <button
               type="button"
               onClick={() => setBilling('monthly')}
@@ -91,13 +93,14 @@ export function PricingCards() {
             >
               Anual
             </button>
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
 
         <div className="grid md:grid-cols-3 gap-8 items-stretch">
-          {PLANS.map((plan) => (
+          {PLANS.map((plan, index) => (
+            <ScrollReveal key={plan.id} delayMs={index * 120} direction="up">
             <div
-              key={plan.id}
               className={`bg-white rounded-2xl overflow-hidden flex flex-col ${
                 plan.featured ? 'border-2 border-primary shadow-lg relative' : 'border border-slate-200 shadow-sm'
               }`}
@@ -152,12 +155,15 @@ export function PricingCards() {
                 </Link>
               </div>
             </div>
+            </ScrollReveal>
           ))}
         </div>
 
+        <ScrollReveal delayMs={200}>
         <p className="mt-6 text-center text-sm text-foreground-secondary">
           * Precio por factura extra aplicable una vez consumidas las incluidas en el plan.
         </p>
+        </ScrollReveal>
       </div>
     </section>
   );
