@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 README_BILLING_LEDGER.md
+
+# agents and cursor
+.agents/
+.cursor/
