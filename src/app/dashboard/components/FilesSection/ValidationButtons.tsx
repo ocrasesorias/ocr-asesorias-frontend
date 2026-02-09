@@ -49,16 +49,19 @@ export function ValidationButtons({
           size="lg"
           onClick={() => onValidate('all')}
           disabled={!canValidate}
+          className="group"
         >
           <span className="inline-flex items-center justify-center gap-2 font-light">
-            {hasUploadingFiles
-              ? `Subiendo… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
+            <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">
+              {hasUploadingFiles
+                ? `Subiendo… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
                 : !isAllReady
                   ? `Procesando facturas… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
                   : 'Validar'}
+            </span>
             {!hasUploadingFiles && (
               <svg
-                className="w-5 h-5"
+                className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-0.5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
