@@ -4,6 +4,7 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
 import { LandingAuthNav } from "@/components/LandingAuthNav";
 import { MobileNav } from "@/components/MobileNav";
+import { PricingCards } from "@/components/PricingCards";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -52,6 +53,12 @@ export default async function Home() {
                 className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
               >
                 Cómo funciona
+              </a>
+              <a
+                href="#planes"
+                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+              >
+                Planes
               </a>
               <a
                 href="#integraciones"
@@ -134,7 +141,7 @@ export default async function Home() {
       </section>
 
       {/* Beneficios Section */}
-      <section id="beneficios" className="py-20">
+      <section id="beneficios" className="py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center mb-16">
@@ -319,19 +326,22 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Planes / Precios Section */}
+      <PricingCards />
+
       {/* Integraciones Section */}
-      <section id="integraciones" className="py-20 bg-white text-foreground">
+      <section id="integraciones" className="py-20 bg-foreground text-white">
         <ScrollReveal>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl font-bold text-foreground mb-4">
+            <h2 className="text-4xl font-bold text-white mb-4">
               Integraciones y formatos
             </h2>
-            <p className="text-xl text-foreground-secondary max-w-3xl mx-auto mb-6">
+            <p className="text-xl text-white/80 max-w-3xl mx-auto mb-6">
               KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible con Monitor Informático y los programas contables más usados.
             </p>
             <Link
               href="#contacto"
-              className="text-primary hover:text-primary-hover transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+              className="text-white hover:text-white/80 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 rounded-sm"
             >
               Consultar formatos disponibles &rarr;
             </Link>
@@ -340,13 +350,13 @@ export default async function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-primary">
+      <section className="py-20 bg-white">
         <ScrollReveal>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-6">
               ¿Listo para ganar horas cada semana?
             </h2>
-            <p className="text-lg sm:text-xl text-white/80 mb-8">
+            <p className="text-lg sm:text-xl text-foreground-secondary mb-8">
               Empieza hoy y comprueba cómo cambia tu carga de trabajo.
             </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
