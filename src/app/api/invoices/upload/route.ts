@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -49,28 +49,9 @@ function parseDateToISO(value: unknown): string | null {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .limit(1)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgId = memberships[0].org_id as string
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { supabase, user, orgId } = auth
 
     const form = await request.formData()
     const file = form.get('file')

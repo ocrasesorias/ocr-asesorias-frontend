@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
 import { Cliente } from '@/types/dashboard';
+import { safeGetItem, safeSetItem, safeRemoveItem } from '@/utils/safeStorage';
 
 /**
  * Hook para gestionar clientes (CRUD completo)
@@ -65,8 +66,8 @@ export function useClientManagement(orgId: string | null) {
     // Persistir selección
     if (orgId) {
       const key = `dashboard:selectedClientId:${orgId}`;
-      if (clienteId) sessionStorage.setItem(key, clienteId);
-      else sessionStorage.removeItem(key);
+      if (clienteId) safeSetItem(key, clienteId);
+      else safeRemoveItem(key);
     }
 
     // Callback externo para resetear subidas
@@ -82,7 +83,7 @@ export function useClientManagement(orgId: string | null) {
     if (clientes.length === 0) return;
 
     const key = `dashboard:selectedClientId:${orgId}`;
-    const savedId = sessionStorage.getItem(key);
+    const savedId = safeGetItem(key);
     if (!savedId) return;
 
     const exists = clientes.some(c => c.id === savedId);
@@ -129,7 +130,7 @@ export function useClientManagement(orgId: string | null) {
       // Seleccionar el nuevo cliente automáticamente
       setClienteSeleccionado(data.client);
       if (orgId) {
-        sessionStorage.setItem(`dashboard:selectedClientId:${orgId}`, data.client.id);
+        safeSetItem(`dashboard:selectedClientId:${orgId}`, data.client.id);
       }
 
       // Limpiar el formulario y cerrar

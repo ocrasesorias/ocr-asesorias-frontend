@@ -100,13 +100,15 @@ export default function RegistroPage() {
       {/* Botón volver - superpuesto en esquina superior izquierda */}
       <button
         onClick={() => router.back()}
-        className="fixed top-6 left-6 z-50 flex items-center text-foreground-secondary hover:text-foreground transition-colors"
+        aria-label="Volver a la página anterior"
+        className="fixed top-6 left-6 z-50 flex items-center text-foreground-secondary hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg p-1"
       >
         <svg
           className="w-5 h-5 mr-2"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -261,6 +263,7 @@ export default function RegistroPage() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   required
+                  aria-describedby="password-hint"
                   value={formData.password}
                   onChange={handleChange}
                   className="appearance-none block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg placeholder-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -269,7 +272,8 @@ export default function RegistroPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
                 >
                   {showPassword ? (
                     <svg
@@ -277,6 +281,7 @@ export default function RegistroPage() {
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -291,6 +296,7 @@ export default function RegistroPage() {
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -308,7 +314,7 @@ export default function RegistroPage() {
                   )}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-foreground-secondary">
+              <p id="password-hint" className="mt-1 text-xs text-foreground-secondary">
                 Mínimo 6 caracteres
               </p>
             </div>
@@ -348,7 +354,8 @@ export default function RegistroPage() {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  aria-label={showConfirmPassword ? 'Ocultar confirmación de contraseña' : 'Mostrar confirmación de contraseña'}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
                 >
                   {showConfirmPassword ? (
                     <svg
@@ -428,7 +435,8 @@ export default function RegistroPage() {
                 variant="primary"
                 size="lg"
                 className="w-full"
-                onClick={() => {}}
+                disabled={isLoading}
+                aria-busy={isLoading}
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center">

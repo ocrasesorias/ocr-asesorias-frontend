@@ -20,17 +20,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // Si el modo es 'signup', guardar metadata de términos aceptados
-    if (mode === 'signup') {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.auth.updateUser({
-          data: {
-            accepted_terms: true,
-            accepted_terms_at: new Date().toISOString(),
-          },
-        });
-      }
+    // Si el modo es 'signup', guardar metadata de términos aceptados.
+    // exchangeCodeForSession ya devuelve la sesión con el user, no necesitamos getUser().
+    if (mode === 'signup' && data.session?.user) {
+      await supabase.auth.updateUser({
+        data: {
+          accepted_terms: true,
+          accepted_terms_at: new Date().toISOString(),
+        },
+      });
     }
 
     // Redirigir al dashboard

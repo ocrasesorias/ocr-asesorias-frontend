@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 type RevealDirection = 'up' | 'down' | 'left' | 'right' | 'none';
 
@@ -27,10 +27,7 @@ export function ScrollReveal({
   const ref = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
-  const style = useMemo<React.CSSProperties>(() => {
-    if (!delayMs) return {};
-    return { transitionDelay: `${delayMs}ms` };
-  }, [delayMs]);
+  const style: React.CSSProperties = delayMs ? { transitionDelay: `${delayMs}ms` } : {};
 
   useEffect(() => {
     const el = ref.current;

@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ValidarFactura } from '@/components/ValidarFactura';
+import dynamic from 'next/dynamic';
 import { FacturaData } from '@/types/factura';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
+
+const ValidarFactura = dynamic(
+  () => import('@/components/ValidarFactura').then((m) => m.ValidarFactura),
+  { ssr: false }
+);
 
 const toISODate = (value: string) => {
   const v = (value || '').trim();
@@ -20,6 +25,8 @@ const toISODate = (value: string) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   return v;
 };
+
+const buildThousandsSepRegex = (sep: string) => new RegExp(`\\${sep}`, 'g');
 
 const toNumber = (value: string) => {
   const raw = String(value || '')
@@ -38,7 +45,7 @@ const toNumber = (value: string) => {
     const lastComma = raw.lastIndexOf(',')
     const decimalSep = lastComma > lastDot ? ',' : '.'
     const thousandsSep = decimalSep === ',' ? '.' : ','
-    normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+    normalized = raw.replace(buildThousandsSepRegex(thousandsSep), '').replace(decimalSep, '.')
   } else if (hasComma) {
     normalized = raw.replace(',', '.')
   } else if (hasDot) {
@@ -61,11 +68,11 @@ export default function ValidarFacturaPage() {
 
   useEffect(() => {
     const init = async () => {
-      // 1) Proteger: requiere sesión
+      // 1) Proteger: requiere usuario autenticado
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!session) {
+      if (authError || !user) {
         router.push('/login?redirect=/validar-factura');
         return;
       }
@@ -158,7 +165,8 @@ export default function ValidarFacturaPage() {
       return;
     }
 
-    const program = sessionStorage.getItem('onboarding:accountingProgram') || 'monitor';
+    let program = 'monitor';
+    try { program = sessionStorage.getItem('onboarding:accountingProgram') || 'monitor'; } catch { /* noop */ }
 
     setIsExporting(true);
     try {

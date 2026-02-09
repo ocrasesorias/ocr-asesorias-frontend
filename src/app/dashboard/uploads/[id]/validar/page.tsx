@@ -218,7 +218,7 @@ function extractIvaLinesFromExtraction(ex: Record<string, unknown> | null): Extr
     })
   }
 
-  return result.sort((a, b) => (b.porcentaje ?? 0) - (a.porcentaje ?? 0))
+  return result.toSorted((a, b) => (b.porcentaje ?? 0) - (a.porcentaje ?? 0))
 }
 
 function applyExtractedIvasToLineas(params: {
@@ -388,7 +388,8 @@ export default function ValidarUploadPage() {
   const uploadId = params.id
   const { showError, showSuccess, showInfo, setToastConfig } = useToast()
 
-  const MAX_CONCURRENCY = 3
+  /** Tamaño de bloque: las facturas se extraen de BATCH_SIZE en BATCH_SIZE */
+  const BATCH_SIZE = 5
 
   const [isLoading, setIsLoading] = useState(true)
   const [facturaActual, setFacturaActual] = useState(0)
@@ -399,8 +400,9 @@ export default function ValidarUploadPage() {
   const [validatedByInvoiceId, setValidatedByInvoiceId] = useState<Record<string, true>>({})
   const [deferredByInvoiceId, setDeferredByInvoiceId] = useState<Record<string, true>>({})
   const [visitedByInvoiceId, setVisitedByInvoiceId] = useState<Record<string, true>>({})
-  const inFlightRef = useRef(0)
+  const batchesLaunchedRef = useRef<Set<number>>(new Set())
   const startedRef = useRef<Record<string, true>>({})
+  const hasRunRef = useRef(false)
   const [clienteNombre, setClienteNombre] = useState<string>('')
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
   const [hasInitializedPosition, setHasInitializedPosition] = useState(false)
@@ -452,6 +454,17 @@ export default function ValidarUploadPage() {
       return st === 'ready' || st === 'error'
     })
   }, [invoiceRows, invoiceStatus])
+
+  /** El primer bloque (0..BATCH_SIZE-1) está completamente listo. */
+  const isFirstBatchReady = useMemo(() => {
+    if (invoiceRows.length === 0) return false
+    const end = Math.min(BATCH_SIZE, invoiceRows.length)
+    for (let i = 0; i < end; i++) {
+      const st = invoiceStatus[invoiceRows[i]?.id]
+      if (st !== 'ready' && st !== 'error') return false
+    }
+    return true
+  }, [invoiceRows, invoiceStatus, BATCH_SIZE])
 
   const persistIdSet = (key: string, rec: Record<string, true>) => {
     try {
@@ -516,23 +529,48 @@ export default function ValidarUploadPage() {
     })
   }, [invoiceRows])
 
+  // Sincronizar facturas (datos del formulario) con invoiceRows cuando llegan datos del polling:
+  // así los campos se rellenan en cuanto el servidor tiene extraction/fields. Solo si ya tenemos
+  // facturas con preview URLs (run() terminó) para no pisar con URLs vacías.
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
+    setFacturas((prev) => {
+      if (prev.length !== invoiceRows.length || prev.length === 0) return prev
+      return invoiceRows.map((inv, i) =>
+        toFacturaData(inv, prev[i]?.archivo?.url ?? '', {
+          clientTaxId: prev[0]?.empresa?.cif ?? undefined,
+          defaultSubcuenta: prev[i]?.subcuentaGasto || prev[0]?.subcuentaGasto || '',
+          actividad: prev[0]?.empresa?.actividad ?? undefined,
+        })
+      )
+    })
+  }, [invoiceRows])
+
+  // Polling: actualizar facturas desde el servidor cada 3s para reflejar en tiempo real
+  // cuando terminan extracciones (en esta pestaña o en otra). Al reconciliar invoiceRows,
+  // el efecto de reconciliación actualiza invoiceStatus y la UI permite pasar a la siguiente.
+  const POLL_INTERVAL_MS = 3000
   useEffect(() => {
     if (isAllDone || !uploadId) return
-    const timeout = setTimeout(() => {
+
+    const poll = () => {
       void (async () => {
         try {
           const resp = await fetch(`/api/uploads/${uploadId}`)
           const data = await resp.json().catch(() => null)
-          const invoices = Array.isArray(data?.invoices) ? (data.invoices as UploadInvoiceRow[]) : null
+          const upload = data?.upload
+          const invoices = Array.isArray(upload?.invoices) ? (upload.invoices as UploadInvoiceRow[]) : null
           if (!invoices) return
           setInvoiceRows(invoices)
         } catch {
           // noop
         }
       })()
-    }, 4000)
+    }
 
-    return () => clearTimeout(timeout)
+    poll() // primera vez enseguida
+    const id = setInterval(poll, POLL_INTERVAL_MS)
+    return () => clearInterval(id)
   }, [isAllDone, uploadId])
 
   // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
@@ -541,7 +579,7 @@ export default function ValidarUploadPage() {
     if (hasInitializedPosition) return
     if (invoiceRows.length === 0) return
     if (viewMode !== 'pending') return
-    if (!isAllDone) return
+    if (!isFirstBatchReady) return
 
     const ids = invoiceRows.map((i) => i.id)
     for (let idx = 0; idx < ids.length; idx += 1) {
@@ -553,7 +591,7 @@ export default function ValidarUploadPage() {
         return
       }
     }
-  }, [invoiceRows, isAllDone, validatedByInvoiceId, viewMode, hasInitializedPosition])
+  }, [invoiceRows, isFirstBatchReady, validatedByInvoiceId, viewMode, hasInitializedPosition])
 
   // Resetear flag cuando el usuario cambia viewMode (permite reposicionamiento en ese caso).
   useEffect(() => {
@@ -573,19 +611,22 @@ export default function ValidarUploadPage() {
       setTipoFactura(qp)
     } else {
       try {
-        const st = (sessionStorage.getItem(`upload:${uploadId}:tipo`) || '').toLowerCase()
+        const st = (sessionStorage.getItem(`upload:${uploadId}:tipo`) ?? '').toLowerCase()
         if (st === 'gasto' || st === 'ingreso') setTipoFactura(st as 'gasto' | 'ingreso')
       } catch {
-        // noop
+        // noop: private browsing
       }
     }
 
     const run = async () => {
+      if (hasRunRef.current) return
+      hasRunRef.current = true
       setIsLoading(true)
       try {
+        // getUser() valida el JWT contra el servidor (más seguro que getSession())
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !authUser) {
           router.push(`/login?redirect=/dashboard/uploads/${uploadId}/validar`)
           return
         }
@@ -631,17 +672,9 @@ export default function ValidarUploadPage() {
 
         const invoices: UploadInvoiceRow[] = Array.isArray(upload?.invoices) ? upload.invoices : []
 
-        // Crear previews (firmadas 7 días) por invoice
-        const previews = await Promise.all(
-          invoices.map(async (inv) => {
-            const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${60 * 60 * 24 * 7}`)
-            const j = await r.json().catch(() => null)
-            return { invoiceId: inv.id, url: r.ok ? j?.signedUrl || '' : '' }
-          })
-        )
+        // No esperamos ninguna preview: mostramos el formulario en cuanto tenemos la subida.
+        // Las previews se piden en segundo plano y actualizan facturas cuando llegan.
         const previewRecord: Record<string, string> = {}
-        for (const p of previews) previewRecord[p.invoiceId] = p.url || ''
-
         setInvoiceRows(invoices)
 
         const mapped = invoices.map((inv) =>
@@ -652,6 +685,39 @@ export default function ValidarUploadPage() {
           })
         )
         setFacturas(mapped)
+
+        const exp = 60 * 60 * 24 * 7
+        const allPreviewPromises = invoices.map(async (inv) => {
+          const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
+          const j = await r.json().catch(() => null)
+          return { invoiceId: inv.id, url: r.ok ? (j?.signedUrl as string) || '' : '' }
+        })
+        const mergePreviewIntoFacturas = (
+          prev: FacturaData[],
+          previews: { invoiceId: string; url: string }[]
+        ) =>
+          prev.map((f): FacturaData => {
+            const p = previews.find((x) => x.invoiceId === f.archivo?.invoiceId)
+            if (!p?.url) return f
+            return {
+              ...f,
+              archivo: {
+                ...f.archivo,
+                url: p.url,
+                tipo: (f.archivo?.tipo ?? 'pdf') as 'pdf' | 'imagen',
+                nombre: f.archivo?.nombre ?? '',
+              } as FacturaData['archivo'],
+            }
+          })
+
+        Promise.all(allPreviewPromises.slice(0, BATCH_SIZE)).then((first) => {
+          setFacturas((prev) => mergePreviewIntoFacturas(prev, first))
+        }).catch(() => {})
+        if (invoices.length > BATCH_SIZE) {
+          Promise.all(allPreviewPromises.slice(BATCH_SIZE)).then((rest) => {
+            setFacturas((prev) => mergePreviewIntoFacturas(prev, rest))
+          }).catch(() => {})
+        }
 
         // Restaurar estado de sesión (validada / para después / visitada)
         const validatedSet = restoreIdSet(`upload:${uploadId}:validatedIds`)
@@ -710,8 +776,19 @@ export default function ValidarUploadPage() {
                       ? 'ready'
                       : 'idle'
         }
-        setInvoiceStatus(initialStatus)
+        // Functional update: nunca degradar un estado 'processing' o 'ready' que ya exista
+        // (protege contra re-ejecuciones del efecto que machacarían extracciones en vuelo)
+        setInvoiceStatus((prev) => {
+          const next = { ...initialStatus }
+          for (const [id, st] of Object.entries(prev)) {
+            if ((st === 'processing' || st === 'ready') && next[id] !== 'ready' && next[id] !== 'error') {
+              next[id] = st
+            }
+          }
+          return next
+        })
         startedRef.current = {}
+        batchesLaunchedRef.current = new Set()
 
       } catch (e) {
         showError(e instanceof Error ? e.message : 'Error cargando la subida')
@@ -874,48 +951,104 @@ export default function ValidarUploadPage() {
     bumpRevision(invoiceId)
   }
 
-  const startExtract = async (invoiceId: string): Promise<void> => {
-    if (startedRef.current[invoiceId]) return Promise.resolve()
+  const startExtractSingle = async (invoiceId: string): Promise<void> => {
+    if (startedRef.current[invoiceId]) return
     startedRef.current[invoiceId] = true
 
     setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'processing' }))
-    inFlightRef.current += 1
 
     try {
       const resp = await fetch(`/api/invoices/${invoiceId}/extract`, { method: 'POST' })
       const data = await resp.json().catch(() => null)
       if (!resp.ok) throw new Error(data?.error || 'Error extrayendo factura')
 
-      // data: { success, extraction, fields }
       updateInvoiceFromExtraction(invoiceId, data?.extraction, data?.fields)
       setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'ready' }))
     } catch (e) {
       console.error(`[Extract Error] ${invoiceId}:`, e)
       setInvoiceStatus((prev) => ({ ...prev, [invoiceId]: 'error' }))
-    } finally {
-      inFlightRef.current -= 1
     }
   }
 
-  const pumpQueue = useMemo(() => {
-    return () => {
-      if (invoiceRows.length === 0) return
-      if (inFlightRef.current >= MAX_CONCURRENCY) return
+  /**
+   * Efecto reactivo para lanzar bloques de extracción.
+   * Se re-evalúa cada vez que invoiceStatus o invoiceRows cambian.
+   * Lanza batch 0 inmediatamente; para batch N>0, espera a que N-1 esté completo.
+   * batchesLaunchedRef evita lanzar el mismo bloque dos veces.
+   * Al ser reactivo, no depende de closures obsoletos (como .then()).
+   */
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
 
-      const orderedIds = invoiceRows.map((i) => i.id)
-      for (const id of orderedIds) {
-        if (inFlightRef.current >= MAX_CONCURRENCY) break
-        const st = invoiceStatus[id]
-        if (!st || st === 'idle') void startExtract(id)
+    const totalBatches = Math.ceil(invoiceRows.length / BATCH_SIZE)
+
+    for (let b = 0; b < totalBatches; b++) {
+      if (batchesLaunchedRef.current.has(b)) continue
+
+      // Para batch > 0: solo lanzar si el anterior está completo
+      if (b > 0) {
+        const prevStart = (b - 1) * BATCH_SIZE
+        const prevEnd = Math.min(prevStart + BATCH_SIZE, invoiceRows.length)
+        let prevComplete = true
+        for (let i = prevStart; i < prevEnd; i++) {
+          const st = invoiceStatus[invoiceRows[i]?.id]
+          if (st !== 'ready' && st !== 'error') {
+            prevComplete = false
+            break
+          }
+        }
+        if (!prevComplete) break // Anterior no terminó, esperar
       }
+
+      // Lanzar este bloque
+      batchesLaunchedRef.current.add(b)
+      const start = b * BATCH_SIZE
+      const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
+      const toExtract = invoiceRows.slice(start, end).filter((inv) => {
+        const st = invoiceStatus[inv.id]
+        return !st || st === 'idle'
+      })
+
+      // Si no hay nada que extraer (bloque ya listo de DB), continuar al siguiente
+      if (toExtract.length === 0) continue
+
+      for (const inv of toExtract) {
+        void startExtractSingle(inv.id)
+      }
+
+      // Se lanzaron extracciones: esperar a que terminen (el efecto se
+      // re-disparará cuando invoiceStatus cambie) antes de lanzar el siguiente
+      break
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceRows, invoiceStatus, MAX_CONCURRENCY])
+  }, [invoiceRows, invoiceStatus])
 
-  // Arrancar y mantener cola (3 en paralelo).
-  useEffect(() => {
-    pumpQueue()
-  }, [pumpQueue, invoiceRows.length, facturaActual, invoiceStatus])
+  // Derivados de bloques
+  const currentBatchIndex = Math.floor(facturaActual / BATCH_SIZE)
+  const isLastOfBatch =
+    (facturaActual + 1) % BATCH_SIZE === 0 && facturaActual + 1 < invoiceRows.length
+
+  const isCurrentBatchReady = useMemo(() => {
+    const start = currentBatchIndex * BATCH_SIZE
+    const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
+    for (let i = start; i < end; i++) {
+      const st = invoiceStatus[invoiceRows[i]?.id]
+      if (st !== 'ready' && st !== 'error') return false
+    }
+    return true
+  }, [currentBatchIndex, invoiceRows, invoiceStatus, BATCH_SIZE])
+
+  const isNextBatchReady = useMemo(() => {
+    const nextBatch = currentBatchIndex + 1
+    const start = nextBatch * BATCH_SIZE
+    if (start >= invoiceRows.length) return true // No hay siguiente bloque
+    const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
+    for (let i = start; i < end; i++) {
+      const st = invoiceStatus[invoiceRows[i]?.id]
+      if (st !== 'ready' && st !== 'error') return false
+    }
+    return true
+  }, [currentBatchIndex, invoiceRows, invoiceStatus, BATCH_SIZE])
 
   const validatedInvoiceIds = useMemo(() => {
     const ordered = invoiceRows.map((i) => i.id)
@@ -958,7 +1091,8 @@ export default function ValidarUploadPage() {
       const lastComma = raw.lastIndexOf(',')
       const decimalSep = lastComma > lastDot ? ',' : '.'
       const thousandsSep = decimalSep === ',' ? '.' : ','
-      normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+      const thousandsSepRegex = new RegExp(`\\${thousandsSep}`, 'g')
+      normalized = raw.replace(thousandsSepRegex, '').replace(decimalSep, '.')
     } else if (hasComma) {
       // ES típico: 1.000,56 ya vendría con '.', pero si solo hay coma asumimos coma decimal
       normalized = raw.replace(',', '.')
@@ -1261,15 +1395,10 @@ export default function ValidarUploadPage() {
 
   const currentId = invoiceRows[facturaActual]?.id || facturas[facturaActual]?.archivo?.invoiceId
   const currentStatus = currentId ? invoiceStatus[currentId] : undefined
-  const isCurrentReady = currentStatus === 'ready' || currentStatus === 'error'
 
-  if (!isCurrentReady && facturas.length > 0) {
-    return (
-      <div className="h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
+  // No bloquear la pantalla esperando el primer bloque: mostramos el formulario en cuanto hay datos.
+  // El usuario ve la primera factura (PDF + formulario) de inmediato; los botones se habilitan
+  // cuando la factura actual está lista (polling + reconciliación actualizan invoiceStatus).
 
   if (facturas.length === 0) {
     return (
@@ -1470,18 +1599,34 @@ export default function ValidarUploadPage() {
         {(() => {
           const totalCount = invoiceRows.length
           const isLast = facturaActual === totalCount - 1
-          const canGoNext = true // Navigation is now unlocked
+          const canGoNext = true
 
-          const disableValidar = Boolean(!currentId || (currentStatus !== 'ready' && currentStatus !== 'error') || !isAllDone)
-          const validarText = !isAllDone
-            ? 'ESPERANDO PROCESO TOTAL…'
-            : currentStatus === 'processing'
-              ? 'PROCESANDO…'
-              : currentStatus === 'idle'
-                ? 'ESPERANDO EXTRACCIÓN…'
-                : currentStatus === 'error'
-                  ? 'ERROR (REINTENTA)'
-                  : undefined
+          // Lógica de bloqueo por bloques:
+          // - La factura actual debe estar ready/error
+          // - El bloque actual debe estar completo
+          // - Si estamos en la última factura del bloque, el siguiente bloque debe estar listo
+          const isCurrentInvoiceReady = currentStatus === 'ready' || currentStatus === 'error'
+          const needsNextBatch = isLastOfBatch
+          const batchBlocked = needsNextBatch && !isNextBatchReady
+
+          const disableValidar = Boolean(
+            !currentId ||
+            !isCurrentInvoiceReady ||
+            !isCurrentBatchReady ||
+            batchBlocked
+          )
+
+          const validarText = !isCurrentBatchReady
+            ? 'Procesando bloque actual…'
+            : batchBlocked
+              ? 'PROCESANDO SIGUIENTE BLOQUE…'
+              : currentStatus === 'processing'
+                ? 'PROCESANDO…'
+                : currentStatus === 'idle'
+                  ? 'ESPERANDO EXTRACCIÓN…'
+                  : currentStatus === 'error'
+                    ? 'ERROR (REINTENTA)'
+                    : undefined
 
           return (
             <ValidarFactura

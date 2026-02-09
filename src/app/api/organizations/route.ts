@@ -3,9 +3,14 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    
-    // Verificar que el usuario esté autenticado
+    const [supabase, body] = await Promise.all([
+      createClient(),
+      request.json().catch(() => null),
+    ]);
+
+    // Verificar que el usuario esté autenticado.
+    // No usamos requireAuth() aquí porque esta ruta se usa cuando
+    // el usuario aún NO tiene organización (onboarding).
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
@@ -16,8 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Obtener el nombre de la organización del body
-    const body = await request.json();
-    const { org_name } = body;
+    const { org_name } = body ?? {};
 
     if (!org_name || typeof org_name !== 'string' || org_name.trim().length === 0) {
       return NextResponse.json(

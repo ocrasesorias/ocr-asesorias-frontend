@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireOrgMembership } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -7,29 +7,11 @@ export const runtime = 'nodejs'
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: orgId } = await context.params
-    const supabase = await createClient()
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { data: auth, response: authError } = await requireOrgMembership(orgId)
+    if (authError) return authError
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    // Verificar membresía (cualquier miembro puede leer)
-    const { data: membership, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id, role')
-      .eq('org_id', orgId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (membershipError || !membership) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
-    }
-
+    const { supabase } = auth
     const admin = createAdminClient()
     const db = admin ?? supabase
 
@@ -61,36 +43,20 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: orgId } = await context.params
-    const supabase = await createClient()
+    const [authResult, body] = await Promise.all([
+      requireOrgMembership(orgId),
+      request.json().catch(() => null),
+    ])
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { data: auth, response: authError } = authResult
+    if (authError) return authError
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
+    const { supabase, role } = auth
 
-    // Verificar rol (solo owner puede modificar)
-    const { data: membership, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id, role')
-      .eq('org_id', orgId)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (membershipError || !membership) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
-    }
-
-    const memObj = typeof membership === 'object' ? (membership as Record<string, unknown>) : null
-    const role = (typeof memObj?.role === 'string' ? memObj.role : '').toLowerCase()
     if (role !== 'owner') {
       return NextResponse.json({ error: 'Solo el owner puede cambiar preferencias' }, { status: 403 })
     }
 
-    const body = await request.json().catch(() => null)
     const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null
     const uppercase_names_addresses =
       typeof bodyObj?.uppercase_names_addresses === 'boolean' ? bodyObj.uppercase_names_addresses : null

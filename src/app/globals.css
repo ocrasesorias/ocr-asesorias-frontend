@@ -7,7 +7,7 @@
   --secondary: #10b981; /* Verde Progreso */
   --background: #f3f4f6; /* Gris Cálido */
   --foreground: #1f2937; /* Gris oscuro para texto principal */
-  --foreground-secondary: #9ca3af; /* Gris medio para texto secundario */
+  --foreground-secondary: #6b7280; /* Gris medio para texto secundario (WCAG AA) */
 
   /* Colores adicionales de la marca */
   --success: #10b981;
@@ -65,12 +65,25 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-lexend), system-ui, -apple-system, sans-serif;
-  font-weight: 300; /* font-light como peso por defecto */
+  font-weight: 400; /* font-normal para mejor legibilidad */
   line-height: 1.6;
 }
 
 button {
   cursor: pointer;
+}
+
+/* Focus-visible global para navegación por teclado */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Eliminar outline por defecto de los inputs que ya tienen focus styles propios */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
 }
 
 /* Scroll reveal (animaciones sutiles al entrar en viewport) */

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 // Custom hooks
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useInvoiceCounter } from '@/hooks/useInvoiceCounter';
@@ -10,12 +11,26 @@ import { useInvoiceProcessing } from '@/hooks/useInvoiceProcessing';
 // Components
 import { DashboardHeader } from './components/DashboardHeader';
 import { ClientSection } from './components/ClientSection/ClientSection';
-import { EditClientModal } from './components/ClientSection/EditClientModal';
-import { DeleteClientModal } from './components/ClientSection/DeleteClientModal';
 import { UploadsSection } from './components/UploadsSection/UploadsSection';
 import { FilesSection } from './components/FilesSection/FilesSection';
-import { DeleteUploadModal } from './components/modals/DeleteUploadModal';
-import { DeleteInvoiceModal } from './components/modals/DeleteInvoiceModal';
+
+// Modales cargados dinámicamente (solo se renderizan condicionalmente)
+const EditClientModal = dynamic(
+  () => import('./components/ClientSection/EditClientModal').then((m) => m.EditClientModal),
+  { ssr: false }
+);
+const DeleteClientModal = dynamic(
+  () => import('./components/ClientSection/DeleteClientModal').then((m) => m.DeleteClientModal),
+  { ssr: false }
+);
+const DeleteUploadModal = dynamic(
+  () => import('./components/modals/DeleteUploadModal').then((m) => m.DeleteUploadModal),
+  { ssr: false }
+);
+const DeleteInvoiceModal = dynamic(
+  () => import('./components/modals/DeleteInvoiceModal').then((m) => m.DeleteInvoiceModal),
+  { ssr: false }
+);
 
 export default function DashboardPage() {
   // ============================================================================

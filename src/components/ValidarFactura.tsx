@@ -82,7 +82,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       const lastComma = raw.lastIndexOf(',')
       const decimalSep = lastComma > lastDot ? ',' : '.'
       const thousandsSep = decimalSep === ',' ? '.' : ','
-      normalized = raw.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+      const thousandsSepRegex = new RegExp(`\\${thousandsSep}`, 'g')
+      normalized = raw.replace(thousandsSepRegex, '').replace(decimalSep, '.')
     } else if (hasComma) {
       // ES típico: coma decimal
       normalized = raw.replace(',', '.')

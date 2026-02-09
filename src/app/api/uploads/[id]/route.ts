@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -7,30 +7,9 @@ export const runtime = 'nodejs'
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: uploadId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { supabase, orgIds } = auth
 
     // Importante:
     // - Con RLS, los joins (clients/invoice_fields/invoice_extractions) pueden fallar aunque el upload exista.
@@ -113,7 +92,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const uploadObj = upload as Record<string, unknown>
     const invoicesVal = uploadObj.invoices
     if (Array.isArray(invoicesVal)) {
-      invoicesVal.sort((a, b) => {
+      uploadObj.invoices = invoicesVal.toSorted((a, b) => {
         const aObj = a && typeof a === 'object' ? (a as Record<string, unknown>) : null
         const bObj = b && typeof b === 'object' ? (b as Record<string, unknown>) : null
         const aCreated = typeof aObj?.created_at === 'string' ? aObj.created_at : ''
@@ -132,30 +111,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: uploadId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { supabase, orgIds } = auth
 
     const admin = createAdminClient()
     const db = admin ?? supabase
@@ -191,15 +149,23 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       byBucket.set(inv.bucket, arr)
     }
 
-    // Borrar en storage (best effort por bucket)
-    for (const [bucket, paths] of byBucket.entries()) {
-      const { error } = await supabase.storage.from(bucket).remove(paths)
-      if (error) {
-        return NextResponse.json(
-          { error: error.message || `Error borrando objetos en bucket ${bucket}` },
-          { status: 500 }
-        )
-      }
+    // Borrar en storage en paralelo por bucket
+    const deleteResults = await Promise.all(
+      Array.from(byBucket.entries()).map(async ([bucket, paths]) => {
+        const { error } = await supabase.storage.from(bucket).remove(paths)
+        return { bucket, error }
+      })
+    )
+    const failedBucket = deleteResults.find((r) => r.error)
+    if (failedBucket) {
+      return NextResponse.json(
+        {
+          error:
+            failedBucket.error?.message ||
+            `Error borrando objetos en bucket ${failedBucket.bucket}`,
+        },
+        { status: 500 }
+      )
     }
 
     // Borrar upload (cascade eliminará invoices)
@@ -218,30 +184,9 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: uploadId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { supabase, orgIds } = auth
 
     const body = await request.json().catch(() => null)
     const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null

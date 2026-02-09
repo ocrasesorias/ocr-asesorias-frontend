@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 export const runtime = 'nodejs'
 
@@ -8,28 +8,13 @@ const ALLOWED = new Set(['uploaded', 'processing', 'needs_review', 'ready', 'err
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: invoiceId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .limit(1)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgId = memberships[0].org_id as string
+    const [authResult, body] = await Promise.all([
+      requireAuth(),
+      request.json().catch(() => null),
+    ])
+    const { data: auth, response: authError } = authResult
+    if (authError) return authError
+    const { supabase, orgId } = auth
 
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -43,8 +28,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (invoice.org_id !== orgId) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
-
-    const body = await request.json().catch(() => null)
     const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null
     const status = typeof bodyObj?.status === 'string' ? bodyObj.status : null
     const error_message = typeof bodyObj?.error_message === 'string' ? bodyObj.error_message : null

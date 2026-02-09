@@ -115,7 +115,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             Arrastra archivos aquí o haz clic para seleccionar
           </p>
           <p className="text-sm text-foreground-secondary">
-            PDF o imágenes (PNG, JPG, etc.)
+            PDF o imágenes
           </p>
         </label>
       </div>

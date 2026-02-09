@@ -33,7 +33,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           type="text"
           required
           value={cliente.name}
-          onChange={(e) => setCliente({ ...cliente, name: e.target.value })}
+          onChange={(e) => setCliente(prev => ({ ...prev, name: e.target.value }))}
           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: Empresa ABC S.L."
           disabled={isDisabled}
@@ -47,7 +47,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           id="client-tax-id"
           type="text"
           value={cliente.tax_id}
-          onChange={(e) => setCliente({ ...cliente, tax_id: e.target.value })}
+          onChange={(e) => setCliente(prev => ({ ...prev, tax_id: e.target.value }))}
           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: B12345678"
           disabled={isDisabled}
@@ -62,7 +62,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           <select
             value={cliente.preferred_income_account}
             onChange={(e) =>
-              setCliente({ ...cliente, preferred_income_account: e.target.value })
+              setCliente(prev => ({ ...prev, preferred_income_account: e.target.value }))
             }
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             disabled={isDisabled}
@@ -79,7 +79,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           <select
             value={cliente.preferred_expense_account}
             onChange={(e) =>
-              setCliente({ ...cliente, preferred_expense_account: e.target.value })
+              setCliente(prev => ({ ...prev, preferred_expense_account: e.target.value }))
             }
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             disabled={isDisabled}
@@ -100,7 +100,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           id="client-activity"
           rows={3}
           value={cliente.activity_description}
-          onChange={(e) => setCliente({ ...cliente, activity_description: e.target.value })}
+          onChange={(e) => setCliente(prev => ({ ...prev, activity_description: e.target.value }))}
           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
           placeholder="Ej: Comercio al por menor, Servicios profesionales..."
           disabled={isDisabled}

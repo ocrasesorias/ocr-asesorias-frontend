@@ -29,7 +29,8 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  // Actualizar sesión
+  // IMPORTANTE: No ejecutar código entre createServerClient y getClaims().
+  // getClaims() refresca la sesión y actualiza las cookies.
   await supabase.auth.getClaims()
 
   // Si es una ruta protegida, verificar que haya usuario
@@ -37,11 +38,17 @@ export async function proxy(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      // Redirigir a login si no hay usuario
+      // Redirigir a login si no hay usuario.
+      // Copiar las cookies actualizadas a la respuesta de redirección
+      // para que la sesión refrescada no se pierda.
       const url = request.nextUrl.clone()
       url.pathname = '/login'
       url.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(url)
+      const redirectResponse = NextResponse.redirect(url)
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+      return redirectResponse
     }
   }
 

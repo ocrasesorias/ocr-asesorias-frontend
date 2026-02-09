@@ -1,37 +1,18 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: clientId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const body = await request.json().catch(() => null)
+    const [authResult, body] = await Promise.all([
+      requireAuth(),
+      request.json().catch(() => null),
+    ])
+    const { data: auth, response: authError } = authResult
+    if (authError) return authError
+    const { supabase, orgIds } = auth
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const tax_id = typeof body?.tax_id === 'string' ? body.tax_id.trim() : ''
     const preferred_income_account =
@@ -77,30 +58,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id: clientId } = await context.params
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { supabase, orgIds } = auth
 
     // Seguridad: si tiene subidas, no lo borramos (evita dejar históricos huérfanos)
     const { data: anyUpload, error: uploadError } = await supabase

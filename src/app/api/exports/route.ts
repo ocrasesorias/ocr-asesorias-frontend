@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -59,30 +59,10 @@ type ExportRow = { invoice_id: string; [key: string]: unknown }
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { supabase, orgIds } = auth
 
     const body = await request.json().catch(() => null)
     const invoiceIds = Array.isArray(body?.invoice_ids) ? (body.invoice_ids as string[]) : []

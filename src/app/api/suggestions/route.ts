@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -8,16 +8,13 @@ const TIPOS_VALIDOS = ['sugerencia', 'error', 'duda', 'otro'] as const
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
+    const [authResult, body] = await Promise.all([
+      requireAuth(),
+      request.json().catch(() => null),
+    ])
+    const { data: auth, response: authError } = authResult
+    if (authError) return authError
+    const { supabase, user } = auth
 
     const admin = createAdminClient()
     if (!admin) {
@@ -25,7 +22,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error de configuración del servidor' }, { status: 500 })
     }
 
-    const body = await request.json().catch(() => null)
     const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : null
     const message = typeof bodyObj?.message === 'string' ? bodyObj.message.trim() : ''
     const typeRaw = typeof bodyObj?.type === 'string' ? bodyObj.type.trim() : null

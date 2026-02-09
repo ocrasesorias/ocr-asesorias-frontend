@@ -27,14 +27,10 @@ import { Switch } from '@heroui/react';
        setIsLoading(true);
        try {
          const supabase = createClient();
-         const { data: { session } } = await supabase.auth.getSession();
-         if (!session) {
-           router.push('/login?redirect=/dashboard/preferencias');
-           return;
-         }
- 
-         const { data: { user } } = await supabase.auth.getUser();
-         if (!user) {
+
+         // getUser() valida el JWT contra el servidor (más seguro que getSession())
+         const { data: { user }, error: authError } = await supabase.auth.getUser();
+         if (authError || !user) {
            router.push('/login?redirect=/dashboard/preferencias');
            return;
          }

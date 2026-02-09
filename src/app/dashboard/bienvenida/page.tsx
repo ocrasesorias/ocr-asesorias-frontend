@@ -20,30 +20,29 @@ export default function BienvenidaPage() {
   useEffect(() => {
     const checkUser = async () => {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+
+      // getUser() valida el JWT contra el servidor (más seguro que getSession())
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
         router.push('/login?redirect=/dashboard/bienvenida');
         return;
       }
 
       // Verificar si el usuario ya tiene una organización
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: memberships, error } = await supabase
-          .from('organization_members')
-          .select('org_id')
-          .eq('user_id', user.id)
-          .limit(1);
+      const { data: memberships, error } = await supabase
+        .from('organization_members')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .limit(1);
 
-        if (error) {
-          // Si hay error, asumimos que no tiene organización y continuamos
-          console.warn('Error al verificar organización:', error.message);
-        } else if (memberships && memberships.length > 0) {
-          // Ya tiene organización, redirigir al dashboard
-          router.push('/dashboard');
-          return;
-        }
+      if (error) {
+        // Si hay error, asumimos que no tiene organización y continuamos
+        console.warn('Error al verificar organización:', error.message);
+      } else if (memberships && memberships.length > 0) {
+        // Ya tiene organización, redirigir al dashboard
+        router.push('/dashboard');
+        return;
       }
 
       setIsChecking(false);

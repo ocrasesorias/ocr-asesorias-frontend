@@ -1,34 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean)
-    if (orgIds.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
+    const { supabase, orgIds } = auth
 
     const url = new URL(request.url)
     const clientId = url.searchParams.get('client_id')
@@ -77,33 +57,16 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const [authResult, body] = await Promise.all([
+      requireAuth(),
+      request.json().catch(() => null),
+    ])
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const { data: auth, response: authErr } = authResult
+    if (authErr) return authErr
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
+    const { supabase, user, orgId } = auth
 
-    const { data: memberships, error: membershipError } = await supabase
-      .from('organization_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-
-    if (membershipError || !memberships || memberships.length === 0) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    // TODO: si en el futuro hay selección de org activa, usarla aquí.
-    const orgId = (memberships[0].org_id as string) || ''
-    if (!orgId) {
-      return NextResponse.json({ error: 'No tienes una organización' }, { status: 403 })
-    }
-
-    const body = await request.json().catch(() => null)
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const clientId = typeof body?.client_id === 'string' && body.client_id.trim() ? body.client_id : null
     const tipoRaw = typeof body?.tipo === 'string' ? body.tipo.trim().toLowerCase() : ''

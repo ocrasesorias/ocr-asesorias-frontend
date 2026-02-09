@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireAuth } from '@/lib/supabase/auth-guard'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
@@ -17,15 +17,9 @@ function isAdmin(email: string | undefined): boolean {
 
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
+    const { data: auth, response: authError } = await requireAuth()
+    if (authError) return authError
+    const { user } = auth
 
     if (!isAdmin(user.email ?? undefined)) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 })

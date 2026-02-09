@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
 import { LandingAuthNav } from "@/components/LandingAuthNav";
+import { MobileNav } from "@/components/MobileNav";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -12,6 +13,14 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen">
+      {/* Skip-to-content para accesibilidad */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-100 focus:bg-primary focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm focus:font-medium"
+      >
+        Saltar al contenido principal
+      </a>
+
       {/* Header */}
       <StickyHeader>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,65 +29,71 @@ export default async function Home() {
               <Link href="/" className="flex items-center space-x-3">
                 <Image
                   src="/img/logo.png"
-                  alt="KontaScan"
+                  alt="KontaScan - Inicio"
                   width={100}
                   height={100}
                   className="h-10 w-auto"
                   priority
                 />
-                <h1 className="text-2xl font-bold text-primary">
+                <span className="text-2xl font-bold text-primary">
                   KontaScan
-                </h1>
+                </span>
               </Link>
             </div>
-            <nav className="hidden md:flex space-x-8">
+            <nav className="hidden md:flex space-x-8" aria-label="Navegación principal">
               <a
                 href="#beneficios"
-                className="text-foreground hover:text-primary transition-colors"
+                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
               >
                 Beneficios
               </a>
               <a
                 href="#como-funciona"
-                className="text-foreground hover:text-primary transition-colors"
+                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
               >
                 Cómo funciona
               </a>
               <a
                 href="#integraciones"
-                className="text-foreground hover:text-primary transition-colors"
+                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
               >
                 Integraciones
               </a>
               <a
                 href="#contacto"
-                className="text-foreground hover:text-primary transition-colors"
+                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
               >
                 Contacto
               </a>
             </nav>
-            <LandingAuthNav />
+            <div className="flex items-center gap-2">
+              <div className="hidden md:block">
+                <LandingAuthNav />
+              </div>
+              <MobileNav />
+            </div>
           </div>
         </div>
       </StickyHeader>
 
       {/* Hero Section */}
+      <main id="main-content">
       <section className="pt-32 pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <ScrollReveal direction="left">
             <div>
-            <h1 className="text-5xl lg:text-6xl font-light text-foreground leading-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal text-foreground leading-tight">
               De la factura al Excel contable <br />
               <span className="text-primary"> en segundos.</span>
             </h1>
-            <p className="text-xl text-foreground-secondary mt-6 leading-relaxed">
+            <p className="text-lg sm:text-xl text-foreground-secondary mt-6 leading-relaxed">
               Automatiza la entrada de facturas y recibe un Excel listo para importar en tu programa contable. Preciso, seguro y con soporte cercano.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               {hasSession ? (
                 <Link
                   href="/dashboard"
-                  className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center"
+                  className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   Ir al dashboard
                 </Link>
@@ -86,13 +101,16 @@ export default async function Home() {
                 <>
                   <Link
                     href="/registro"
-                    className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center"
+                    className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     Probar gratis
                   </Link>
-                  <button className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors">
-                    Ver demo de 2 minutos
-                  </button>
+                  <Link
+                    href="#como-funciona"
+                    className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  >
+                    Ver cómo funciona
+                  </Link>
                 </>
               )}
             </div>
@@ -105,7 +123,7 @@ export default async function Home() {
             <div className="relative float-slow">
               <Image
                 src="/img/hero-img.png"
-                alt="Hero Image"
+                alt="Interfaz de KontaScan mostrando la conversión automática de facturas a Excel contable"
                 className="w-full h-full object-cover rounded-lg"
                 width={500}
                 height={500}
@@ -138,6 +156,7 @@ export default async function Home() {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -164,6 +183,7 @@ export default async function Home() {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -190,6 +210,7 @@ export default async function Home() {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -216,6 +237,7 @@ export default async function Home() {
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
+                    aria-hidden="true"
                   >
                     <path
                       strokeLinecap="round"
@@ -307,9 +329,12 @@ export default async function Home() {
             <p className="text-xl text-foreground-secondary max-w-3xl mx-auto mb-6">
               KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible con Monitor Informático y los programas contables más usados.
             </p>
-          <button className="text-primary hover:text-primary-hover transition-colors font-medium">
-            Ver formatos disponibles
-          </button>
+            <Link
+              href="#contacto"
+              className="text-primary hover:text-primary-hover transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+            >
+              Consultar formatos disponibles &rarr;
+            </Link>
           </div>
         </ScrollReveal>
       </section>
@@ -318,17 +343,17 @@ export default async function Home() {
       <section className="py-20 bg-primary">
         <ScrollReveal>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl font-bold text-white mb-6">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
               ¿Listo para ganar horas cada semana?
             </h2>
-            <p className="text-xl text-white/80 mb-8">
+            <p className="text-lg sm:text-xl text-white/80 mb-8">
               Empieza hoy y comprueba cómo cambia tu carga de trabajo.
             </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {hasSession ? (
               <Link
                 href="/dashboard"
-                className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center"
+                className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
               >
                 Ir al dashboard
               </Link>
@@ -336,13 +361,13 @@ export default async function Home() {
               <>
                 <Link
                   href="/registro"
-                  className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center"
+                  className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
                   Probar gratis
                 </Link>
                 <Link
                   href="/login"
-                  className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center"
+                  className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                 >
                   Iniciar sesión
                 </Link>
@@ -352,6 +377,7 @@ export default async function Home() {
           </div>
         </ScrollReveal>
       </section>
+      </main>
 
       {/* Footer */}
       <footer id="contacto" className="bg-foreground text-white py-12">
@@ -413,7 +439,7 @@ export default async function Home() {
               </div>
             </div>
             <div className="border-t border-gray-700 mt-8 pt-8 text-center text-foreground-secondary">
-              <p>&copy; 2025 KontaScan. Todos los derechos reservados.</p>
+              <p>&copy; {new Date().getFullYear()} KontaScan. Todos los derechos reservados.</p>
             </div>
           </div>
         </ScrollReveal>

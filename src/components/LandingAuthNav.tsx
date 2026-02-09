@@ -10,37 +10,29 @@ export function LandingAuthNav() {
   const [isLoading, setIsLoading] = useState(true)
   const [hasSession, setHasSession] = useState(false)
 
-  const refreshSession = useCallback(async () => {
-    try {
-      const supabase = createClient()
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setHasSession(!!session)
-    } catch {
-      // Si faltan env vars en algún entorno, evitamos romper la landing
-      setHasSession(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
   useEffect(() => {
     let cancelled = false
     let unsubscribe: (() => void) | undefined
 
     const run = async () => {
-      await refreshSession()
-      if (cancelled) return
-
       try {
         const supabase = createClient()
-        const { data } = supabase.auth.onAuthStateChange(() => {
-          if (!cancelled) refreshSession()
+
+        // getSession() es aceptable aquí porque es solo para UI de la landing.
+        // La verificación real ocurre en el middleware al navegar a /dashboard.
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!cancelled) setHasSession(!!session)
+
+        // Escuchar cambios de sesión (login/logout desde otra pestaña)
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (!cancelled) setHasSession(!!session)
         })
         unsubscribe = () => data.subscription.unsubscribe()
       } catch {
-        // noop
+        // Si faltan env vars en algún entorno, evitamos romper la landing
+        if (!cancelled) setHasSession(false)
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
     }
 
@@ -50,7 +42,7 @@ export function LandingAuthNav() {
       cancelled = true
       unsubscribe?.()
     }
-  }, [refreshSession])
+  }, [])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -74,8 +66,10 @@ export function LandingAuthNav() {
         <button
           type="button"
           onClick={handleLogout}
-          className="text-red-700 hover:text-red-800 transition-colors font-medium"
+          aria-label="Cerrar sesión de tu cuenta"
+          className="text-red-700 hover:text-red-800 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded-lg px-2 py-1"
           disabled={isLoading}
+          aria-busy={isLoading}
         >
           Cerrar sesión
         </button>

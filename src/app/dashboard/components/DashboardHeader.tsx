@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
 import { formatMiles } from '@/utils/formatNumber';
 import { SuggestionsModal } from './modals/SuggestionsModal';
+import { safeRemoveItem } from '@/utils/safeStorage';
 
 interface DashboardHeaderProps {
   organizationName: string;
@@ -37,7 +38,7 @@ export function DashboardHeader({
     }
 
     if (orgId) {
-      sessionStorage.removeItem(`dashboard:selectedClientId:${orgId}`);
+      safeRemoveItem(`dashboard:selectedClientId:${orgId}`);
     }
     showSuccess('Sesión cerrada');
     router.push('/login');
