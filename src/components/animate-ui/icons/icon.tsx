@@ -6,7 +6,7 @@ import {
   useAnimation,
   type SVGMotionProps,
   type UseInViewOptions,
-  type LegacyAnimationControls,
+  type AnimationControls,
   type Variants,
   type HTMLMotionProps,
 } from 'motion/react';
@@ -43,7 +43,7 @@ type TriggerProp<T = string> = boolean | StaticAnimations | T;
 type Trigger = TriggerProp<string>;
 
 type AnimateIconContextValue = {
-  controls: LegacyAnimationControls | undefined;
+  controls: AnimationControls | undefined;
   animation: StaticAnimations | string;
   loop: boolean;
   loopDelay: number;
