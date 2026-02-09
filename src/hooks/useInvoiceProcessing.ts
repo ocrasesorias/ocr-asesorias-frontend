@@ -4,6 +4,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
 
 const MAX_EXTRACT_CONCURRENCY = 5;
+/** Tamaño de bloque inicial para permitir entrar a validar */
+const BATCH_SIZE = 5;
 
 /**
  * Hook para gestionar el procesamiento de facturas (upload, OCR/IA, validación)
@@ -51,6 +53,17 @@ export function useInvoiceProcessing() {
       const st = extractStatusByInvoiceId[id];
       return st === 'ready' || st === 'error';
     });
+  }, [activeInvoiceIds, extractStatusByInvoiceId]);
+
+  /** El primer bloque (0..BATCH_SIZE-1) está completamente listo */
+  const isFirstBatchReady = useMemo(() => {
+    if (activeInvoiceIds.length === 0) return false;
+    const end = Math.min(BATCH_SIZE, activeInvoiceIds.length);
+    for (let i = 0; i < end; i++) {
+      const st = extractStatusByInvoiceId[activeInvoiceIds[i]];
+      if (st !== 'ready' && st !== 'error') return false;
+    }
+    return true;
   }, [activeInvoiceIds, extractStatusByInvoiceId]);
 
   const processingCount = useMemo(
@@ -117,8 +130,11 @@ export function useInvoiceProcessing() {
       return msgs;
     }
 
-    if (!hasUploadingFiles && uploaded > 0 && !isAllReady) {
-      msgs.push(`Procesando facturas… (${readyCount}/${uploaded} listas)`);
+    if (uploaded > 0 && !isFirstBatchReady) {
+      msgs.push(`Procesando primer bloque… (${readyCount}/${Math.min(BATCH_SIZE, uploaded)} listas)`);
+    }
+    if (!hasUploadingFiles && uploaded > 0 && isFirstBatchReady && !isAllReady) {
+      msgs.push(`Primer bloque listo. Ya puedes validar. (${readyCount}/${uploaded} procesadas)`);
     }
     if (!hasUploadingFiles && uploaded > 0 && isAllReady) {
       msgs.push('¡Todo listo! Ya puedes empezar a validar.');
@@ -135,6 +151,7 @@ export function useInvoiceProcessing() {
     dbCounts,
     errorCount,
     isAllReady,
+    isFirstBatchReady,
     readyCount,
     hasUploadingFiles,
     invoiceIdsInOrder.length,
@@ -148,10 +165,11 @@ export function useInvoiceProcessing() {
       archivosSubidos.length > 0 &&
       !archivosSubidos.some((a) => a.estado === 'error') &&
       !hasUploadingFiles &&
-      // Solo se puede pasar a validar cuando todas las facturas están procesadas (ready o error)
-      (currentSessionInvoiceIds.length === 0 || isAllReady)
+      // Para subidas nuevas: basta con que el primer bloque esté listo
+      // Para subidas históricas (sin sessionIds): siempre se puede entrar
+      (currentSessionInvoiceIds.length === 0 || isFirstBatchReady)
     );
-  }, [archivosSubidos, hasUploadingFiles, currentSessionInvoiceIds.length, isAllReady]);
+  }, [archivosSubidos, hasUploadingFiles, currentSessionInvoiceIds.length, isFirstBatchReady]);
 
   // Rotar mensajes cada 2.5s
   useEffect(() => {
@@ -508,7 +526,7 @@ export function useInvoiceProcessing() {
       return;
     }
     if (!canValidate) {
-      showError(`Procesando facturas (${readyCount}/${archivosSubidos.length} listas). Podrás validar cuando todas estén procesadas.`);
+      showError(`Procesando primer bloque (${readyCount}/${Math.min(BATCH_SIZE, archivosSubidos.length)} listas). Podrás validar cuando las primeras ${BATCH_SIZE} estén listas.`);
       return;
     }
 

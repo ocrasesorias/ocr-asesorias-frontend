@@ -1513,7 +1513,29 @@ export default function ValidarUploadPage() {
         {(() => {
           const totalCount = invoiceRows.length
           const isLast = facturaActual === totalCount - 1
-          const canGoNext = true
+          // Para que al validar/para después se pase siempre a la siguiente,
+          // solo habilitamos la acción cuando la siguiente factura "objetivo" ya está lista.
+          const canGoNext = (() => {
+            if (isLast) return true
+            const ids = invoiceRows.map((i) => i.id)
+            let nextIdx = -1
+            if (viewMode === 'pending') {
+              for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
+                const id = ids[idx]
+                if (!id) continue
+                if (!validatedByInvoiceId[id]) {
+                  nextIdx = idx
+                  break
+                }
+              }
+            } else {
+              nextIdx = facturaActual + 1
+            }
+            if (nextIdx < 0 || nextIdx >= ids.length) return true
+            const nextId = ids[nextIdx]
+            const st = invoiceStatus[nextId]
+            return st === 'ready' || st === 'error'
+          })()
 
           // Solo se puede validar si la factura actual está lista (ready o error)
           const isCurrentInvoiceReady = currentStatus === 'ready' || currentStatus === 'error'

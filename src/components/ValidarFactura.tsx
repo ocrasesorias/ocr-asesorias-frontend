@@ -330,6 +330,9 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     if (disableValidar) return
     if (ivaVerification.hasErrors) return
     if (totalVerification.hasErrors) return
+    // Si no podemos avanzar a la siguiente, bloqueamos la acción para que
+    // al validar/poner "para después" siempre se pase a la siguiente factura.
+    if (!isLast && !canGoNext) return
     // CIF/NIF: solo advertencia, no bloquea el envío
     onValidar(factura);
     // En la última factura no intentamos avanzar (evita error de "siguiente bloque").
@@ -1150,8 +1153,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     type="button"
                     onClick={() => (onParaDespues ? onParaDespues() : onSiguiente())}
                     // Permitir "Para después" también en la última factura.
-                    // Solo deshabilitamos si NO hay handler y no podemos avanzar.
-                    disabled={Boolean(!onParaDespues && (isLast || !canGoNext))}
+                    // Bloqueamos si no podemos avanzar (salvo última).
+                    disabled={Boolean(disableValidar || (!isLast && !canGoNext))}
                     className="px-4 py-2 text-sm font-bold whitespace-nowrap"
                   >
                     PARA DESPUÉS
@@ -1160,7 +1163,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     variant="secondary"
                     size="md"
                     type="submit"
-                    disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors}
+                    disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || (!isLast && !canGoNext)}
                     className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
                   >
                     <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}</span>
