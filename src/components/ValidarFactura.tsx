@@ -38,6 +38,8 @@ interface ValidarFacturaProps {
   /** Trimestre de trabajo configurado en preferencias (Q1–Q4). Si la factura no coincide, se muestra aviso. */
   workingQuarter?: string
   factura: FacturaData;
+  /** true si el preview de esta factura ya se intentó y devolvió distinto de 200 (mostrar error en vez de "Cargando..."). */
+  previewFailed?: boolean
   onValidar: (factura: FacturaData) => void;
   onAnterior?: () => void
   onSiguiente: () => void;
@@ -54,6 +56,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   uppercaseNombreDireccion = false,
   workingQuarter = '',
   factura: facturaInicial,
+  previewFailed = false,
   onValidar,
   onSiguiente,
   onParaDespues,
@@ -524,7 +527,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         </a>
                       </div>
                     </object>
-                  ) : (
+                  ) : previewFailed ? (
                     <div className="h-full w-full flex items-center justify-center text-center px-6">
                       <div>
                         <p className="text-sm text-slate-500">
@@ -535,18 +538,45 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         </p>
                       </div>
                     </div>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-center px-6">
+                      <div className="flex flex-col items-center gap-3">
+                        <svg className="animate-spin h-8 w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <p className="text-sm text-slate-500">Cargando previsualización…</p>
+                      </div>
+                    </div>
                   )}
                 </div>
-              ) : (
+              ) : factura.archivo?.url ? (
                 <div className="w-full h-full overflow-hidden bg-white relative">
                   <Image
-                    src={factura.archivo?.url || '/img/placeholder-invoice.png'}
+                    src={factura.archivo.url}
                     alt="Factura"
                     fill
                     sizes="(min-width: 1024px) 50vw, 100vw"
                     className="object-contain"
                     priority={false}
                   />
+                </div>
+              ) : previewFailed ? (
+                <div className="h-full w-full flex items-center justify-center text-center px-6">
+                  <div>
+                    <p className="text-sm text-slate-500">No se pudo cargar la previsualización de esta factura.</p>
+                    <p className="text-xs text-slate-500 mt-1">Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-center px-6">
+                  <div className="flex flex-col items-center gap-3">
+                    <svg className="animate-spin h-8 w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <p className="text-sm text-slate-500">Cargando previsualización…</p>
+                  </div>
                 </div>
               )}
             </div>

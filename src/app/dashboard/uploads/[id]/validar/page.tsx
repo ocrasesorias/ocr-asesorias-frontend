@@ -388,9 +388,6 @@ export default function ValidarUploadPage() {
   const uploadId = params.id
   const { showError, showSuccess, showInfo, setToastConfig } = useToast()
 
-  /** Tamaño de bloque: las facturas se extraen de BATCH_SIZE en BATCH_SIZE */
-  const BATCH_SIZE = 5
-
   const [isLoading, setIsLoading] = useState(true)
   const [facturaActual, setFacturaActual] = useState(0)
   const [facturas, setFacturas] = useState<FacturaData[]>([])
@@ -400,7 +397,6 @@ export default function ValidarUploadPage() {
   const [validatedByInvoiceId, setValidatedByInvoiceId] = useState<Record<string, true>>({})
   const [deferredByInvoiceId, setDeferredByInvoiceId] = useState<Record<string, true>>({})
   const [visitedByInvoiceId, setVisitedByInvoiceId] = useState<Record<string, true>>({})
-  const batchesLaunchedRef = useRef<Set<number>>(new Set())
   const startedRef = useRef<Record<string, true>>({})
   const hasRunRef = useRef(false)
   const [clienteNombre, setClienteNombre] = useState<string>('')
@@ -414,6 +410,8 @@ export default function ValidarUploadPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [uppercasePref, setUppercasePref] = useState(true)
   const [workingQuarter, setWorkingQuarter] = useState<string>('')
+  /** IDs de facturas cuyo preview devolvió distinto de 200 (para mostrar "No se pudo cargar" en vez de "Cargando...") */
+  const [previewFailedIds, setPreviewFailedIds] = useState<Record<string, true>>({})
 
   const statusStats = useMemo(() => {
     const total = invoiceRows.length
@@ -454,17 +452,6 @@ export default function ValidarUploadPage() {
       return st === 'ready' || st === 'error'
     })
   }, [invoiceRows, invoiceStatus])
-
-  /** El primer bloque (0..BATCH_SIZE-1) está completamente listo. */
-  const isFirstBatchReady = useMemo(() => {
-    if (invoiceRows.length === 0) return false
-    const end = Math.min(BATCH_SIZE, invoiceRows.length)
-    for (let i = 0; i < end; i++) {
-      const st = invoiceStatus[invoiceRows[i]?.id]
-      if (st !== 'ready' && st !== 'error') return false
-    }
-    return true
-  }, [invoiceRows, invoiceStatus, BATCH_SIZE])
 
   const persistIdSet = (key: string, rec: Record<string, true>) => {
     try {
@@ -530,19 +517,21 @@ export default function ValidarUploadPage() {
   }, [invoiceRows])
 
   // Sincronizar facturas (datos del formulario) con invoiceRows cuando llegan datos del polling:
-  // así los campos se rellenan en cuanto el servidor tiene extraction/fields. Solo si ya tenemos
-  // facturas con preview URLs (run() terminó) para no pisar con URLs vacías.
+  // así los campos se rellenan en cuanto el servidor tiene extraction/fields.
+  // Preservar URL y subcuenta por invoiceId (no por índice) para no perder la previsualización
+  // cuando el orden o el timing del polling cambian.
   useEffect(() => {
     if (invoiceRows.length === 0) return
     setFacturas((prev) => {
       if (prev.length !== invoiceRows.length || prev.length === 0) return prev
-      return invoiceRows.map((inv, i) =>
-        toFacturaData(inv, prev[i]?.archivo?.url ?? '', {
+      return invoiceRows.map((inv, i) => {
+        const prevFactura = prev.find((f) => f.archivo?.invoiceId === inv.id)
+        return toFacturaData(inv, prevFactura?.archivo?.url ?? '', {
           clientTaxId: prev[0]?.empresa?.cif ?? undefined,
-          defaultSubcuenta: prev[i]?.subcuentaGasto || prev[0]?.subcuentaGasto || '',
+          defaultSubcuenta: prevFactura?.subcuentaGasto || prev[0]?.subcuentaGasto || '',
           actividad: prev[0]?.empresa?.actividad ?? undefined,
         })
-      )
+      })
     })
   }, [invoiceRows])
 
@@ -574,12 +563,10 @@ export default function ValidarUploadPage() {
   }, [isAllDone, uploadId])
 
   // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
-  // Este efecto solo actúa una vez (tras cargar invoiceRows) para no "robar" el foco tras cada acción manual.
   useEffect(() => {
     if (hasInitializedPosition) return
     if (invoiceRows.length === 0) return
     if (viewMode !== 'pending') return
-    if (!isFirstBatchReady) return
 
     const ids = invoiceRows.map((i) => i.id)
     for (let idx = 0; idx < ids.length; idx += 1) {
@@ -591,7 +578,7 @@ export default function ValidarUploadPage() {
         return
       }
     }
-  }, [invoiceRows, isFirstBatchReady, validatedByInvoiceId, viewMode, hasInitializedPosition])
+  }, [invoiceRows, validatedByInvoiceId, viewMode, hasInitializedPosition])
 
   // Resetear flag cuando el usuario cambia viewMode (permite reposicionamiento en ese caso).
   useEffect(() => {
@@ -672,13 +659,26 @@ export default function ValidarUploadPage() {
 
         const invoices: UploadInvoiceRow[] = Array.isArray(upload?.invoices) ? upload.invoices : []
 
-        // No esperamos ninguna preview: mostramos el formulario en cuanto tenemos la subida.
-        // Las previews se piden en segundo plano y actualizan facturas cuando llegan.
-        const previewRecord: Record<string, string> = {}
-        setInvoiceRows(invoices)
+        // Previews en orden: la primera con 200 permite mostrar la página; el resto se cargan en segundo plano.
+        // No se muestra el contenido de una factura sin su preview con respuesta 200.
+        const exp = 60 * 60 * 24 * 7
+        const applyPreview = (invoiceId: string, url: string) => {
+          if (!url) return
+          setFacturas((prev) =>
+            prev.map((f) =>
+              f.archivo?.invoiceId === invoiceId
+                ? { ...f, archivo: { ...f.archivo, url } as FacturaData['archivo'] }
+                : f
+            )
+          )
+        }
+        const markPreviewFailed = (invoiceId: string) => {
+          setPreviewFailedIds((prev) => (prev[invoiceId] ? prev : { ...prev, [invoiceId]: true }))
+        }
 
+        setInvoiceRows(invoices)
         const mapped = invoices.map((inv) =>
-          toFacturaData(inv, previewRecord[inv.id] || '', {
+          toFacturaData(inv, '', {
             clientTaxId: client?.tax_id,
             defaultSubcuenta,
             actividad: (client as { activity_description?: string | null })?.activity_description ?? '',
@@ -686,37 +686,29 @@ export default function ValidarUploadPage() {
         )
         setFacturas(mapped)
 
-        const exp = 60 * 60 * 24 * 7
-        const allPreviewPromises = invoices.map(async (inv) => {
-          const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
-          const j = await r.json().catch(() => null)
-          return { invoiceId: inv.id, url: r.ok ? (j?.signedUrl as string) || '' : '' }
-        })
-        const mergePreviewIntoFacturas = (
-          prev: FacturaData[],
-          previews: { invoiceId: string; url: string }[]
-        ) =>
-          prev.map((f): FacturaData => {
-            const p = previews.find((x) => x.invoiceId === f.archivo?.invoiceId)
-            if (!p?.url) return f
-            return {
-              ...f,
-              archivo: {
-                ...f.archivo,
-                url: p.url,
-                tipo: (f.archivo?.tipo ?? 'pdf') as 'pdf' | 'imagen',
-                nombre: f.archivo?.nombre ?? '',
-              } as FacturaData['archivo'],
-            }
-          })
+        if (invoices.length > 0) {
+          const inv0 = invoices[0]
+          const r0 = await fetch(`/api/invoices/${inv0.id}/preview?expires=${exp}`)
+          const j0 = await r0.json().catch(() => null)
+          const url0 = r0.status === 200 && r0.ok ? (j0?.signedUrl as string) || '' : ''
+          if (url0) applyPreview(inv0.id, url0)
+          else markPreviewFailed(inv0.id)
+          setIsLoading(false)
 
-        Promise.all(allPreviewPromises.slice(0, BATCH_SIZE)).then((first) => {
-          setFacturas((prev) => mergePreviewIntoFacturas(prev, first))
-        }).catch(() => {})
-        if (invoices.length > BATCH_SIZE) {
-          Promise.all(allPreviewPromises.slice(BATCH_SIZE)).then((rest) => {
-            setFacturas((prev) => mergePreviewIntoFacturas(prev, rest))
-          }).catch(() => {})
+          // Resto de previews en segundo plano, en orden
+          ;(async () => {
+            for (let i = 1; i < invoices.length; i++) {
+              const inv = invoices[i]
+              if (!inv?.id) continue
+              const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
+              const j = await r.json().catch(() => null)
+              const url = r.status === 200 && r.ok ? (j?.signedUrl as string) || '' : ''
+              if (url) applyPreview(inv.id, url)
+              else markPreviewFailed(inv.id)
+            }
+          })()
+        } else {
+          setIsLoading(false)
         }
 
         // Restaurar estado de sesión (validada / para después / visitada)
@@ -788,7 +780,6 @@ export default function ValidarUploadPage() {
           return next
         })
         startedRef.current = {}
-        batchesLaunchedRef.current = new Set()
 
       } catch (e) {
         showError(e instanceof Error ? e.message : 'Error cargando la subida')
@@ -970,85 +961,8 @@ export default function ValidarUploadPage() {
     }
   }
 
-  /**
-   * Efecto reactivo para lanzar bloques de extracción.
-   * Se re-evalúa cada vez que invoiceStatus o invoiceRows cambian.
-   * Lanza batch 0 inmediatamente; para batch N>0, espera a que N-1 esté completo.
-   * batchesLaunchedRef evita lanzar el mismo bloque dos veces.
-   * Al ser reactivo, no depende de closures obsoletos (como .then()).
-   */
-  useEffect(() => {
-    if (invoiceRows.length === 0) return
-
-    const totalBatches = Math.ceil(invoiceRows.length / BATCH_SIZE)
-
-    for (let b = 0; b < totalBatches; b++) {
-      if (batchesLaunchedRef.current.has(b)) continue
-
-      // Para batch > 0: solo lanzar si el anterior está completo
-      if (b > 0) {
-        const prevStart = (b - 1) * BATCH_SIZE
-        const prevEnd = Math.min(prevStart + BATCH_SIZE, invoiceRows.length)
-        let prevComplete = true
-        for (let i = prevStart; i < prevEnd; i++) {
-          const st = invoiceStatus[invoiceRows[i]?.id]
-          if (st !== 'ready' && st !== 'error') {
-            prevComplete = false
-            break
-          }
-        }
-        if (!prevComplete) break // Anterior no terminó, esperar
-      }
-
-      // Lanzar este bloque
-      batchesLaunchedRef.current.add(b)
-      const start = b * BATCH_SIZE
-      const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
-      const toExtract = invoiceRows.slice(start, end).filter((inv) => {
-        const st = invoiceStatus[inv.id]
-        return !st || st === 'idle'
-      })
-
-      // Si no hay nada que extraer (bloque ya listo de DB), continuar al siguiente
-      if (toExtract.length === 0) continue
-
-      for (const inv of toExtract) {
-        void startExtractSingle(inv.id)
-      }
-
-      // Se lanzaron extracciones: esperar a que terminen (el efecto se
-      // re-disparará cuando invoiceStatus cambie) antes de lanzar el siguiente
-      break
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoiceRows, invoiceStatus])
-
-  // Derivados de bloques
-  const currentBatchIndex = Math.floor(facturaActual / BATCH_SIZE)
-  const isLastOfBatch =
-    (facturaActual + 1) % BATCH_SIZE === 0 && facturaActual + 1 < invoiceRows.length
-
-  const isCurrentBatchReady = useMemo(() => {
-    const start = currentBatchIndex * BATCH_SIZE
-    const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
-    for (let i = start; i < end; i++) {
-      const st = invoiceStatus[invoiceRows[i]?.id]
-      if (st !== 'ready' && st !== 'error') return false
-    }
-    return true
-  }, [currentBatchIndex, invoiceRows, invoiceStatus, BATCH_SIZE])
-
-  const isNextBatchReady = useMemo(() => {
-    const nextBatch = currentBatchIndex + 1
-    const start = nextBatch * BATCH_SIZE
-    if (start >= invoiceRows.length) return true // No hay siguiente bloque
-    const end = Math.min(start + BATCH_SIZE, invoiceRows.length)
-    for (let i = start; i < end; i++) {
-      const st = invoiceStatus[invoiceRows[i]?.id]
-      if (st !== 'ready' && st !== 'error') return false
-    }
-    return true
-  }, [currentBatchIndex, invoiceRows, invoiceStatus, BATCH_SIZE])
+  // No se lanzan extracciones en esta pantalla: todo el procesamiento (extract) se hace en el dashboard.
+  // Solo se entra a validar cuando todas las facturas están ya procesadas.
 
   const validatedInvoiceIds = useMemo(() => {
     const ordered = invoiceRows.map((i) => i.id)
@@ -1601,32 +1515,18 @@ export default function ValidarUploadPage() {
           const isLast = facturaActual === totalCount - 1
           const canGoNext = true
 
-          // Lógica de bloqueo por bloques:
-          // - La factura actual debe estar ready/error
-          // - El bloque actual debe estar completo
-          // - Si estamos en la última factura del bloque, el siguiente bloque debe estar listo
+          // Solo se puede validar si la factura actual está lista (ready o error)
           const isCurrentInvoiceReady = currentStatus === 'ready' || currentStatus === 'error'
-          const needsNextBatch = isLastOfBatch
-          const batchBlocked = needsNextBatch && !isNextBatchReady
+          const disableValidar = Boolean(!currentId || !isCurrentInvoiceReady)
 
-          const disableValidar = Boolean(
-            !currentId ||
-            !isCurrentInvoiceReady ||
-            !isCurrentBatchReady ||
-            batchBlocked
-          )
-
-          const validarText = !isCurrentBatchReady
-            ? 'Procesando bloque actual…'
-            : batchBlocked
-              ? 'PROCESANDO SIGUIENTE BLOQUE…'
-              : currentStatus === 'processing'
-                ? 'PROCESANDO…'
-                : currentStatus === 'idle'
-                  ? 'ESPERANDO EXTRACCIÓN…'
-                  : currentStatus === 'error'
-                    ? 'ERROR (REINTENTA)'
-                    : undefined
+          const validarText =
+            currentStatus === 'processing'
+              ? 'PROCESANDO…'
+              : currentStatus === 'idle'
+                ? 'ESPERANDO EXTRACCIÓN…'
+                : currentStatus === 'error'
+                  ? 'ERROR (REINTENTA)'
+                  : undefined
 
           return (
             <ValidarFactura
@@ -1636,6 +1536,7 @@ export default function ValidarUploadPage() {
               uppercaseNombreDireccion={uppercasePref}
               workingQuarter={workingQuarter}
               factura={facturas[facturaActual]}
+              previewFailed={currentId ? Boolean(previewFailedIds[currentId]) : false}
               onValidar={handleValidar}
               onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
               onSiguiente={handleSiguiente}
