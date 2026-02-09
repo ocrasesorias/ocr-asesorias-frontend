@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/supabase/auth-guard'
 import { extractInvoiceAndPersist } from '@/lib/invoices/extraction'
+import { withExtractSlot } from '@/lib/invoices/extract-queue'
 
 export const runtime = 'nodejs'
 
@@ -43,14 +44,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       // noop
     }
 
-    const result = await extractInvoiceAndPersist({
-      supabase,
-      userId: user.id,
-      orgId,
-      invoiceId,
-      extractorUrl,
-      tipo,
-    })
+    // Cola en backend: máximo 5 extracts en paralelo; el resto esperan
+    const result = await withExtractSlot(() =>
+      extractInvoiceAndPersist({
+        supabase,
+        userId: user.id,
+        orgId,
+        invoiceId,
+        extractorUrl,
+        tipo,
+      })
+    )
 
     if (!result.ok) {
       const status = result.error === 'Factura no encontrada' ? 404 : result.error === 'Sin permisos' ? 403 : 500

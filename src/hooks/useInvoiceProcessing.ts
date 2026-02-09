@@ -3,7 +3,6 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
 
-const MAX_EXTRACT_CONCURRENCY = 5;
 /** Tamaño de bloque inicial para permitir entrar a validar */
 const BATCH_SIZE = 5;
 
@@ -251,12 +250,9 @@ export function useInvoiceProcessing() {
     []
   );
 
-  // Bombear cola de extracción
+  // Lanzar extract para todas las facturas en idle; el backend limita a 5 en paralelo con su cola
   const pumpExtractQueue = useCallback((setSubidasFacturas: React.Dispatch<React.SetStateAction<SubidaFacturas[]>>, setSubidaActual: React.Dispatch<React.SetStateAction<SubidaFacturas | null>>) => {
-    if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) return;
-
     for (const invoiceId of sessionInvoiceIds) {
-      if (extractInFlightRef.current >= MAX_EXTRACT_CONCURRENCY) break;
       const st = extractStatusByInvoiceId[invoiceId] || 'idle';
       if (st === 'idle') void startExtract(invoiceId, setSubidasFacturas, setSubidaActual);
     }

@@ -5,6 +5,8 @@ import { FacturaData } from '@/types/factura';
 import { Tooltip } from '@heroui/react';
 import Image from 'next/image';
 import React, { useMemo, useRef, useState } from 'react';
+import { AnimateIcon } from '@/components/animate-ui/icons/icon';
+import { CircleCheckBig } from '@/components/animate-ui/icons/circle-check-big';
 import { Button } from './Button';
 import { Card } from './Card';
 
@@ -1154,27 +1156,37 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     // Permitir "Para después" también en la última factura.
                     // Bloqueamos si no podemos avanzar (salvo última).
                     disabled={Boolean(disableValidar || (!isLast && !canGoNext))}
-                    className="px-4 py-2 text-sm font-bold whitespace-nowrap"
+                    className="group px-4 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
                   >
-                    PARA DESPUÉS
+                    <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">
+                      PARA DESPUÉS
+                    </span>
+                    <svg
+                      className="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
                   </Button>
                   <Button
                     variant="secondary"
                     size="md"
                     type="submit"
                     disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || (!isLast && !canGoNext)}
-                    className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center gap-2"
+                    className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
                   >
-                    <span>{validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}</span>
-                    <svg
-                      className="w-5 h-5 text-white"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15-4-4 1.41-1.41L11 14.17l5.59-5.59L18 10l-7 7z" />
-                    </svg>
+                    <AnimateIcon animateOnHover className="inline-flex items-center justify-center gap-2 w-full">
+                      {validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}
+                      <CircleCheckBig size={20} className="shrink-0 text-white" />
+                    </AnimateIcon>
                   </Button>
                 </div>
               </div>

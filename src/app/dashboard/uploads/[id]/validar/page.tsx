@@ -1513,17 +1513,19 @@ export default function ValidarUploadPage() {
         {(() => {
           const totalCount = invoiceRows.length
           const isLast = facturaActual === totalCount - 1
-          // Para que al validar/para después se pase siempre a la siguiente,
-          // solo habilitamos la acción cuando la siguiente factura "objetivo" ya está lista.
+          // Solo se puede validar si la factura actual está lista (ready o error)
+          const isCurrentInvoiceReady = currentStatus === 'ready' || currentStatus === 'error'
+          const disableValidar = Boolean(!currentId || !isCurrentInvoiceReady)
+
+          // Avanzar solo cuando el siguiente bloque de 5 esté completo (todas listas).
+          // Así no se pasa a la 6 si la 7, 8, 9 o 10 no están listas; se va de 5 en 5.
           const canGoNext = (() => {
             if (isLast) return true
             const ids = invoiceRows.map((i) => i.id)
             let nextIdx = -1
             if (viewMode === 'pending') {
               for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
-                const id = ids[idx]
-                if (!id) continue
-                if (!validatedByInvoiceId[id]) {
+                if (!validatedByInvoiceId[ids[idx]]) {
                   nextIdx = idx
                   break
                 }
@@ -1532,14 +1534,15 @@ export default function ValidarUploadPage() {
               nextIdx = facturaActual + 1
             }
             if (nextIdx < 0 || nextIdx >= ids.length) return true
-            const nextId = ids[nextIdx]
-            const st = invoiceStatus[nextId]
-            return st === 'ready' || st === 'error'
+            // Bloque de 5 que contiene nextIdx
+            const blockStart = Math.floor(nextIdx / 5) * 5
+            const blockEnd = Math.min(blockStart + 5, ids.length)
+            for (let j = blockStart; j < blockEnd; j += 1) {
+              const st = invoiceStatus[ids[j]]
+              if (st !== 'ready' && st !== 'error') return false
+            }
+            return true
           })()
-
-          // Solo se puede validar si la factura actual está lista (ready o error)
-          const isCurrentInvoiceReady = currentStatus === 'ready' || currentStatus === 'error'
-          const disableValidar = Boolean(!currentId || !isCurrentInvoiceReady)
 
           const validarText =
             currentStatus === 'processing'
