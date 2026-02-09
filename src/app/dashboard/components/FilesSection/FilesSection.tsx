@@ -1,6 +1,7 @@
 'use client';
 
 import { Cliente, SubidaFacturas, ArchivoSubido } from '@/types/dashboard';
+import { CloudUpload } from '@/components/animate-ui/icons/cloud-upload';
 import { Button } from '@/components/Button';
 import { FileUpload } from '@/components/FileUpload';
 import { UploadTypeSelector } from './UploadTypeSelector';
@@ -97,19 +98,9 @@ export function FilesSection({
 
         {!isChoosingTipoSubida ? (
           <div className="py-10 text-center">
-            <svg
-              className="w-16 h-16 text-foreground-secondary mx-auto mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <div className="flex justify-center mb-4">
+              <CloudUpload animateOnHover className="w-16 h-16 text-primary" />
+            </div>
             <h4 className="text-lg font-semibold text-foreground mb-2">
               Crea una nueva subida
             </h4>
@@ -154,7 +145,7 @@ export function FilesSection({
             </Button>
           </div>
         </div>
-        <p className="text-sm text-foreground-secondary">
+        <p className="text-sm text-foreground-secondaryç">
           Cliente: {clienteSeleccionado.name}
         </p>
         <p className="text-sm text-foreground-secondary">

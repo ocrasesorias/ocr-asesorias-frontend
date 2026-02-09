@@ -146,6 +146,18 @@ select:focus-visible {
   animation: slideInRight 0.3s ease-out;
 }
 
+/* Ripple button */
+@keyframes ripple {
+  from {
+    transform: scale(0);
+    opacity: 0.2;
+  }
+  to {
+    transform: scale(20);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
@@ -154,5 +166,9 @@ select:focus-visible {
   }
   .float-slow {
     animation: none;
+  }
+  .ripple-span {
+    animation: none;
+    opacity: 0;
   }
 }
