@@ -25,6 +25,39 @@ function parseDateToISO(value: unknown): string | null {
   return null
 }
 
+/**
+ * Si el total de la factura coincide con la suma (base + IVA) de las líneas de ivas,
+ * la factura no tiene recargo de equivalencia (aunque la plantilla tenga la columna vacía).
+ * Ponemos recargo a 0 para no inflar totales.
+ */
+function normalizeRecargoWhenTotalEqualsBasePlusIva(factura: Record<string, unknown>): void {
+  const total = parseNumber(factura.total)
+  const rawIvas = factura.ivas
+  if (!Array.isArray(rawIvas) || total === null) return
+
+  let sumBasePlusIva = 0
+  for (const item of rawIvas) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    const base = parseNumber(it.base ?? it.base_imponible)
+    const iva = parseNumber(it.iva ?? it.iva_importe ?? it.cuota ?? it.cuota_iva)
+    sumBasePlusIva += (base ?? 0) + (iva ?? 0)
+  }
+  sumBasePlusIva = Math.round(sumBasePlusIva * 100) / 100
+  if (Math.abs(sumBasePlusIva - total) > 0.02) return
+
+  factura.recargo_equivalencia = false
+  factura.recargo_equivalencia_importe = 0
+  for (const item of rawIvas) {
+    if (!item || typeof item !== 'object') continue
+    const it = item as Record<string, unknown>
+    it.recargo = 0
+    it.porcentaje_recargo = 0
+    it.recargo_importe = 0
+    it.recargo_equivalencia_importe = 0
+  }
+}
+
 async function createSignedUrlWithFallback(
   supabase: SupabaseClient,
   bucket: string,
@@ -50,8 +83,10 @@ export async function extractInvoiceAndPersist(params: {
   invoiceId: string
   extractorUrl: string
   tipo?: 'gasto' | 'ingreso' | 'GASTO' | 'INGRESO'
+  /** CIF de la empresa (cliente/receptor) para GASTO; la IA lo usa para identificar al proveedor */
+  cifEmpresa?: string | null
 }) {
-  const { supabase, userId, orgId, invoiceId, extractorUrl, tipo } = params
+  const { supabase, userId, orgId, invoiceId, extractorUrl, tipo, cifEmpresa } = params
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
@@ -126,6 +161,9 @@ export async function extractInvoiceAndPersist(params: {
         ? 'GASTO'
         : null
   if (tipoNorm) fd.append('tipo', tipoNorm)
+  if (tipoNorm === 'GASTO' && typeof cifEmpresa === 'string' && cifEmpresa.trim()) {
+    fd.append('cif_empresa', cifEmpresa.trim())
+  }
 
   const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
     method: 'POST',
@@ -150,6 +188,10 @@ export async function extractInvoiceAndPersist(params: {
   }
 
   const factura = json?.factura ?? json
+  const facturaObj = factura && typeof factura === 'object' ? (factura as Record<string, unknown>) : null
+  if (facturaObj) {
+    normalizeRecargoWhenTotalEqualsBasePlusIva(facturaObj)
+  }
 
   await supabase.from('invoice_extractions').insert({
     invoice_id: invoiceId,
@@ -164,15 +206,23 @@ export async function extractInvoiceAndPersist(params: {
   const vat_amount = parseNumber(factura?.iva)
   const total_amount = parseNumber(factura?.total)
   const vat_rate = parseNumber(factura?.porcentaje_iva)
-  const supplier_name = typeof factura?.cliente === 'string' ? factura.cliente : null
+  // En GASTO el extractor puede devolver "proveedor"/"proveedor_nif" (emisor); preferirlos para no confundir con "Cliente" del documento (receptor)
+  const supplier_name =
+    (tipo && String(tipo).toUpperCase() === 'GASTO' && typeof factura?.proveedor === 'string' && factura.proveedor)
+      ? factura.proveedor
+      : typeof factura?.cliente === 'string'
+        ? factura.cliente
+        : null
   const supplier_tax_id =
-    typeof factura?.cliente_nif === 'string'
-      ? factura.cliente_nif
-      : typeof factura?.nif_cliente === 'string'
-        ? factura.nif_cliente
-        : typeof factura?.nif === 'string'
-          ? factura.nif
-          : null
+    (tipo && String(tipo).toUpperCase() === 'GASTO' && typeof factura?.proveedor_nif === 'string' && factura.proveedor_nif)
+      ? factura.proveedor_nif
+      : typeof factura?.cliente_nif === 'string'
+        ? factura.cliente_nif
+        : typeof factura?.nif_cliente === 'string'
+          ? factura.nif_cliente
+          : typeof factura?.nif === 'string'
+            ? factura.nif
+            : null
 
   // Si la extracción trae desglose de IVAs, vat_rate puede no ser representativo (por ejemplo 0 con varios tipos).
   // En ese caso, guardamos vat_rate solo si hay un único porcentaje en el desglose; si hay varios, lo dejamos null.

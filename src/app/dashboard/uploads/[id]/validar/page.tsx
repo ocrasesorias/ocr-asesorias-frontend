@@ -299,8 +299,12 @@ function toFacturaData(
   const total = f?.total_amount ?? null
   const vatRate = f?.vat_rate ?? null
 
-  const exCliente = typeof ex?.cliente === 'string' ? (ex.cliente as string) : ''
-  const exNif = typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : ''
+  // Preferir proveedor/proveedor_nif cuando vengan (GASTO); evita mostrar "Cliente" del documento como proveedor
+  const exCliente =
+    (typeof ex?.proveedor === 'string' && ex.proveedor) || (typeof ex?.cliente === 'string' ? (ex.cliente as string) : '')
+  const exNif =
+    (typeof ex?.proveedor_nif === 'string' && ex.proveedor_nif) ||
+    (typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : '')
   const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
   const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
   const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
@@ -814,8 +818,11 @@ export default function ValidarUploadPage() {
 
   const patchFacturaFromExtraction = (prevFactura: FacturaData, extraction: unknown, fields: InvoiceFieldsRow | null) => {
     const ex = (extraction && typeof extraction === 'object' ? (extraction as Record<string, unknown>) : null) || null
-    const exCliente = typeof ex?.cliente === 'string' ? (ex.cliente as string) : ''
-    const exNif = typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : ''
+    const exCliente =
+      (typeof ex?.proveedor === 'string' && ex.proveedor) || (typeof ex?.cliente === 'string' ? (ex.cliente as string) : '')
+    const exNif =
+      (typeof ex?.proveedor_nif === 'string' && ex.proveedor_nif) ||
+      (typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : '')
     const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
     const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
     const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''

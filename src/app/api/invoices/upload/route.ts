@@ -216,7 +216,7 @@ export async function POST(request: Request) {
             confidence: null,
           })
 
-          // Mapear a invoice_fields (mínimo)
+          // Mapear a invoice_fields (mínimo). En GASTO preferir proveedor/proveedor_nif (emisor)
           const invoice_number =
             typeof factura?.numero_factura === 'string' ? factura.numero_factura : null
           const invoice_date = parseDateToISO(factura?.fecha)
@@ -224,15 +224,22 @@ export async function POST(request: Request) {
           const vat_amount = parseNumber(factura?.iva)
           const total_amount = parseNumber(factura?.total)
           const vat_rate = parseNumber(factura?.porcentaje_iva)
-          const supplier_name = typeof factura?.cliente === 'string' ? factura.cliente : null
+          const supplier_name =
+            tipoNorm === 'GASTO' && typeof factura?.proveedor === 'string' && factura.proveedor
+              ? factura.proveedor
+              : typeof factura?.cliente === 'string'
+                ? factura.cliente
+                : null
           const supplier_tax_id =
-            typeof factura?.cliente_nif === 'string'
-              ? factura.cliente_nif
-              : typeof factura?.nif_cliente === 'string'
-                ? factura.nif_cliente
-                : typeof factura?.nif === 'string'
-                  ? factura.nif
-                  : null
+            tipoNorm === 'GASTO' && typeof factura?.proveedor_nif === 'string' && factura.proveedor_nif
+              ? factura.proveedor_nif
+              : typeof factura?.cliente_nif === 'string'
+                ? factura.cliente_nif
+                : typeof factura?.nif_cliente === 'string'
+                  ? factura.nif_cliente
+                  : typeof factura?.nif === 'string'
+                    ? factura.nif
+                    : null
 
           extractedFields = {
             supplier_name,

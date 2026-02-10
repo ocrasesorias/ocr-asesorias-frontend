@@ -26,12 +26,11 @@ export function useDashboardAuth() {
         return;
       }
 
-      // Verificar si el usuario tiene una organización
+      // Verificar si el usuario tiene al menos una organización
       const { data: memberships, error: membershipError } = await supabase
         .from('organization_members')
         .select('org_id')
-        .eq('user_id', user.id)
-        .limit(1);
+        .eq('user_id', user.id);
 
       if (membershipError) {
         console.warn('Error al verificar organización, redirigiendo a bienvenida:', membershipError.message);
@@ -39,14 +38,22 @@ export function useDashboardAuth() {
         return;
       }
 
-      // Si no tiene organización, redirigir a la página de bienvenida
       if (!memberships || memberships.length === 0) {
         router.push('/dashboard/bienvenida');
         return;
       }
 
-      // Obtener información de la organización
-      const currentOrgId = memberships[0].org_id;
+      // Misma lógica que requireAuth: si tiene varias orgs, elegir una de forma determinista (nombre desc)
+      const orgIds = memberships.map((m) => m.org_id as string).filter(Boolean);
+      let currentOrgId = orgIds[0];
+      if (orgIds.length > 1) {
+        const { data: orgs } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .in('id', orgIds);
+        const sorted = (orgs ?? []).slice().sort((a, b) => (b.name ?? '').localeCompare(a.name ?? '', 'es'));
+        if (sorted.length > 0) currentOrgId = sorted[0].id as string;
+      }
       setOrgId(currentOrgId);
 
       const { data: organization, error: orgError } = await supabase

@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { ArchivoSubido } from '@/types/dashboard';
 import { formatMiles } from '@/utils/formatNumber';
+import { CloudUpload } from './animate-ui/icons/cloud-upload';
 
 interface FileUploadProps {
   onFilesSelected: (files: File[]) => void;
@@ -20,7 +21,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   badgeForFile,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [showAll, setShowAll] = useState(false)
+  const [showAll, setShowAll] = useState(false);
+  const [isSectionHovered, setIsSectionHovered] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -78,6 +80,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onMouseEnter={() => setIsSectionHovered(true)}
+        onMouseLeave={() => setIsSectionHovered(false)}
         className={`
           border-2 border-dashed rounded-lg p-8 text-center transition-colors
           ${isDragging 
@@ -98,19 +102,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           htmlFor="file-upload"
           className="cursor-pointer flex flex-col items-center"
         >
-          <svg
-            className="w-12 h-12 text-foreground-secondary mb-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
+          <div className="flex justify-center mb-4">
+              <CloudUpload animate={isSectionHovered} className="w-16 h-16 text-primary" />
+            </div>
           <p className="text-lg font-medium text-foreground mb-2">
             Arrastra archivos aquí o haz clic para seleccionar
           </p>

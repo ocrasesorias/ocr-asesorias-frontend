@@ -1,6 +1,41 @@
 import { requireAuth } from '@/lib/supabase/auth-guard';
 import { NextResponse } from 'next/server';
 
+/**
+ * GET: lista de clientes de la organización actual (orgId del servidor).
+ * Usa requireAuth() para que la org sea siempre la del backend y no se mezclen datos entre gestorías.
+ */
+export async function GET() {
+  try {
+    const { data: auth, response: authError } = await requireAuth();
+    if (authError) return authError;
+
+    const { supabase, orgId } = auth;
+
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error al listar clientes:', error);
+      return NextResponse.json(
+        { error: error.message || 'Error al cargar los clientes' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ clients: clients ?? [] });
+  } catch (error) {
+    console.error('Error inesperado en GET /api/clients:', error);
+    return NextResponse.json(
+      { error: 'Error interno del servidor' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const [authResult, body] = await Promise.all([

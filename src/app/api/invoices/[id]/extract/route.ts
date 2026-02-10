@@ -20,16 +20,18 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     if (authError) return authError
     const { supabase, user, orgId } = auth
 
-    // Determinar tipo desde el upload asociado (si existe)
+    // Determinar tipo y cliente (CIF empresa) desde invoice y upload
     let tipo: 'gasto' | 'ingreso' | undefined = undefined
+    let cifEmpresa: string | null = null
     try {
       const { data: invRow } = await supabase
         .from('invoices')
-        .select('id, org_id, upload_id')
+        .select('id, org_id, upload_id, client_id')
         .eq('id', invoiceId)
         .single()
 
       const uploadId = (invRow as { upload_id?: unknown })?.upload_id
+      const clientId = (invRow as { client_id?: unknown })?.client_id
       if (typeof uploadId === 'string' && uploadId) {
         const { data: upRow } = await supabase
           .from('uploads')
@@ -39,6 +41,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
         const t = String((upRow as { tipo?: unknown })?.tipo || '').toLowerCase()
         if (t === 'gasto' || t === 'ingreso') tipo = t as 'gasto' | 'ingreso'
+      }
+      // Para GASTO, enviar CIF de la empresa (cliente) para que el extractor identifique al proveedor
+      if (tipo === 'gasto' && typeof clientId === 'string' && clientId) {
+        const { data: clientRow } = await supabase
+          .from('clients')
+          .select('tax_id')
+          .eq('id', clientId)
+          .eq('org_id', orgId)
+          .single()
+        const taxId = (clientRow as { tax_id?: string } | null)?.tax_id
+        if (typeof taxId === 'string' && taxId.trim()) cifEmpresa = taxId.trim()
       }
     } catch {
       // noop
@@ -53,6 +66,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         invoiceId,
         extractorUrl,
         tipo,
+        cifEmpresa: cifEmpresa ?? undefined,
       })
     )
 

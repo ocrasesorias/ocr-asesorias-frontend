@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Cliente, SubidaFacturas, ArchivoSubido } from '@/types/dashboard';
 import { CloudUpload } from '@/components/animate-ui/icons/cloud-upload';
 import { Button } from '@/components/Button';
@@ -59,6 +60,8 @@ export function FilesSection({
   onValidarFacturas,
   onDeseleccionarSubida,
 }: FilesSectionProps) {
+  const [isCreateSectionHovered, setIsCreateSectionHovered] = useState(false);
+
   // Sin cliente seleccionado
   if (!clienteSeleccionado) {
     return (
@@ -99,7 +102,7 @@ export function FilesSection({
         {!isChoosingTipoSubida ? (
           <div className="py-10 text-center">
             <div className="flex justify-center mb-4">
-              <CloudUpload animateOnHover className="w-16 h-16 text-primary" />
+              <CloudUpload animate={isCreateSectionHovered} className="w-16 h-16 text-primary" />
             </div>
             <h4 className="text-lg font-semibold text-foreground mb-2">
               Crea una nueva subida
@@ -110,6 +113,8 @@ export function FilesSection({
             <Button
               variant="primary"
               onClick={onCrearSubida}
+              onMouseEnter={() => setIsCreateSectionHovered(true)}
+              onMouseLeave={() => setIsCreateSectionHovered(false)}
             >
               Crear nueva subida
             </Button>
@@ -145,7 +150,7 @@ export function FilesSection({
             </Button>
           </div>
         </div>
-        <p className="text-sm text-foreground-secondaryç">
+        <p className="text-sm text-foreground-secondary">
           Cliente: {clienteSeleccionado.name}
         </p>
         <p className="text-sm text-foreground-secondary">

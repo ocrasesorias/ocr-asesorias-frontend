@@ -34,24 +34,25 @@ export function useClientManagement(orgId: string | null) {
     activity_description: '',
   });
 
-  // Cargar clientes al montar
+  // Cargar clientes desde la API (usa orgId del servidor con requireAuth) para evitar
+  // ver clientes de otra gestoría si el usuario tiene varias orgs o datos duplicados.
   useEffect(() => {
     if (!orgId) return;
 
     const loadClients = async () => {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data: clients, error: clientsError } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false });
-
-      if (clientsError) {
-        console.error('Error al cargar clientes:', clientsError);
+      try {
+        const res = await fetch('/api/clients');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.error('Error al cargar clientes:', data?.error);
+          showError(data?.error || 'Error al cargar los clientes');
+          return;
+        }
+        const list = Array.isArray(data.clients) ? data.clients : [];
+        setClientes(list as Cliente[]);
+      } catch (e) {
+        console.error('Error al cargar clientes:', e);
         showError('Error al cargar los clientes');
-      } else if (clients) {
-        setClientes(clients as Cliente[]);
       }
     };
 

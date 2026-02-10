@@ -75,11 +75,23 @@ export async function requireAuth(): Promise<
     }
   }
 
+  // Si tiene varias organizaciones, elegir una de forma determinista (por nombre desc)
+  // para que demo no vea datos de otra gestoría por tener varias membresías.
+  let primaryOrgId = orgIds[0]
+  if (orgIds.length > 1) {
+    const { data: orgs } = await supabase
+      .from('organizations')
+      .select('id, name')
+      .in('id', orgIds)
+    const sorted = (orgs ?? []).slice().sort((a, b) => (b.name ?? '').localeCompare(a.name ?? '', 'es'))
+    if (sorted.length > 0) primaryOrgId = sorted[0].id as string
+  }
+
   return {
     data: {
       supabase,
       user,
-      orgId: orgIds[0],
+      orgId: primaryOrgId,
       orgIds,
     },
     response: null,

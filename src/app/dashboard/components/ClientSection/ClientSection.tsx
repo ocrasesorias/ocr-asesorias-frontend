@@ -81,7 +81,7 @@ export function ClientSection({
             type="button"
             variant="outline"
             size="md"
-            className="flex-1 border-red-200 text-red-700 hover:bg-red-50"
+            className="flex-1 border-red-700 text-red-700 hover:bg-red-700"
             onClick={() => onDeleteClient(clienteSeleccionado)}
           >
             Eliminar
