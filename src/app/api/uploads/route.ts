@@ -48,7 +48,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message || 'Error cargando subidas' }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, uploads: data || [] }, { status: 200 })
+    // Ordenar las facturas de cada subida alfabéticamente por original_filename
+    const uploads = (data || []).map(u => {
+      const uObj = u as Record<string, unknown>
+      if (Array.isArray(uObj.invoices)) {
+        uObj.invoices = uObj.invoices.toSorted((a, b) => {
+          const aObj = a && typeof a === 'object' ? (a as Record<string, unknown>) : null
+          const bObj = b && typeof b === 'object' ? (b as Record<string, unknown>) : null
+          const aName = typeof aObj?.original_filename === 'string' ? aObj.original_filename : ''
+          const bName = typeof bObj?.original_filename === 'string' ? bObj.original_filename : ''
+          const nameCmp = aName.localeCompare(bName, undefined, { numeric: true, sensitivity: 'base' })
+          if (nameCmp !== 0) return nameCmp
+          const aCreated = typeof aObj?.created_at === 'string' ? aObj.created_at : ''
+          const bCreated = typeof bObj?.created_at === 'string' ? bObj.created_at : ''
+          return aCreated.localeCompare(bCreated)
+        })
+      }
+      return uObj
+    })
+
+    return NextResponse.json({ success: true, uploads }, { status: 200 })
   } catch (error) {
     console.error('Error inesperado en GET /api/uploads:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })

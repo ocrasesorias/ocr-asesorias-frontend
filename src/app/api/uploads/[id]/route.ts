@@ -87,14 +87,21 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
     }
 
-    // Orden consistente de facturas (sin depender del tipado/sintaxis PostgREST).
-    // Si no hay invoices, no hacemos nada.
+    // Orden consistente de facturas: ordenamos alfabéticamente por nombre de archivo (numéricamente)
+    // para que la extracción y validación siga un orden estricto predecible.
     const uploadObj = upload as Record<string, unknown>
     const invoicesVal = uploadObj.invoices
     if (Array.isArray(invoicesVal)) {
       uploadObj.invoices = invoicesVal.toSorted((a, b) => {
         const aObj = a && typeof a === 'object' ? (a as Record<string, unknown>) : null
         const bObj = b && typeof b === 'object' ? (b as Record<string, unknown>) : null
+        
+        const aName = typeof aObj?.original_filename === 'string' ? aObj.original_filename : ''
+        const bName = typeof bObj?.original_filename === 'string' ? bObj.original_filename : ''
+        
+        const nameCmp = aName.localeCompare(bName, undefined, { numeric: true, sensitivity: 'base' })
+        if (nameCmp !== 0) return nameCmp
+
         const aCreated = typeof aObj?.created_at === 'string' ? aObj.created_at : ''
         const bCreated = typeof bObj?.created_at === 'string' ? bObj.created_at : ''
         return aCreated.localeCompare(bCreated)

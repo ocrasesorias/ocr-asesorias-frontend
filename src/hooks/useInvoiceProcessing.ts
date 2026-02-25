@@ -245,7 +245,7 @@ export function useInvoiceProcessing() {
 
   // Manejar subida de archivos
   const handleFilesSelected = useCallback(async (
-    files: File[],
+    rawFiles: File[],
     subidaActual: SubidaFacturas | null,
     clienteId: string,
     setSubidasFacturas: React.Dispatch<React.SetStateAction<SubidaFacturas[]>>,
@@ -260,6 +260,11 @@ export function useInvoiceProcessing() {
       showError('Selecciona un cliente antes de subir facturas');
       return;
     }
+
+    // Ordenar archivos alfabéticamente para garantizar el orden de procesamiento
+    const files = [...rawFiles].sort((a, b) => 
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
 
     // Asegurar que existe un upload real en DB
     let realUploadId = subidaActual.uploadId;
