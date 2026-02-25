@@ -17,7 +17,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     // Comprobar que la factura pertenece a la organización
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, org_id')
+      .select('id, org_id, client_id')
       .eq('id', invoiceId)
       .single()
 
@@ -57,6 +57,52 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
     if (error) {
       return NextResponse.json({ error: error.message || 'Error guardando campos' }, { status: 500 })
+    }
+
+    // Actualizar o crear proveedor habitual en la tabla 'suppliers'
+    try {
+      const supplierName = body.supplier_name
+      const supplierTaxId = body.supplier_tax_id
+      if (
+        invoice.client_id &&
+        supplierName &&
+        typeof supplierName === 'string' &&
+        supplierTaxId &&
+        typeof supplierTaxId === 'string' &&
+        supplierTaxId.trim().length >= 8
+      ) {
+        const { error: upsertError } = await supabase.from('suppliers').upsert(
+          {
+            org_id: orgId,
+            client_id: invoice.client_id,
+            name: supplierName.trim(),
+            tax_id: supplierTaxId.trim().toUpperCase(),
+            address:
+              typeof body.supplier_address === 'string' && body.supplier_address.trim()
+                ? body.supplier_address.trim()
+                : null,
+            postal_code:
+              typeof body.supplier_postal_code === 'string' && body.supplier_postal_code.trim()
+                ? body.supplier_postal_code.trim()
+                : null,
+            province:
+              typeof body.supplier_province === 'string' && body.supplier_province.trim()
+                ? body.supplier_province.trim()
+                : null,
+          },
+          { onConflict: 'suppliers_client_tax_id_unique' }
+        )
+        if (upsertError) {
+          console.error('Error en upsert de suppliers:', upsertError)
+        } else {
+          console.log(`Proveedor ${supplierName} guardado en suppliers correctamente.`)
+        }
+      } else {
+        console.log('No se guardó el proveedor por falta de datos o NIF corto:', { supplierName, supplierTaxId, clientId: invoice.client_id })
+      }
+    } catch (err) {
+      console.error('Error actualizando proveedor habitual:', err)
+      // no rompemos el guardado de la factura si esto falla
     }
 
     // Estado: ready (validada)

@@ -86,7 +86,7 @@ export async function extractInvoiceAndPersist(params: {
   /** CIF de la empresa (cliente/receptor) para GASTO; la IA lo usa para identificar al proveedor */
   cifEmpresa?: string | null
   /** Lista de proveedores ya conocidos de esta empresa para ayudar a la IA (en GASTO) */
-  proveedoresConocidos?: { nombre: string; nif: string }[]
+  proveedoresConocidos?: { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }[]
 }) {
   const { supabase, userId, orgId, invoiceId, extractorUrl, tipo, cifEmpresa, proveedoresConocidos } = params
 

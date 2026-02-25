@@ -23,7 +23,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     // Determinar tipo y cliente (CIF empresa) desde invoice y upload
     let tipo: 'gasto' | 'ingreso' | undefined = undefined
     let cifEmpresa: string | null = null
-    let proveedoresConocidos: { nombre: string; nif: string }[] = []
+    let proveedoresConocidos: { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }[] = []
     
     try {
       const { data: invRow } = await supabase
@@ -57,30 +57,29 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         if (typeof taxId === 'string' && taxId.trim()) cifEmpresa = taxId.trim()
         
         // Extraer los últimos proveedores usados por este cliente para ayudar a la IA
-        const { data: recentInvoices } = await supabase
-          .from('invoices')
-          .select(`
-            id,
-            invoice_fields ( supplier_name, supplier_tax_id )
-          `)
+        const { data: recentSuppliers } = await supabase
+          .from('suppliers')
+          .select('name, tax_id, address, postal_code, province')
           .eq('client_id', clientId)
           .eq('org_id', orgId)
-          .order('created_at', { ascending: false })
-          .limit(100)
+          .order('updated_at', { ascending: false })
+          .limit(200)
           
-        if (recentInvoices) {
-          const pMap = new Map<string, string>()
-          for (const inv of recentInvoices) {
-            // @ts-ignore
-            const fields = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields
-            if (fields?.supplier_name && fields?.supplier_tax_id) {
-              const nif = fields.supplier_tax_id.toUpperCase().trim()
-              if (nif && nif !== cifEmpresa) { // Evitar meter a la propia empresa como proveedor conocido
-                pMap.set(nif, fields.supplier_name.trim())
-              }
+        if (recentSuppliers) {
+          const pMap = new Map<string, { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }>()
+          for (const s of recentSuppliers) {
+            const nif = s.tax_id?.toUpperCase().trim()
+            if (nif && nif !== cifEmpresa) { // Evitar meter a la propia empresa como proveedor conocido
+              pMap.set(nif, {
+                nombre: s.name?.trim() || '',
+                nif: nif,
+                direccion: s.address?.trim() || '',
+                cp: s.postal_code?.trim() || '',
+                provincia: s.province?.trim() || ''
+              })
             }
           }
-          proveedoresConocidos = Array.from(pMap.entries()).map(([nif, nombre]) => ({ nif, nombre }))
+          proveedoresConocidos = Array.from(pMap.values())
         }
       }
     } catch {

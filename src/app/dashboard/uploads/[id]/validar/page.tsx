@@ -1111,6 +1111,9 @@ export default function ValidarUploadPage() {
               (uppercasePref ? String(factura.proveedor.nombre || '').toLocaleUpperCase('es-ES') : factura.proveedor.nombre) ||
               null,
             supplier_tax_id: factura.proveedor.cif || null,
+            supplier_address: factura.proveedor.direccion || null,
+            supplier_postal_code: factura.proveedor.codigoPostal || null,
+            supplier_province: factura.proveedor.provincia || null,
             invoice_number: factura.factura.numero || null,
             invoice_date: toISODate(factura.factura.fecha) || null,
             base_amount: baseSum || null,
