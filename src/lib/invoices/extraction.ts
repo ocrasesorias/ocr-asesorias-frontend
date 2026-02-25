@@ -85,8 +85,10 @@ export async function extractInvoiceAndPersist(params: {
   tipo?: 'gasto' | 'ingreso' | 'GASTO' | 'INGRESO'
   /** CIF de la empresa (cliente/receptor) para GASTO; la IA lo usa para identificar al proveedor */
   cifEmpresa?: string | null
+  /** Lista de proveedores ya conocidos de esta empresa para ayudar a la IA (en GASTO) */
+  proveedoresConocidos?: { nombre: string; nif: string }[]
 }) {
-  const { supabase, userId, orgId, invoiceId, extractorUrl, tipo, cifEmpresa } = params
+  const { supabase, userId, orgId, invoiceId, extractorUrl, tipo, cifEmpresa, proveedoresConocidos } = params
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
@@ -163,6 +165,9 @@ export async function extractInvoiceAndPersist(params: {
   if (tipoNorm) fd.append('tipo', tipoNorm)
   if (tipoNorm === 'GASTO' && typeof cifEmpresa === 'string' && cifEmpresa.trim()) {
     fd.append('cif_empresa', cifEmpresa.trim())
+  }
+  if (tipoNorm === 'GASTO' && proveedoresConocidos && proveedoresConocidos.length > 0) {
+    fd.append('proveedores_conocidos', JSON.stringify(proveedoresConocidos))
   }
 
   const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {

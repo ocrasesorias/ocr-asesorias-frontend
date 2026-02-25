@@ -968,8 +968,43 @@ export default function ValidarUploadPage() {
     }
   }
 
-  // No se lanzan extracciones en esta pantalla: todo el procesamiento (extract) se hace en el dashboard.
-  // Solo se entra a validar cuando todas las facturas están ya procesadas.
+  // Bombeo de cola local: asegura que las facturas que no entraron en proceso (estado 'uploaded')
+  // sigan extrayéndose de 5 en 5 si el dashboard dejó de encolarlas al navegar.
+  useEffect(() => {
+    if (invoiceRows.length === 0) return
+    const MAX_CONCURRENT = 5
+    let inFlight = 0
+
+    // Contar las que están procesándose localmente en esta vista
+    for (const inv of invoiceRows) {
+      if (startedRef.current[inv.id] && invoiceStatus[inv.id] === 'processing') {
+        inFlight++
+      }
+    }
+
+    // Contar también las que están 'processing' en la BD (pueden venir del dashboard en 2º plano)
+    // para no saturar al backend
+    for (const inv of invoiceRows) {
+      if (!startedRef.current[inv.id] && (inv.status === 'processing' || invoiceStatus[inv.id] === 'processing')) {
+        inFlight++
+      }
+    }
+    
+    // Iniciar extracción para las que están en 'uploaded'
+    for (const inv of invoiceRows) {
+      if (inFlight >= MAX_CONCURRENT) break
+      const stLocal = invoiceStatus[inv.id]
+      const stDb = inv.status
+      // Si localmente no está empezada, y en BD o localmente es 'uploaded', la iniciamos
+      if (!startedRef.current[inv.id] && (stLocal === 'uploaded' || (!stLocal && stDb === 'uploaded'))) {
+        startExtractSingle(inv.id)
+        inFlight++
+      }
+    }
+  }, [invoiceRows, invoiceStatus])
+
+  // No se lanzan extracciones en esta pantalla de forma primaria, pero el efecto anterior 
+  // ayuda a vaciar la cola si el usuario navega a validar antes de terminar el lote.
 
   const validatedInvoiceIds = useMemo(() => {
     const ordered = invoiceRows.map((i) => i.id)

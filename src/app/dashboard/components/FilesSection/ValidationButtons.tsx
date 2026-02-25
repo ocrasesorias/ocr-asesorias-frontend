@@ -55,8 +55,10 @@ export function ValidationButtons({
             <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">
               {hasUploadingFiles
                 ? `Subiendo… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
-                : !isAllReady
+                : !isAllReady && readyCount === 0
                   ? `Procesando facturas… (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
+                  : !isAllReady && readyCount > 0
+                  ? `Validar procesadas (${formatMiles(readyCount, 0)}/${formatMiles(totalFiles, 0)})`
                   : 'Validar'}
             </span>
             {!hasUploadingFiles && (

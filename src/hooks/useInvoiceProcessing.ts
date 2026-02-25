@@ -144,15 +144,14 @@ export function useInvoiceProcessing() {
 
   const statusMessage = dynamicMessages[statusMessageTick % dynamicMessages.length];
 
-  // Solo permitir validar cuando todas las facturas están procesadas (ready/error) o es subida histórica ya lista
+  // Solo permitir validar cuando hay al menos una factura lista y no hay subidas en curso
   const canValidate = useMemo(() => {
     return (
       archivosSubidos.length > 0 &&
-      !archivosSubidos.some((a) => a.estado === 'error') &&
       !hasUploadingFiles &&
-      (currentSessionInvoiceIds.length === 0 || isAllReady)
+      (currentSessionInvoiceIds.length === 0 || readyCount > 0 || isAllReady)
     );
-  }, [archivosSubidos, hasUploadingFiles, currentSessionInvoiceIds.length, isAllReady]);
+  }, [archivosSubidos.length, hasUploadingFiles, currentSessionInvoiceIds.length, readyCount, isAllReady]);
 
   // Rotar mensajes cada 2.5s
   useEffect(() => {
@@ -498,10 +497,6 @@ export function useInvoiceProcessing() {
       showError('La subida aún no está guardada. Sube al menos una factura primero.');
       return;
     }
-    if (archivosSubidos.some((a) => a.estado === 'error')) {
-      showError('Hay facturas con error. Elimina o reintenta antes de validar.');
-      return;
-    }
 
     if (hasUploadingFiles) {
       showError('Espera a que terminen de subirse las facturas para empezar a validar.');
@@ -509,7 +504,7 @@ export function useInvoiceProcessing() {
     }
     if (!canValidate) {
       const total = archivosSubidos.filter((a) => a.invoiceId).length;
-      showError(`Espera a que todas las facturas estén procesadas (${readyCount + errorCount}/${total} listas).`);
+      showError(`Espera a que al menos una factura esté procesada (${readyCount + errorCount}/${total} listas).`);
       return;
     }
 
