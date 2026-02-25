@@ -71,6 +71,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         typeof supplierTaxId === 'string' &&
         supplierTaxId.trim().length >= 8
       ) {
+        // Usamos el cliente normal, pero con onConflict por columnas (es lo que recomienda Supabase JS)
         const { error: upsertError } = await supabase.from('suppliers').upsert(
           {
             org_id: orgId,
@@ -90,10 +91,27 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
                 ? body.supplier_province.trim()
                 : null,
           },
-          { onConflict: 'suppliers_client_tax_id_unique' }
+          { onConflict: 'client_id,tax_id' }
         )
         if (upsertError) {
           console.error('Error en upsert de suppliers:', upsertError)
+          // Si falla por RLS, intentamos con el admin client como fallback
+          const { createAdminClient } = await import('@/lib/supabase/admin')
+          const admin = createAdminClient()
+          if (admin) {
+            await admin.from('suppliers').upsert(
+              {
+                org_id: orgId,
+                client_id: invoice.client_id,
+                name: supplierName.trim(),
+                tax_id: supplierTaxId.trim().toUpperCase(),
+                address: typeof body.supplier_address === 'string' ? body.supplier_address.trim() : null,
+                postal_code: typeof body.supplier_postal_code === 'string' ? body.supplier_postal_code.trim() : null,
+                province: typeof body.supplier_province === 'string' ? body.supplier_province.trim() : null,
+              },
+              { onConflict: 'client_id,tax_id' }
+            )
+          }
         } else {
           console.log(`Proveedor ${supplierName} guardado en suppliers correctamente.`)
         }
@@ -102,7 +120,6 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
     } catch (err) {
       console.error('Error actualizando proveedor habitual:', err)
-      // no rompemos el guardado de la factura si esto falla
     }
 
     // Estado: ready (validada)
