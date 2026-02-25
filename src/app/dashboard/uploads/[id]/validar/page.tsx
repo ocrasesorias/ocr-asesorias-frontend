@@ -990,13 +990,14 @@ export default function ValidarUploadPage() {
       }
     }
     
-    // Iniciar extracción para las que están en 'uploaded'
+    // Iniciar extracción para las que están en 'uploaded' en BD (pendientes de extraer)
     for (const inv of invoiceRows) {
       if (inFlight >= MAX_CONCURRENT) break
       const stLocal = invoiceStatus[inv.id]
       const stDb = inv.status
-      // Si localmente no está empezada, y en BD o localmente es 'uploaded', la iniciamos
-      if (!startedRef.current[inv.id] && (stLocal === 'uploaded' || (!stLocal && stDb === 'uploaded'))) {
+      const needsExtract = stDb === 'uploaded'
+      const notStarted = !startedRef.current[inv.id] && (stLocal === 'idle' || stLocal === undefined)
+      if (notStarted && needsExtract) {
         startExtractSingle(inv.id)
         inFlight++
       }
