@@ -4,7 +4,7 @@ import { validarNifCif } from '@/lib/validarNifCif';
 import { FacturaData } from '@/types/factura';
 import { Tooltip } from '@heroui/react';
 import Image from 'next/image';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimateIcon } from '@/components/animate-ui/icons/icon';
 import { CircleCheckBig } from '@/components/animate-ui/icons/circle-check-big';
 import { Button } from './Button';
@@ -38,6 +38,8 @@ interface ValidarFacturaProps {
   uppercaseNombreDireccion?: boolean
   /** Trimestre de trabajo configurado en preferencias (Q1–Q4). Si la factura no coincide, se muestra aviso. */
   workingQuarter?: string
+  /** ID del cliente de esta subida, para buscar proveedores en base de datos. */
+  clientId?: string | null
   factura: FacturaData;
   /** true si el preview de esta factura ya se intentó y devolvió distinto de 200 (mostrar error en vez de "Cargando..."). */
   previewFailed?: boolean
@@ -56,6 +58,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   tipo = 'gasto',
   uppercaseNombreDireccion = false,
   workingQuarter = '',
+  clientId = null,
   factura: facturaInicial,
   previewFailed = false,
   onValidar,
@@ -224,7 +227,87 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   }, [facturaInicial, uppercaseNombreDireccion])
 
   const [factura, setFactura] = useState<FacturaData>(() => applyAutoDates(facturaInicialCon3Lineas));
+  const [supplierEnBd, setSupplierEnBd] = useState<{
+    name: string
+    tax_id: string
+    address?: string | null
+    postal_code?: string | null
+    province?: string | null
+  } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Detectar si existe en BD un proveedor con este nombre o CIF (mostrar warning y permitir corregir)
+  useEffect(() => {
+    const cif = factura.proveedor?.cif?.trim()
+    const nombre = factura.proveedor?.nombre?.trim()
+    if (!cif && !nombre) {
+      setSupplierEnBd(null)
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      try {
+        const url = new URL(window.location.origin + '/api/suppliers/search')
+        if (cif) url.searchParams.set('tax_id', cif)
+        else if (nombre) url.searchParams.set('name', nombre)
+        if (clientId) url.searchParams.set('client_id', clientId)
+
+        const resp = await fetch(url.toString())
+        const data = await resp.json()
+
+        if (cancelled || !resp.ok) return
+        const s = data?.supplier
+        if (s && s.name && s.tax_id) {
+          setSupplierEnBd({
+            name: s.name,
+            tax_id: s.tax_id,
+            address: s.address ?? null,
+            postal_code: s.postal_code ?? null,
+            province: s.province ?? null,
+          })
+        } else {
+          setSupplierEnBd(null)
+        }
+      } catch {
+        if (!cancelled) setSupplierEnBd(null)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [factura.proveedor?.nombre, factura.proveedor?.cif, clientId])
+
+  const handleUsarDatosGuardados = () => {
+    if (!supplierEnBd) return
+    setFactura(prev => {
+      const next = { ...prev }
+      next.proveedor = { ...next.proveedor }
+      if (supplierEnBd.name) next.proveedor.nombre = supplierEnBd.name
+      if (supplierEnBd.tax_id) next.proveedor.cif = supplierEnBd.tax_id
+      if (supplierEnBd.address != null) next.proveedor.direccion = supplierEnBd.address
+      if (supplierEnBd.postal_code != null) next.proveedor.codigoPostal = supplierEnBd.postal_code
+      if (supplierEnBd.province != null) next.proveedor.provincia = supplierEnBd.province
+      if (uppercaseNombreDireccion) {
+        if (next.proveedor.nombre) next.proveedor.nombre = next.proveedor.nombre.toLocaleUpperCase('es-ES')
+        if (next.proveedor.direccion) next.proveedor.direccion = next.proveedor.direccion.toLocaleUpperCase('es-ES')
+      }
+      return next
+    })
+  }
+
+  const datosDifierenDeBd = useMemo(() => {
+    if (!supplierEnBd) return false
+    const p = factura.proveedor
+    const norm = (s: string | undefined) => (s ?? '').trim().toUpperCase()
+    return (
+      norm(p?.nombre) !== norm(supplierEnBd.name) ||
+      norm(p?.cif) !== norm(supplierEnBd.tax_id) ||
+      norm(p?.direccion) !== norm(supplierEnBd.address ?? '') ||
+      norm(p?.codigoPostal) !== norm(supplierEnBd.postal_code ?? '') ||
+      norm(p?.provincia) !== norm(supplierEnBd.province ?? '')
+    )
+  }, [supplierEnBd, factura.proveedor])
+
+  const showSupplierWarning = Boolean(supplierEnBd && datosDifierenDeBd)
 
   const handleChange = (path: string, value: string | boolean) => {
     if (
@@ -709,7 +792,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               </div>
 
               {/* Proveedor/Acreedor */}
-              <div className="border border-gray-200 rounded-lg p-2">
+              <div className={`rounded-lg p-2 border ${showSupplierWarning ? 'border-amber-500 bg-amber-50/60' : 'border-gray-200'}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" aria-hidden="true">
                     <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
@@ -718,9 +801,27 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
                     </g>
                   </svg>
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  <div className={`text-[11px] font-bold uppercase tracking-widest flex-1 min-w-0 truncate ${showSupplierWarning ? 'text-amber-800' : 'text-slate-500'}`}>
                     {contraparteTitle} - {factura.proveedor.nombre}
+                    {showSupplierWarning && (
+                      <span className="ml-1.5 text-amber-600 font-normal normal-case tracking-normal">
+                        · Hay datos correctos guardados
+                      </span>
+                    )}
                   </div>
+                  {showSupplierWarning && (
+                    <button
+                      type="button"
+                      onClick={handleUsarDatosGuardados}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition-colors shrink-0"
+                      title="Usar los datos del proveedor guardados en base de datos"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Usar datos guardados
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <div>

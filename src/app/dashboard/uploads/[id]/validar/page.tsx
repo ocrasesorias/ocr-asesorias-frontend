@@ -404,6 +404,7 @@ export default function ValidarUploadPage() {
   const startedRef = useRef<Record<string, true>>({})
   const hasRunRef = useRef(false)
   const [clienteNombre, setClienteNombre] = useState<string>('')
+  const [clientId, setClientId] = useState<string | null>(null)
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
   const [hasInitializedPosition, setHasInitializedPosition] = useState(false)
 
@@ -655,6 +656,8 @@ export default function ValidarUploadPage() {
           }
         }
         const client = upload?.clients
+        const cid = (client as { id?: string } | null)?.id ?? (upload as { client_id?: string })?.client_id ?? null
+        setClientId(typeof cid === 'string' ? cid : null)
         setClienteNombre(client?.name || '')
         const defaultSubcuenta =
           tipoLocal === 'ingreso'
@@ -1603,6 +1606,7 @@ export default function ValidarUploadPage() {
             <ValidarFactura
               key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
               empresaNombre={clienteNombre}
+              clientId={clientId}
               tipo={tipoFactura}
               uppercaseNombreDireccion={uppercasePref}
               workingQuarter={workingQuarter}
