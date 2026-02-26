@@ -138,7 +138,7 @@ export function useClientManagement(orgId: string | null) {
       }
 
       // Limpiar el formulario y cerrar
-      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
+      setNuevoCliente({ name: '', tax_id: '', address: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
       setMostrarNuevoCliente(false);
 
       showSuccess('Cliente creado exitosamente');
