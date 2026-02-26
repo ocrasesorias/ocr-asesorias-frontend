@@ -51,13 +51,14 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       if (tipo === 'gasto' && typeof clientId === 'string' && clientId) {
         const { data: clientRow } = await supabase
           .from('clients')
-          .select('tax_id, name')
+          .select('tax_id, name, address')
           .eq('id', clientId)
           .eq('org_id', orgId)
           .single()
-        const row = clientRow as { tax_id?: string; name?: string } | null
+        const row = clientRow as { tax_id?: string; name?: string; address?: string } | null
         if (typeof row?.tax_id === 'string' && row.tax_id.trim()) cifEmpresa = row.tax_id.trim()
         if (typeof row?.name === 'string' && row.name.trim()) nombreEmpresa = row.name.trim()
+        if (typeof row?.address === 'string' && row.address.trim()) direccionEmpresa = row.address.trim()
         
         // Extraer los últimos proveedores usados por este cliente para ayudar a la IA
         const { data: recentSuppliers } = await supabase

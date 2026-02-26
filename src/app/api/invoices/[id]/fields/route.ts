@@ -36,6 +36,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const allowed = new Set([
       'supplier_name',
       'supplier_tax_id',
+      'supplier_address',
+      'supplier_postal_code',
+      'supplier_province',
       'invoice_number',
       'invoice_date',
       'base_amount',

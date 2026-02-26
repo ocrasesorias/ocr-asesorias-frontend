@@ -231,6 +231,10 @@ export default function DashboardPage() {
     handleValidarFacturas(view, subidaActual);
   };
 
+  const handleValidarFacturaConcreto = (invoiceId: string) => {
+    handleValidarFacturas('all', subidaActual, invoiceId);
+  };
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -347,6 +351,7 @@ export default function DashboardPage() {
               onFilesSelected={handleFilesSelectedWrapper}
               onRemoveFile={handleRemoveFile}
               onValidarFacturas={handleValidarFacturasWrapper}
+              onValidarFactura={handleValidarFacturaConcreto}
               onDeseleccionarSubida={handleDeseleccionarSubida}
             />
           </div>

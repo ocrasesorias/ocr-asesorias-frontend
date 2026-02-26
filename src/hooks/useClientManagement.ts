@@ -15,6 +15,7 @@ export function useClientManagement(orgId: string | null) {
   const [nuevoCliente, setNuevoCliente] = useState({
     name: '',
     tax_id: '',
+    address: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
     activity_description: '',
@@ -29,6 +30,7 @@ export function useClientManagement(orgId: string | null) {
   const [editCliente, setEditCliente] = useState({
     name: '',
     tax_id: '',
+    address: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
     activity_description: '',
@@ -111,6 +113,7 @@ export function useClientManagement(orgId: string | null) {
         body: JSON.stringify({
           name: nuevoCliente.name.trim(),
           tax_id: nuevoCliente.tax_id.trim() || null,
+          address: nuevoCliente.address?.trim() || null,
           preferred_income_account: nuevoCliente.preferred_income_account || null,
           preferred_expense_account: nuevoCliente.preferred_expense_account || null,
           activity_description: nuevoCliente.activity_description?.trim() || null,
@@ -153,6 +156,7 @@ export function useClientManagement(orgId: string | null) {
     setEditCliente({
       name: c.name || '',
       tax_id: c.tax_id || '',
+      address: c.address || '',
       preferred_income_account: c.preferred_income_account || '700',
       preferred_expense_account: c.preferred_expense_account || '600',
       activity_description: c.activity_description || '',
@@ -176,6 +180,7 @@ export function useClientManagement(orgId: string | null) {
         body: JSON.stringify({
           name: editCliente.name.trim(),
           tax_id: editCliente.tax_id.trim() || null,
+          address: editCliente.address?.trim() || null,
           preferred_income_account: editCliente.preferred_income_account || null,
           preferred_expense_account: editCliente.preferred_expense_account || null,
           activity_description: editCliente.activity_description?.trim() || null,
@@ -238,7 +243,7 @@ export function useClientManagement(orgId: string | null) {
     handleCrearCliente,
     handleCancelCrearCliente: () => {
       setMostrarNuevoCliente(false);
-      setNuevoCliente({ name: '', tax_id: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
+      setNuevoCliente({ name: '', tax_id: '', address: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
     },
     handleEditClient: openEditClient,
     handleSaveEditClient: handleGuardarEdicionCliente,

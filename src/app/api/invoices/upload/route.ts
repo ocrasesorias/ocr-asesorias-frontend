@@ -184,13 +184,14 @@ export async function POST(request: Request) {
         if (tipoNorm === 'GASTO' && clientId) {
           const { data: clientRow } = await supabase
             .from('clients')
-            .select('tax_id, name')
+            .select('tax_id, name, address')
             .eq('id', clientId)
             .eq('org_id', orgId)
             .single()
-          const row = clientRow as { tax_id?: string; name?: string } | null
+          const row = clientRow as { tax_id?: string; name?: string; address?: string } | null
           if (typeof row?.tax_id === 'string' && row.tax_id.trim()) fd.append('cif_empresa', row.tax_id.trim())
           if (typeof row?.name === 'string' && row.name.trim()) fd.append('nombre_empresa', row.name.trim())
+          if (typeof row?.address === 'string' && row.address.trim()) fd.append('direccion_empresa', row.address.trim())
         }
 
         const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {

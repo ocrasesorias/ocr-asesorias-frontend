@@ -11,6 +11,9 @@ interface FileUploadProps {
   onRemoveFile: (fileId: string) => void;
   maxVisibleFiles?: number
   badgeForFile?: (archivo: ArchivoSubido) => React.ReactNode
+  /** Si existe y canValidateRow(archivo) es true, al hacer clic en la fila se llama con el archivo */
+  onFileClick?: (archivo: ArchivoSubido) => void;
+  canValidateRow?: (archivo: ArchivoSubido) => boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -19,6 +22,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   onRemoveFile,
   maxVisibleFiles,
   badgeForFile,
+  onFileClick,
+  canValidateRow,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -132,10 +137,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             )}
           </div>
           <div className="space-y-2">
-            {displayedFiles.map((archivo) => (
+            {displayedFiles.map((archivo) => {
+              const isClickable = Boolean(onFileClick && archivo.invoiceId && (!canValidateRow || canValidateRow(archivo)));
+              return (
               <div
                 key={archivo.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={isClickable ? () => onFileClick?.(archivo) : undefined}
+                onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFileClick?.(archivo); } } : undefined}
+                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  isClickable
+                    ? 'bg-gray-50 hover:bg-primary-lighter hover:border-primary/30 cursor-pointer border border-transparent'
+                    : 'bg-gray-50 hover:bg-gray-100'
+                }`}
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <div className="shrink-0">
@@ -178,7 +193,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   {badgeForFile ? <div className="shrink-0">{badgeForFile(archivo)}</div> : null}
                 </div>
                 <button
-                  onClick={() => onRemoveFile(archivo.id)}
+                  onClick={(e) => { e.stopPropagation(); onRemoveFile(archivo.id); }}
                   className="ml-3 shrink-0 text-red-500 hover:text-red-700 transition-colors"
                   type="button"
                 >
@@ -197,7 +212,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                   </svg>
                 </button>
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {isCollapsed && (

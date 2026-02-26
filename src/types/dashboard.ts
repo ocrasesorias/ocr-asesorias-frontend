@@ -16,6 +16,7 @@ export interface Cliente {
   org_id: string;
   name: string;
   tax_id: string | null;
+  address?: string | null;
   preferred_income_account?: string | null;
   preferred_expense_account?: string | null;
   activity_description?: string | null;

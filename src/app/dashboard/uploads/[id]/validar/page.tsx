@@ -25,6 +25,9 @@ type UploadInvoiceRow = {
   | {
     supplier_name: string | null
     supplier_tax_id: string | null
+    supplier_address?: string | null
+    supplier_postal_code?: string | null
+    supplier_province?: string | null
     invoice_number: string | null
     invoice_date: string | null
     base_amount: string | number | null
@@ -35,6 +38,9 @@ type UploadInvoiceRow = {
   | Array<{
     supplier_name: string | null
     supplier_tax_id: string | null
+    supplier_address?: string | null
+    supplier_postal_code?: string | null
+    supplier_province?: string | null
     invoice_number: string | null
     invoice_date: string | null
     base_amount: string | number | null
@@ -342,9 +348,9 @@ function toFacturaData(
     proveedor: {
       nombre: f?.supplier_name || exCliente || '',
       cif: f?.supplier_tax_id || exNif || '',
-      direccion: exDireccion || '',
-      codigoPostal: exCp || '',
-      provincia: exProv || '',
+      direccion: (f?.supplier_address != null ? String(f.supplier_address) : null) ?? exDireccion ?? '',
+      codigoPostal: (f?.supplier_postal_code != null ? String(f.supplier_postal_code) : null) ?? exCp ?? '',
+      provincia: (f?.supplier_province != null ? String(f.supplier_province) : null) ?? exProv ?? '',
     },
     factura: {
       numero: f?.invoice_number || '',
@@ -566,6 +572,18 @@ export default function ValidarUploadPage() {
     const id = setInterval(poll, POLL_INTERVAL_MS)
     return () => clearInterval(id)
   }, [isAllDone, uploadId])
+
+  // Si venimos con ?invoice=xxx (clic en factura concreta desde el dashboard), ir directo a esa factura
+  useEffect(() => {
+    const invoiceParam = searchParams.get('invoice')
+    if (!invoiceParam || invoiceRows.length === 0) return
+
+    const idx = invoiceRows.findIndex((r) => r.id === invoiceParam)
+    if (idx >= 0) {
+      setFacturaActual(idx)
+      setHasInitializedPosition(true)
+    }
+  }, [invoiceRows, searchParams])
 
   // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
   useEffect(() => {

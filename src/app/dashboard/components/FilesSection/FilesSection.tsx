@@ -36,6 +36,7 @@ interface FilesSectionProps {
   onFilesSelected: (files: File[]) => void;
   onRemoveFile: (fileId: string) => void;
   onValidarFacturas: (view: 'pending' | 'all') => void;
+  onValidarFactura?: (invoiceId: string) => void;
   onDeseleccionarSubida: () => void;
 }
 
@@ -58,6 +59,7 @@ export function FilesSection({
   onFilesSelected,
   onRemoveFile,
   onValidarFacturas,
+  onValidarFactura,
   onDeseleccionarSubida,
 }: FilesSectionProps) {
   const [isCreateSectionHovered, setIsCreateSectionHovered] = useState(false);
@@ -166,6 +168,8 @@ export function FilesSection({
         archivosSubidos={archivosSubidos}
         onRemoveFile={onRemoveFile}
         maxVisibleFiles={3}
+        onFileClick={canValidate && onValidarFactura ? (a) => a.invoiceId && onValidarFactura(a.invoiceId) : undefined}
+        canValidateRow={canValidate ? () => true : undefined}
         badgeForFile={(archivo) => {
           const invoiceId = archivo.invoiceId;
           if (!invoiceId) return null;

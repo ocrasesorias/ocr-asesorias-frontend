@@ -489,10 +489,11 @@ export function useInvoiceProcessing() {
     }
   }, [archivosSubidos, facturaParaEliminar, showError, showSuccess]);
 
-  // Ir a validar
+  // Ir a validar (invoiceId opcional: abre directamente esa factura)
   const handleValidarFacturas = useCallback((
     view: 'pending' | 'all',
-    subidaActual: SubidaFacturas | null
+    subidaActual: SubidaFacturas | null,
+    invoiceId?: string
   ) => {
     if (!subidaActual || archivosSubidos.length === 0) {
       showError('Por favor, sube al menos un archivo antes de validar');
@@ -519,9 +520,9 @@ export function useInvoiceProcessing() {
       // noop
     }
 
-    router.push(
-      `/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`
-    );
+    const base = `/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`;
+    const url = invoiceId ? `${base}&invoice=${encodeURIComponent(invoiceId)}` : base;
+    router.push(url);
   }, [archivosSubidos, router, showError, hasUploadingFiles, canValidate, readyCount, errorCount]);
 
   // Reset de estado al cambiar de cliente/subida

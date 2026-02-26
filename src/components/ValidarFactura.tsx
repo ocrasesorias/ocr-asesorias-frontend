@@ -297,13 +297,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const datosDifierenDeBd = useMemo(() => {
     if (!supplierEnBd) return false
     const p = factura.proveedor
-    const norm = (s: string | undefined) => (s ?? '').trim().toUpperCase()
+    const norm = (s: string | undefined | null): string => {
+      const t = (s ?? '').trim().replace(/\s+/g, ' ').toUpperCase()
+      return t.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    }
+    const eq = (a: string | undefined | null, b: string | undefined | null) =>
+      norm(a) === norm(b)
     return (
-      norm(p?.nombre) !== norm(supplierEnBd.name) ||
-      norm(p?.cif) !== norm(supplierEnBd.tax_id) ||
-      norm(p?.direccion) !== norm(supplierEnBd.address ?? '') ||
-      norm(p?.codigoPostal) !== norm(supplierEnBd.postal_code ?? '') ||
-      norm(p?.provincia) !== norm(supplierEnBd.province ?? '')
+      !eq(p?.nombre, supplierEnBd.name) ||
+      !eq(p?.cif, supplierEnBd.tax_id) ||
+      !eq(p?.direccion, supplierEnBd.address ?? '') ||
+      !eq(p?.codigoPostal, supplierEnBd.postal_code ?? '') ||
+      !eq(p?.provincia, supplierEnBd.province ?? '')
     )
   }, [supplierEnBd, factura.proveedor])
 
