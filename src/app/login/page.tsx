@@ -341,14 +341,14 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Enlace a registro */}
+        {/* Registros temporalmente cerrados */}
         <p className="text-center text-sm text-foreground-secondary">
-          ¿No tienes una cuenta?{' '}
+          ¿Interesado en KontaScan?{' '}
           <Link
-            href="/registro"
+            href="/#contacto"
             className="font-medium text-primary hover:text-primary-hover transition-colors"
           >
-            Regístrate gratis
+            Contáctanos
           </Link>
         </p>
       </div>

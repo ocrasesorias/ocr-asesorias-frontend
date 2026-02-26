@@ -86,10 +86,10 @@ export function LandingAuthNav() {
         Iniciar sesión
       </Link>
       <Link
-        href="/registro"
+        href="/#contacto"
         className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
       >
-        Probar gratis
+        Contactar
       </Link>
     </div>
   )

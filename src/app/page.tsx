@@ -101,10 +101,10 @@ export default async function Home() {
                   ) : (
                     <>
                       <Link
-                        href="/registro"
+                        href="#contacto"
                         className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       >
-                        Probar gratis
+                        Contactar
                       </Link>
                       <Link
                         href="#como-funciona"
@@ -331,14 +331,8 @@ export default async function Home() {
                 Integraciones y formatos
               </h2>
               <p className="text-xl text-white/80 max-w-3xl mx-auto mb-6">
-                KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible con Monitor Informático y los programas contables más usados.
+                KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible actualmente con Monitor Informático y trabajando para otros programas contables.
               </p>
-              <Link
-                href="#contacto"
-                className="text-white hover:text-white/80 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 rounded-sm"
-              >
-                Consultar formatos disponibles &rarr;
-              </Link>
             </div>
           </ScrollReveal>
         </section>
@@ -364,14 +358,14 @@ export default async function Home() {
                 ) : (
                   <>
                     <Link
-                      href="/registro"
+                      href="#contacto"
                       className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                     >
-                      Probar gratis
+                      Contactar
                     </Link>
                     <Link
                       href="/login"
-                      className="border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                      className="border-2 border-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                     >
                       Iniciar sesión
                     </Link>
