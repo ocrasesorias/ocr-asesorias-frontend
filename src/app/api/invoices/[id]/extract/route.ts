@@ -23,6 +23,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     // Determinar tipo y cliente (CIF empresa) desde invoice y upload
     let tipo: 'gasto' | 'ingreso' | undefined = undefined
     let cifEmpresa: string | null = null
+    let nombreEmpresa: string | null = null
+    let direccionEmpresa: string | null = null
     let proveedoresConocidos: { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }[] = []
     
     try {
@@ -45,16 +47,17 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         if (t === 'gasto' || t === 'ingreso') tipo = t as 'gasto' | 'ingreso'
       }
       
-      // Para GASTO, enviar CIF de la empresa (cliente) para que el extractor identifique al proveedor
+      // Para GASTO, enviar CIF, nombre y dirección de la empresa (cliente) para guardrails
       if (tipo === 'gasto' && typeof clientId === 'string' && clientId) {
         const { data: clientRow } = await supabase
           .from('clients')
-          .select('tax_id')
+          .select('tax_id, name')
           .eq('id', clientId)
           .eq('org_id', orgId)
           .single()
-        const taxId = (clientRow as { tax_id?: string } | null)?.tax_id
-        if (typeof taxId === 'string' && taxId.trim()) cifEmpresa = taxId.trim()
+        const row = clientRow as { tax_id?: string; name?: string } | null
+        if (typeof row?.tax_id === 'string' && row.tax_id.trim()) cifEmpresa = row.tax_id.trim()
+        if (typeof row?.name === 'string' && row.name.trim()) nombreEmpresa = row.name.trim()
         
         // Extraer los últimos proveedores usados por este cliente para ayudar a la IA
         const { data: recentSuppliers } = await supabase
@@ -96,6 +99,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         extractorUrl,
         tipo,
         cifEmpresa: cifEmpresa ?? undefined,
+        nombreEmpresa: nombreEmpresa ?? undefined,
+        direccionEmpresa: direccionEmpresa ?? undefined,
         proveedoresConocidos: proveedoresConocidos.length > 0 ? proveedoresConocidos : undefined,
       })
     )

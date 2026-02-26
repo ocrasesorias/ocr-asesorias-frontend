@@ -1,3 +1,16 @@
+export interface Supplier {
+  id: string;
+  org_id?: string;
+  client_id?: string;
+  name: string;
+  tax_id: string;
+  address: string | null;
+  postal_code: string | null;
+  province: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Cliente {
   id: string;
   org_id: string;

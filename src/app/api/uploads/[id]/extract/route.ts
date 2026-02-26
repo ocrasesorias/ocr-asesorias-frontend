@@ -50,7 +50,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const { data: invoices, error: invError } = await supabase
       .from('invoices')
-      .select('id, created_at')
+      .select('id, created_at, client_id')
       .eq('org_id', orgId)
       .eq('upload_id', uploadId)
       .order('created_at', { ascending: true })
@@ -73,6 +73,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     const tipo = typeof (upload as { tipo?: unknown })?.tipo === 'string' ? (upload as { tipo: string }).tipo : null
+    const firstInv = invoices?.[0] as { client_id?: string } | undefined
+    const clientId = typeof firstInv?.client_id === 'string' ? firstInv.client_id : null
+    let cifEmpresa: string | undefined
+    let nombreEmpresa: string | undefined
+    let direccionEmpresa: string | undefined
+    if (tipo && (tipo as string).toLowerCase() === 'gasto' && clientId) {
+      const { data: clientRow } = await supabase
+        .from('clients')
+        .select('tax_id, name')
+        .eq('id', clientId)
+        .eq('org_id', orgId)
+        .single()
+      const row = clientRow as { tax_id?: string; name?: string } | null
+      if (typeof row?.tax_id === 'string' && row.tax_id.trim()) cifEmpresa = row.tax_id.trim()
+      if (typeof row?.name === 'string' && row.name.trim()) nombreEmpresa = row.name.trim()
+    }
 
     await runWithConcurrency(ids, concurrency, async (invoiceId) => {
       const result = await extractInvoiceAndPersist({
@@ -82,6 +98,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         invoiceId,
         extractorUrl,
         tipo: (tipo as 'gasto' | 'ingreso' | null) || undefined,
+        cifEmpresa,
+        nombreEmpresa,
+        direccionEmpresa,
       })
 
       if (result.ok) okCount++

@@ -6,11 +6,13 @@ import dynamic from 'next/dynamic';
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useInvoiceCounter } from '@/hooks/useInvoiceCounter';
 import { useClientManagement } from '@/hooks/useClientManagement';
+import { useSupplierManagement } from '@/hooks/useSupplierManagement';
 import { useUploadManagement } from '@/hooks/useUploadManagement';
 import { useInvoiceProcessing } from '@/hooks/useInvoiceProcessing';
 // Components
 import { DashboardHeader } from './components/DashboardHeader';
 import { ClientSection } from './components/ClientSection/ClientSection';
+import { SuppliersSection } from './components/SuppliersSection/SuppliersSection';
 import { UploadsSection } from './components/UploadsSection/UploadsSection';
 import { FilesSection } from './components/FilesSection/FilesSection';
 
@@ -75,6 +77,33 @@ export default function DashboardPage() {
     handleConfirmDeleteClient,
     handleCancelDeleteClient,
   } = useClientManagement(orgId);
+
+  // Supplier Management (proveedores del cliente seleccionado)
+  const {
+    suppliers,
+    isLoading: isLoadingSuppliers,
+    mostrarNuevoProveedor,
+    setMostrarNuevoProveedor,
+    nuevoProveedor,
+    setNuevoProveedor,
+    isCreating: isCreatingSupplier,
+    handleCrearProveedor,
+    handleCancelCrearProveedor,
+    isEditModalOpen: isEditSupplierModalOpen,
+    proveedorParaEditar,
+    editProveedor,
+    setEditProveedor,
+    isUpdating: isUpdatingSupplier,
+    openEditProveedor,
+    handleGuardarEdicionProveedor,
+    handleCancelEditProveedor,
+    isDeleteModalOpen: isDeleteSupplierModalOpen,
+    proveedorParaEliminar,
+    isDeleting: isDeletingSupplier,
+    openDeleteProveedor,
+    handleConfirmEliminarProveedor,
+    handleCancelDeleteProveedor,
+  } = useSupplierManagement(clienteSeleccionado?.id ?? null, orgId);
   
   // Upload Management
   const {
@@ -246,7 +275,7 @@ export default function DashboardPage() {
               onDeleteClient={handleDeleteClient}
             />
 
-            {clienteSeleccionado && subidasFacturas.length > 0 && (
+            {clienteSeleccionado && (
               <UploadsSection
                 subidas={subidasFacturas}
                 subidaActual={subidaActual}
@@ -264,6 +293,35 @@ export default function DashboardPage() {
                 }}
                 onEditingNombreChange={setSubidaEditandoNombre}
                 onDeleteSubida={handleEliminarSubida}
+              />
+            )}
+
+            {clienteSeleccionado && (
+              <SuppliersSection
+                clientName={clienteSeleccionado.name || 'Cliente'}
+                suppliers={suppliers}
+                isLoading={isLoadingSuppliers}
+                mostrarNuevoProveedor={mostrarNuevoProveedor}
+                setMostrarNuevoProveedor={setMostrarNuevoProveedor}
+                nuevoProveedor={nuevoProveedor}
+                setNuevoProveedor={setNuevoProveedor}
+                isCreating={isCreatingSupplier}
+                onCrearProveedor={handleCrearProveedor}
+                onCancelCrearProveedor={handleCancelCrearProveedor}
+                isEditModalOpen={isEditSupplierModalOpen}
+                proveedorParaEditar={proveedorParaEditar}
+                editProveedor={editProveedor}
+                setEditProveedor={setEditProveedor}
+                isUpdating={isUpdatingSupplier}
+                onEditProveedor={openEditProveedor}
+                onGuardarEdicionProveedor={handleGuardarEdicionProveedor}
+                onCancelEditProveedor={handleCancelEditProveedor}
+                isDeleteModalOpen={isDeleteSupplierModalOpen}
+                proveedorParaEliminar={proveedorParaEliminar}
+                isDeleting={isDeletingSupplier}
+                onDeleteProveedor={openDeleteProveedor}
+                onConfirmEliminarProveedor={handleConfirmEliminarProveedor}
+                onCancelDeleteProveedor={handleCancelDeleteProveedor}
               />
             )}
           </div>
