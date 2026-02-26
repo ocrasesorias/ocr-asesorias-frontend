@@ -1,5 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
+import { validarNifCif } from '@/lib/validarNifCif';
+
 interface ClientFormProps {
   cliente: {
     name: string;
@@ -24,6 +27,13 @@ interface ClientFormProps {
  * Formulario reutilizable para crear/editar clientes
  */
 export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFormProps) {
+  const taxIdValidation = useMemo(() => {
+    const trimmed = (cliente.tax_id ?? '').trim();
+    if (!trimmed) return { error: undefined };
+    const res = validarNifCif(trimmed);
+    return { error: res.valido ? undefined : res.error };
+  }, [cliente.tax_id]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -50,10 +60,22 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           type="text"
           value={cliente.tax_id}
           onChange={(e) => setCliente(prev => ({ ...prev, tax_id: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+            taxIdValidation.error ? 'border-amber-500 bg-amber-50/70' : 'border-gray-200'
+          }`}
           placeholder="Ej: B12345678"
           disabled={isDisabled}
+          aria-invalid={!!taxIdValidation.error}
+          aria-describedby={taxIdValidation.error ? 'client-tax-id-error' : undefined}
         />
+        {taxIdValidation.error && (
+          <p id="client-tax-id-error" className="mt-1.5 text-sm text-amber-600 flex items-center gap-1.5" role="alert">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {taxIdValidation.error}
+          </p>
+        )}
       </div>
 
       <div>
