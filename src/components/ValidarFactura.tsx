@@ -418,7 +418,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
           porcentajeIva: '',
           cuotaIva: '',
           porcentajeRecargo: '',
-          cuotaRecargo: ''
+          cuotaRecargo: '',
+          tipoExencion: undefined,
         }
       ]
     }));
@@ -1040,6 +1041,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <colgroup>
                         <col className="w-auto" />
                         <col className="w-12" />
+                        <col className="w-16" />
                         <col className="w-auto" />
                         <col className="w-12" />
                         <col className="w-auto" />
@@ -1048,6 +1050,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         <tr className="bg-gray-100">
                           <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
                           <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
+                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">TIPO</th>
                           <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
                           <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
                           <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
@@ -1092,6 +1095,24 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 onChange={(e) => handleLineaChange(index, 'porcentajeIva', e.target.value)}
                                 className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
                               />
+                            </td>
+                            <td className="border border-gray-200 px-0.5 py-0.5">
+                              {String(linea.porcentajeIva || '').trim() === '0' ? (
+                                <select
+                                  value={linea.tipoExencion || ''}
+                                  onChange={(e) => handleLineaChange(index, 'tipoExencion', e.target.value)}
+                                  className="w-full px-0 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px] bg-transparent"
+                                >
+                                  <option value="">—</option>
+                                  <option value="suplidos">Suplidos</option>
+                                  <option value="exento_art20">Exento Art. 20</option>
+                                  <option value="intracomunitaria">Op. Intracom.</option>
+                                  <option value="no_sujeta">No sujeta</option>
+                                  <option value="otro">Otro</option>
+                                </select>
+                              ) : (
+                                <span className="text-[9px] text-gray-300 px-0.5">—</span>
+                              )}
                             </td>
                             <td className="border border-gray-200 px-0.5 py-0.5">
                               <input

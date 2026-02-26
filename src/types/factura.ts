@@ -38,6 +38,7 @@ export interface FacturaData {
     cuotaIva: string;
     porcentajeRecargo: string;
     cuotaRecargo: string;
+    tipoExencion?: string;
   }>;
   
   // Observaciones y total

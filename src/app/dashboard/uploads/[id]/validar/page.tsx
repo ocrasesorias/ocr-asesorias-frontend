@@ -140,6 +140,7 @@ type ExtractedIvaLine = {
   iva: number | null
   recargoPorcentaje: number | null
   recargo: number | null
+  tipoExencion: string | null
 }
 
 function recargoPctForIvaPct(pct: number | null): number | null {
@@ -178,49 +179,58 @@ function extractIvaLinesFromExtraction(ex: Record<string, unknown> | null): Extr
         it.cuota_recargo ??
         it.recargo_equivalencia_importe
     )
+    const TIPOS_EXENCION_VALIDOS = new Set(['suplidos', 'exento_art20', 'intracomunitaria', 'no_sujeta', 'otro'])
+    const rawTipoEx = it.tipo_exencion ?? it.tipo_exencion_iva ?? null
+    const tipoExencion = typeof rawTipoEx === 'string' && TIPOS_EXENCION_VALIDOS.has(rawTipoEx.trim().toLowerCase())
+      ? rawTipoEx.trim().toLowerCase()
+      : null
     if (base === null && porcentaje === null && iva === null && recargoPorcentaje === null && recargo === null) continue
-    out.push({ base, porcentaje, iva, recargoPorcentaje, recargo })
+    out.push({ base, porcentaje, iva, recargoPorcentaje, recargo, tipoExencion })
   }
 
   const hasAnyRecargo =
     topHasRecargo ||
     out.some((l) => (l.recargoPorcentaje || 0) > 0 || (l.recargo || 0) > 0)
 
-  // Consolidar por porcentaje (evita duplicados)
-  const merged = new Map<number, { base: number; iva: number; recargo: number; recPct: number | null }>()
+  // Consolidar por porcentaje + tipoExencion (evita fusionar líneas 0% distintas)
+  const merged = new Map<string, { pct: number; base: number; iva: number; recargo: number; recPct: number | null; tipoEx: string | null }>()
   for (const l of out) {
     const pct = l.porcentaje
     if (pct === null || !Number.isFinite(pct)) continue
-    const key = Math.round(pct * 100) / 100
-    const cur = merged.get(key) || { base: 0, iva: 0, recargo: 0, recPct: null as number | null }
+    const roundedPct = Math.round(pct * 100) / 100
+    const key = `${roundedPct}:${l.tipoExencion ?? ''}`
+    const cur = merged.get(key) || { pct: roundedPct, base: 0, iva: 0, recargo: 0, recPct: null as number | null, tipoEx: l.tipoExencion }
     merged.set(key, {
+      pct: roundedPct,
       base: cur.base + (l.base ?? 0),
       iva: cur.iva + (l.iva ?? 0),
       recargo: cur.recargo + (l.recargo ?? 0),
       recPct:
         cur.recPct ??
         (typeof l.recargoPorcentaje === 'number' && Number.isFinite(l.recargoPorcentaje) ? l.recargoPorcentaje : null),
+      tipoEx: cur.tipoEx ?? l.tipoExencion,
     })
   }
 
   const result: ExtractedIvaLine[] = []
-  for (const [pct, vals] of merged.entries()) {
+  for (const [, vals] of merged.entries()) {
     const recPct =
       typeof vals.recPct === 'number' && Number.isFinite(vals.recPct)
         ? vals.recPct
         : hasAnyRecargo
-          ? recargoPctForIvaPct(pct)
+          ? recargoPctForIvaPct(vals.pct)
           : null
     let recAmount = Math.round(vals.recargo * 100) / 100
     if (hasAnyRecargo && (recAmount || 0) === 0 && (vals.base || 0) > 0 && recPct) {
       recAmount = Math.round(((vals.base * recPct) / 100) * 100) / 100
     }
     result.push({
-      porcentaje: pct,
+      porcentaje: vals.pct,
       base: Math.round(vals.base * 100) / 100,
       iva: Math.round(vals.iva * 100) / 100,
       recargoPorcentaje: recPct,
       recargo: hasAnyRecargo ? recAmount : null,
+      tipoExencion: vals.tipoEx,
     })
   }
 
@@ -242,10 +252,10 @@ function applyExtractedIvasToLineas(params: {
     return Number.isFinite(n) ? n : null
   }
 
-  const findIndexByPct = (pct: number) => {
+  const findIndexByPctAndExencion = (pct: number, tipoEx: string | null) => {
     for (let i = 0; i < lineas.length; i += 1) {
       const n = parsePct(lineas[i]?.porcentajeIva || '')
-      if (n !== null && Math.abs(n - pct) < 0.01) return i
+      if (n !== null && Math.abs(n - pct) < 0.01 && (lineas[i]?.tipoExencion ?? null) === (tipoEx ?? null)) return i
     }
     return -1
   }
@@ -253,7 +263,7 @@ function applyExtractedIvasToLineas(params: {
   for (const l of extracted) {
     if (l.porcentaje === null || !Number.isFinite(l.porcentaje)) continue
     const pct = Math.round(l.porcentaje * 100) / 100
-    let idx = findIndexByPct(pct)
+    let idx = findIndexByPctAndExencion(pct, l.tipoExencion)
     if (idx === -1) {
       lineas.push({
         base: '',
@@ -261,6 +271,7 @@ function applyExtractedIvasToLineas(params: {
         cuotaIva: '',
         porcentajeRecargo: '0',
         cuotaRecargo: '0.00',
+        tipoExencion: l.tipoExencion ?? undefined,
       })
       idx = lineas.length - 1
     }
@@ -269,6 +280,7 @@ function applyExtractedIvasToLineas(params: {
     if (overwrite || !cur.porcentajeIva?.trim()) cur.porcentajeIva = String(pct)
     if (l.base !== null && (overwrite || !cur.base?.trim())) cur.base = String(l.base)
     if (l.iva !== null && (overwrite || !cur.cuotaIva?.trim())) cur.cuotaIva = String(l.iva)
+    if (l.tipoExencion) cur.tipoExencion = l.tipoExencion
     if (
       l.recargoPorcentaje !== null &&
       Number.isFinite(l.recargoPorcentaje) &&
