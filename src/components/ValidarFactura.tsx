@@ -238,28 +238,36 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // Detectar si existe en BD un proveedor con este nombre o CIF (mostrar warning y permitir corregir)
+  // Detectar si existe en BD un proveedor con este nombre, CIF o dirección (mostrar warning y permitir corregir)
   useEffect(() => {
     const cif = factura.proveedor?.cif?.trim()
     const nombre = factura.proveedor?.nombre?.trim()
-    if (!cif && !nombre) {
+    const direccion = factura.proveedor?.direccion?.trim()
+    if (!cif && !nombre && !direccion) {
       setSupplierEnBd(null)
       return
     }
     let cancelled = false
+    const searchSupplier = async (params: Record<string, string>) => {
+      const url = new URL(window.location.origin + '/api/suppliers/search')
+      for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v)
+      if (clientId) url.searchParams.set('client_id', clientId)
+      const resp = await fetch(url.toString())
+      if (!resp.ok) return null
+      const data = await resp.json()
+      const s = data?.supplier
+      return (s && s.name && s.tax_id) ? s : null
+    }
     const run = async () => {
       try {
-        const url = new URL(window.location.origin + '/api/suppliers/search')
-        if (cif) url.searchParams.set('tax_id', cif)
-        else if (nombre) url.searchParams.set('name', nombre)
-        if (clientId) url.searchParams.set('client_id', clientId)
+        // Prioridad: CIF → nombre → dirección
+        let s = null
+        if (cif) s = await searchSupplier({ tax_id: cif })
+        if (!s && nombre) s = await searchSupplier({ name: nombre })
+        if (!s && direccion) s = await searchSupplier({ address: direccion })
 
-        const resp = await fetch(url.toString())
-        const data = await resp.json()
-
-        if (cancelled || !resp.ok) return
-        const s = data?.supplier
-        if (s && s.name && s.tax_id) {
+        if (cancelled) return
+        if (s) {
           setSupplierEnBd({
             name: s.name,
             tax_id: s.tax_id,
@@ -276,7 +284,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     }
     run()
     return () => { cancelled = true }
-  }, [factura.proveedor?.nombre, factura.proveedor?.cif, clientId])
+  }, [factura.proveedor?.nombre, factura.proveedor?.cif, factura.proveedor?.direccion, clientId])
 
   const handleUsarDatosGuardados = () => {
     if (!supplierEnBd) return

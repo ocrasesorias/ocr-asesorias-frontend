@@ -12,14 +12,15 @@ export async function GET(request: Request) {
     const url = new URL(request.url)
     const taxId = url.searchParams.get('tax_id')
     const name = url.searchParams.get('name')
+    const address = url.searchParams.get('address')
     const clientId = url.searchParams.get('client_id')
 
-    if (!taxId && !name) {
-      return NextResponse.json({ error: 'Falta tax_id o name' }, { status: 400 })
+    if (!taxId && !name && !address) {
+      return NextResponse.json({ error: 'Falta tax_id, name o address' }, { status: 400 })
     }
 
     let query = supabase.from('suppliers').select('*').eq('org_id', orgId)
-    
+
     if (clientId) {
       query = query.eq('client_id', clientId)
     }
@@ -28,6 +29,8 @@ export async function GET(request: Request) {
       query = query.eq('tax_id', taxId.toUpperCase().trim())
     } else if (name) {
       query = query.ilike('name', `%${name.trim()}%`)
+    } else if (address) {
+      query = query.ilike('address', address.trim())
     }
 
     // Obtener el más reciente actualizado
