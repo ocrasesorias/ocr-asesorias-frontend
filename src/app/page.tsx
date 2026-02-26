@@ -100,12 +100,12 @@ export default async function Home() {
                     </Link>
                   ) : (
                     <>
-                      <Link
-                        href="#contacto"
+                      <a
+                        href="mailto:ocrasesorias@gmail.com"
                         className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       >
                         Contactar
-                      </Link>
+                      </a>
                       <Link
                         href="#como-funciona"
                         className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -357,12 +357,12 @@ export default async function Home() {
                   </Link>
                 ) : (
                   <>
-                    <Link
-                      href="#contacto"
+                    <a
+                      href="mailto:ocrasesorias@gmail.com"
                       className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                     >
                       Contactar
-                    </Link>
+                    </a>
                     <Link
                       href="/login"
                       className="border-2 border-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
@@ -400,10 +400,12 @@ export default async function Home() {
               <div className="grid md:grid-cols-2 gap-8">
                 <div>
                   <h4 className="text-lg font-semibold mb-6">Contacto</h4>
-                  <div className="space-y-2">
-                    <p className="text-foreground-secondary">hola@ocrasesorias.com</p>
-                    <p className="text-foreground-secondary">+34 900 123 456</p>
-                  </div>
+                  <a
+                    href="mailto:ocrasesorias@gmail.com"
+                    className="text-foreground-secondary hover:text-white transition-colors"
+                  >
+                    ocrasesorias@gmail.com
+                  </a>
                 </div>
                 <div>
                   <h4 className="text-lg font-semibold mb-6">Legal</h4>

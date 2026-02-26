@@ -85,12 +85,12 @@ export function LandingAuthNav() {
       >
         Iniciar sesión
       </Link>
-      <Link
-        href="/#contacto"
+      <a
+        href="mailto:ocrasesorias@gmail.com"
         className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
       >
         Contactar
-      </Link>
+      </a>
     </div>
   )
 }

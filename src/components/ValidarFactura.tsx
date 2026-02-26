@@ -70,6 +70,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   validarText
 }) => {
   const [moneyFocusKey, setMoneyFocusKey] = useState<string | null>(null)
+  /** Al hacer foco en un campo numérico guardamos el valor; al blur si quedó vacío se restaura. */
+  const valueBeforeFocusRef = useRef<Record<string, string>>({})
 
   const parseEuroNumber = (value: string): number | null => {
     const raw = String(value || '')
@@ -468,6 +470,11 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     for (let i = 0; i < (factura.lineas?.length || 0); i++) {
       const l = factura.lineas[i]
       if (!l) continue
+      const lineFocused =
+        moneyFocusKey === `linea:${i}:base` ||
+        moneyFocusKey === `linea:${i}:cuotaIva` ||
+        moneyFocusKey === `linea:${i}:cuotaRecargo`
+      if (lineFocused) continue
       const baseN = parseEuroNumber(l.base)
       const cuotaN = parseEuroNumber(l.cuotaIva)
       const pctRaw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
@@ -486,6 +493,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
 
   // Validación: suma de filas (base + IVA + recargo) - retención debe coincidir con el total de la factura (total a pagar)
   const totalVerification = (() => {
+    if (moneyFocusKey === 'total') return { hasErrors: false }
+    if (moneyFocusKey?.startsWith('linea:') || moneyFocusKey === 'retencion:cantidad') return { hasErrors: false }
     let sumBase = 0
     let sumIva = 0
     let sumRecargo = 0
@@ -1047,12 +1056,21 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 type="text"
                                 value={moneyValue(`linea:${index}:base`, linea.base)}
                                 onChange={(e) => handleLineaChange(index, 'base', e.target.value)}
-                                onFocus={() => setMoneyFocusKey(`linea:${index}:base`)}
+                                onFocus={() => {
+                                  valueBeforeFocusRef.current[`linea:${index}:base`] = String(linea.base ?? '')
+                                  handleLineaChange(index, 'base', '')
+                                  setMoneyFocusKey(`linea:${index}:base`)
+                                }}
                                 onBlur={() => {
                                   setMoneyFocusKey(null)
                                   setFactura((prev) => {
                                     const newLineas = [...prev.lineas]
-                                    newLineas[index] = { ...newLineas[index], base: normalizeEuroString(newLineas[index].base) }
+                                    const cur = newLineas[index].base
+                                    if (!String(cur).trim()) {
+                                      newLineas[index] = { ...newLineas[index], base: valueBeforeFocusRef.current[`linea:${index}:base`] ?? '' }
+                                    } else {
+                                      newLineas[index] = { ...newLineas[index], base: normalizeEuroString(cur) }
+                                    }
                                     return { ...prev, lineas: newLineas }
                                   })
                                 }}
@@ -1072,14 +1090,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 type="text"
                                 value={moneyValue(`linea:${index}:cuotaIva`, linea.cuotaIva)}
                                 onChange={(e) => handleLineaChange(index, 'cuotaIva', e.target.value)}
-                                onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaIva`)}
+                                onFocus={() => {
+                                  valueBeforeFocusRef.current[`linea:${index}:cuotaIva`] = String(linea.cuotaIva ?? '')
+                                  handleLineaChange(index, 'cuotaIva', '')
+                                  setMoneyFocusKey(`linea:${index}:cuotaIva`)
+                                }}
                                 onBlur={() => {
                                   setMoneyFocusKey(null)
                                   setFactura((prev) => {
                                     const newLineas = [...prev.lineas]
-                                    newLineas[index] = {
-                                      ...newLineas[index],
-                                      cuotaIva: normalizeEuroString(newLineas[index].cuotaIva),
+                                    const cur = newLineas[index].cuotaIva
+                                    if (!String(cur).trim()) {
+                                      newLineas[index] = { ...newLineas[index], cuotaIva: valueBeforeFocusRef.current[`linea:${index}:cuotaIva`] ?? '' }
+                                    } else {
+                                      newLineas[index] = { ...newLineas[index], cuotaIva: normalizeEuroString(cur) }
                                     }
                                     return { ...prev, lineas: newLineas }
                                   })
@@ -1100,14 +1124,20 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 type="text"
                                 value={moneyValue(`linea:${index}:cuotaRecargo`, linea.cuotaRecargo)}
                                 onChange={(e) => handleLineaChange(index, 'cuotaRecargo', e.target.value)}
-                                onFocus={() => setMoneyFocusKey(`linea:${index}:cuotaRecargo`)}
+                                onFocus={() => {
+                                  valueBeforeFocusRef.current[`linea:${index}:cuotaRecargo`] = String(linea.cuotaRecargo ?? '')
+                                  handleLineaChange(index, 'cuotaRecargo', '')
+                                  setMoneyFocusKey(`linea:${index}:cuotaRecargo`)
+                                }}
                                 onBlur={() => {
                                   setMoneyFocusKey(null)
                                   setFactura((prev) => {
                                     const newLineas = [...prev.lineas]
-                                    newLineas[index] = {
-                                      ...newLineas[index],
-                                      cuotaRecargo: normalizeEuroString(newLineas[index].cuotaRecargo),
+                                    const cur = newLineas[index].cuotaRecargo
+                                    if (!String(cur).trim()) {
+                                      newLineas[index] = { ...newLineas[index], cuotaRecargo: valueBeforeFocusRef.current[`linea:${index}:cuotaRecargo`] ?? '' }
+                                    } else {
+                                      newLineas[index] = { ...newLineas[index], cuotaRecargo: normalizeEuroString(cur) }
                                     }
                                     return { ...prev, lineas: newLineas }
                                   })
@@ -1192,13 +1222,24 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         const valorLimpio = e.target.value.replace('€', '').trim()
                         handleChange('retencion.cantidad', valorLimpio)
                       }}
-                      onFocus={() => setMoneyFocusKey('retencion:cantidad')}
+                      onFocus={() => {
+                        valueBeforeFocusRef.current['retencion:cantidad'] = String(factura.retencion.cantidad ?? '')
+                        handleChange('retencion.cantidad', '')
+                        setMoneyFocusKey('retencion:cantidad')
+                      }}
                       onBlur={() => {
                         setMoneyFocusKey(null)
-                        setFactura((prev) => ({
-                          ...prev,
-                          retencion: { ...prev.retencion, cantidad: normalizeEuroString(prev.retencion.cantidad) },
-                        }))
+                        setFactura((prev) => {
+                          const cur = prev.retencion.cantidad
+                          const restored = valueBeforeFocusRef.current['retencion:cantidad'] ?? ''
+                          return {
+                            ...prev,
+                            retencion: {
+                              ...prev.retencion,
+                              cantidad: !String(cur).trim() ? restored : normalizeEuroString(cur),
+                            },
+                          }
+                        })
                       }}
                       className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
                       placeholder="Importe…"
@@ -1242,10 +1283,19 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     type="text"
                     value={moneyValue('total', factura.total)}
                     onChange={(e) => handleChange('total', e.target.value)}
-                    onFocus={() => setMoneyFocusKey('total')}
+                    onFocus={() => {
+                      valueBeforeFocusRef.current['total'] = String(factura.total ?? '')
+                      handleChange('total', '')
+                      setMoneyFocusKey('total')
+                    }}
                     onBlur={() => {
                       setMoneyFocusKey(null)
-                      handleChange('total', normalizeEuroString(factura.total))
+                      const cur = factura.total
+                      if (!String(cur).trim()) {
+                        handleChange('total', valueBeforeFocusRef.current['total'] ?? '')
+                      } else {
+                        handleChange('total', normalizeEuroString(cur))
+                      }
                     }}
                     className={`w-full text-2xl font-bold text-foreground border rounded px-2 py-0.5 focus:ring-0 focus:outline-none ${totalVerification.hasErrors ? 'bg-amber-100 border-amber-300' : 'bg-transparent border-gray-200 focus:border-primary'
                       }`}

@@ -1,7 +1,6 @@
 'use client';
 
 import { ScrollReveal } from '@/components/ScrollReveal';
-import Link from 'next/link';
 
 export function PricingCards() {
   return (
@@ -58,12 +57,12 @@ export function PricingCards() {
                 </li>
               </ul>
 
-              <Link
-                href="/#contacto"
+              <a
+                href="mailto:ocrasesorias@gmail.com"
                 className="inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-hover transition-colors"
               >
                 Solicitar propuesta
-              </Link>
+              </a>
             </div>
           </div>
         </ScrollReveal>
