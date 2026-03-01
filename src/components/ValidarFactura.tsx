@@ -2,6 +2,7 @@
 
 import { validarNifCif } from '@/lib/validarNifCif';
 import { FacturaData } from '@/types/factura';
+import { Supplier } from '@/types/dashboard';
 import { Tooltip } from '@heroui/react';
 import Image from 'next/image';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -72,6 +73,13 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const [moneyFocusKey, setMoneyFocusKey] = useState<string | null>(null)
   /** Al hacer foco en un campo numérico guardamos el valor; al blur si quedó vacío se restaura. */
   const valueBeforeFocusRef = useRef<Record<string, string>>({})
+
+  // Autocomplete proveedores (solo gasto)
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([])
+  const [highlightedIdx, setHighlightedIdx] = useState(-1)
+  const suggestionsRef = useRef<HTMLUListElement>(null)
 
   const parseEuroNumber = (value: string): number | null => {
     const raw = String(value || '')
@@ -213,8 +221,9 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     const l21 = takeFirst(21)
     const l10 = takeFirst(10)
     const l4 = takeFirst(4)
+    const l0 = takeFirst(0)
 
-    const lineas = [l21, l10, l4, ...remaining]
+    const lineas = [l21, l10, l4, l0, ...remaining]
 
     const next = { ...facturaInicial, lineas }
     if (uppercaseNombreDireccion) {
@@ -285,6 +294,40 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     run()
     return () => { cancelled = true }
   }, [factura.proveedor?.nombre, factura.proveedor?.cif, factura.proveedor?.direccion, clientId])
+
+  // Cargar lista de proveedores para autocomplete (solo gasto)
+  useEffect(() => {
+    if (tipo !== 'gasto' || !clientId) return
+    let cancelled = false
+    const fetchSuppliers = async () => {
+      try {
+        const res = await fetch(`/api/suppliers?client_id=${encodeURIComponent(clientId)}`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setAllSuppliers(data.suppliers ?? [])
+      } catch { /* ignore */ }
+    }
+    fetchSuppliers()
+    return () => { cancelled = true }
+  }, [tipo, clientId])
+
+  const handleSelectSupplier = (supplier: Supplier) => {
+    setFactura(prev => {
+      const next = { ...prev, proveedor: { ...prev.proveedor } }
+      next.proveedor.nombre = supplier.name
+      next.proveedor.cif = supplier.tax_id
+      if (supplier.address != null) next.proveedor.direccion = supplier.address
+      if (supplier.postal_code != null) next.proveedor.codigoPostal = supplier.postal_code
+      if (supplier.province != null) next.proveedor.provincia = supplier.province
+      if (uppercaseNombreDireccion) {
+        if (next.proveedor.nombre) next.proveedor.nombre = next.proveedor.nombre.toLocaleUpperCase('es-ES')
+        if (next.proveedor.direccion) next.proveedor.direccion = next.proveedor.direccion.toLocaleUpperCase('es-ES')
+      }
+      return next
+    })
+    setShowSuggestions(false)
+    setHighlightedIdx(-1)
+  }
 
   const handleUsarDatosGuardados = () => {
     if (!supplierEnBd) return
@@ -849,12 +892,80 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 <div className="space-y-1">
                   <div>
                     <FieldRow label="NOMBRE" widthClass="w-16">
-                      <input
-                        type="text"
-                        value={factura.proveedor.nombre}
-                        onChange={(e) => handleChange('proveedor.nombre', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={factura.proveedor.nombre}
+                          onChange={(e) => {
+                            handleChange('proveedor.nombre', e.target.value)
+                            if (tipo === 'gasto' && allSuppliers.length > 0) {
+                              const q = e.target.value.trim().toLowerCase()
+                              if (q.length > 0) {
+                                const filtered = allSuppliers.filter(s =>
+                                  s.name.toLowerCase().includes(q)
+                                )
+                                setFilteredSuppliers(filtered)
+                                setShowSuggestions(filtered.length > 0)
+                                setHighlightedIdx(-1)
+                              } else {
+                                setShowSuggestions(false)
+                              }
+                            }
+                          }}
+                          onFocus={() => {
+                            if (tipo === 'gasto' && allSuppliers.length > 0) {
+                              const q = (factura.proveedor.nombre || '').trim().toLowerCase()
+                              if (q.length > 0) {
+                                const filtered = allSuppliers.filter(s =>
+                                  s.name.toLowerCase().includes(q)
+                                )
+                                setFilteredSuppliers(filtered)
+                                setShowSuggestions(filtered.length > 0)
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            // Delay para permitir click en sugerencia
+                            setTimeout(() => setShowSuggestions(false), 150)
+                          }}
+                          onKeyDown={(e) => {
+                            if (!showSuggestions || filteredSuppliers.length === 0) return
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault()
+                              setHighlightedIdx(i => Math.min(i + 1, filteredSuppliers.length - 1))
+                            } else if (e.key === 'ArrowUp') {
+                              e.preventDefault()
+                              setHighlightedIdx(i => Math.max(i - 1, 0))
+                            } else if (e.key === 'Enter' && highlightedIdx >= 0) {
+                              e.preventDefault()
+                              handleSelectSupplier(filteredSuppliers[highlightedIdx])
+                            } else if (e.key === 'Escape') {
+                              setShowSuggestions(false)
+                            }
+                          }}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          autoComplete="off"
+                        />
+                        {showSuggestions && filteredSuppliers.length > 0 && (
+                          <ul
+                            ref={suggestionsRef}
+                            className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto"
+                          >
+                            {filteredSuppliers.map((supplier, idx) => (
+                              <li
+                                key={supplier.id}
+                                onMouseDown={() => handleSelectSupplier(supplier)}
+                                className={`px-2 py-1.5 text-[13px] cursor-pointer flex items-center justify-between gap-2 ${
+                                  idx === highlightedIdx ? 'bg-primary/10' : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <span className="truncate">{supplier.name}</span>
+                                <span className="text-[11px] text-gray-400 shrink-0">{supplier.tax_id}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </FieldRow>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
