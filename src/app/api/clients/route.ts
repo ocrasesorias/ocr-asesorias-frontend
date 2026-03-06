@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     const { supabase, orgId } = auth;
 
     // Obtener los datos del cliente del body
-    const { name, tax_id, address, preferred_income_account, preferred_expense_account, activity_description } = body ?? {};
+    const { name, tax_id, address, postal_code, city, province, preferred_income_account, preferred_expense_account, activity_description } = body ?? {};
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
@@ -66,6 +66,9 @@ export async function POST(request: Request) {
         name: name.trim(),
         tax_id: tax_id?.trim() || null,
         address: typeof address === 'string' && address.trim() ? address.trim() : null,
+        postal_code: typeof postal_code === 'string' && postal_code.trim() ? postal_code.trim() : null,
+        city: typeof city === 'string' && city.trim() ? city.trim() : null,
+        province: typeof province === 'string' && province.trim() ? province.trim() : null,
         preferred_income_account:
           typeof preferred_income_account === 'string' && preferred_income_account.trim()
             ? preferred_income_account.trim()

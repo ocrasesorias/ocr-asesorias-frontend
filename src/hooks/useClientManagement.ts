@@ -16,6 +16,9 @@ export function useClientManagement(orgId: string | null) {
     name: '',
     tax_id: '',
     address: '',
+    postal_code: '',
+    city: '',
+    province: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
     activity_description: '',
@@ -31,6 +34,9 @@ export function useClientManagement(orgId: string | null) {
     name: '',
     tax_id: '',
     address: '',
+    postal_code: '',
+    city: '',
+    province: '',
     preferred_income_account: '700',
     preferred_expense_account: '600',
     activity_description: '',
@@ -114,6 +120,9 @@ export function useClientManagement(orgId: string | null) {
           name: nuevoCliente.name.trim(),
           tax_id: nuevoCliente.tax_id.trim() || null,
           address: nuevoCliente.address?.trim() || null,
+          postal_code: nuevoCliente.postal_code?.trim() || null,
+          city: nuevoCliente.city?.trim() || null,
+          province: nuevoCliente.province?.trim() || null,
           preferred_income_account: nuevoCliente.preferred_income_account || null,
           preferred_expense_account: nuevoCliente.preferred_expense_account || null,
           activity_description: nuevoCliente.activity_description?.trim() || null,
@@ -138,7 +147,7 @@ export function useClientManagement(orgId: string | null) {
       }
 
       // Limpiar el formulario y cerrar
-      setNuevoCliente({ name: '', tax_id: '', address: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
+      setNuevoCliente({ name: '', tax_id: '', address: '', postal_code: '', city: '', province: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
       setMostrarNuevoCliente(false);
 
       showSuccess('Cliente creado exitosamente');
@@ -157,6 +166,9 @@ export function useClientManagement(orgId: string | null) {
       name: c.name || '',
       tax_id: c.tax_id || '',
       address: c.address || '',
+      postal_code: c.postal_code || '',
+      city: c.city || '',
+      province: c.province || '',
       preferred_income_account: c.preferred_income_account || '700',
       preferred_expense_account: c.preferred_expense_account || '600',
       activity_description: c.activity_description || '',
@@ -181,6 +193,9 @@ export function useClientManagement(orgId: string | null) {
           name: editCliente.name.trim(),
           tax_id: editCliente.tax_id.trim() || null,
           address: editCliente.address?.trim() || null,
+          postal_code: editCliente.postal_code?.trim() || null,
+          city: editCliente.city?.trim() || null,
+          province: editCliente.province?.trim() || null,
           preferred_income_account: editCliente.preferred_income_account || null,
           preferred_expense_account: editCliente.preferred_expense_account || null,
           activity_description: editCliente.activity_description?.trim() || null,
@@ -243,7 +258,7 @@ export function useClientManagement(orgId: string | null) {
     handleCrearCliente,
     handleCancelCrearCliente: () => {
       setMostrarNuevoCliente(false);
-      setNuevoCliente({ name: '', tax_id: '', address: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
+      setNuevoCliente({ name: '', tax_id: '', address: '', postal_code: '', city: '', province: '', preferred_income_account: '700', preferred_expense_account: '600', activity_description: '' });
     },
     handleEditClient: openEditClient,
     handleSaveEditClient: handleGuardarEdicionCliente,

@@ -90,7 +90,7 @@ export async function extractInvoiceAndPersist(params: {
   /** Dirección del cliente/empresa para GASTO; guardrail contra confusión */
   direccionEmpresa?: string | null
   /** Lista de proveedores ya conocidos de esta empresa para ayudar a la IA (en GASTO) */
-  proveedoresConocidos?: { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }[]
+  proveedoresConocidos?: { nombre: string; nif: string; direccion?: string; cp?: string; poblacion?: string; provincia?: string }[]
 }) {
   const { supabase, userId, orgId, invoiceId, extractorUrl, tipo, cifEmpresa, nombreEmpresa, direccionEmpresa, proveedoresConocidos } = params
 

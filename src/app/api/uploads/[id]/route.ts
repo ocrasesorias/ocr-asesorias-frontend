@@ -52,6 +52,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             supplier_tax_id,
             supplier_address,
             supplier_postal_code,
+            supplier_city,
             supplier_province,
             invoice_number,
             invoice_date,

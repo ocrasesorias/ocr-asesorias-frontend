@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from('suppliers')
-      .select('id, name, tax_id, address, postal_code, province, created_at, updated_at')
+      .select('id, name, tax_id, address, postal_code, city, province, created_at, updated_at')
       .eq('org_id', orgId)
       .eq('client_id', clientId)
       .order('name', { ascending: true })
@@ -82,6 +82,7 @@ export async function POST(request: Request) {
         tax_id: taxId,
         address: typeof body.address === 'string' && body.address.trim() ? body.address.trim() : null,
         postal_code: typeof body.postal_code === 'string' && body.postal_code.trim() ? body.postal_code.trim() : null,
+        city: typeof body.city === 'string' && body.city.trim() ? body.city.trim() : null,
         province: typeof body.province === 'string' && body.province.trim() ? body.province.trim() : null,
       })
       .select()

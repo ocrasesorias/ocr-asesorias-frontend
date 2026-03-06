@@ -10,6 +10,9 @@ interface EditClientModalProps {
     name: string;
     tax_id: string;
     address: string;
+    postal_code: string;
+    city: string;
+    province: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;
@@ -18,6 +21,9 @@ interface EditClientModalProps {
     name: string;
     tax_id: string;
     address: string;
+    postal_code: string;
+    city: string;
+    province: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;

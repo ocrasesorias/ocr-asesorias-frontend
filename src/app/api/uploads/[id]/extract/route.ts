@@ -81,14 +81,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (tipo && (tipo as string).toLowerCase() === 'gasto' && clientId) {
       const { data: clientRow } = await supabase
         .from('clients')
-        .select('tax_id, name, address')
+        .select('tax_id, name, address, postal_code, city, province')
         .eq('id', clientId)
         .eq('org_id', orgId)
         .single()
-      const row = clientRow as { tax_id?: string; name?: string; address?: string } | null
+      const row = clientRow as { tax_id?: string; name?: string; address?: string; postal_code?: string; city?: string; province?: string } | null
       if (typeof row?.tax_id === 'string' && row.tax_id.trim()) cifEmpresa = row.tax_id.trim()
       if (typeof row?.name === 'string' && row.name.trim()) nombreEmpresa = row.name.trim()
-      if (typeof row?.address === 'string' && row.address.trim()) direccionEmpresa = row.address.trim()
+      const addrParts = [row?.address, row?.postal_code, row?.city, row?.province].filter(p => typeof p === 'string' && p.trim()).map(p => (p as string).trim())
+      if (addrParts.length > 0) direccionEmpresa = addrParts.join(' ')
     }
 
     await runWithConcurrency(ids, concurrency, async (invoiceId) => {

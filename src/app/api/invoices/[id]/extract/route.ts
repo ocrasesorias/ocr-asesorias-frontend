@@ -25,7 +25,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     let cifEmpresa: string | null = null
     let nombreEmpresa: string | null = null
     let direccionEmpresa: string | null = null
-    let proveedoresConocidos: { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }[] = []
+    let proveedoresConocidos: { nombre: string; nif: string; direccion?: string; cp?: string; poblacion?: string; provincia?: string }[] = []
     
     try {
       const { data: invRow } = await supabase
@@ -51,26 +51,27 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       if (tipo === 'gasto' && typeof clientId === 'string' && clientId) {
         const { data: clientRow } = await supabase
           .from('clients')
-          .select('tax_id, name, address')
+          .select('tax_id, name, address, postal_code, city, province')
           .eq('id', clientId)
           .eq('org_id', orgId)
           .single()
-        const row = clientRow as { tax_id?: string; name?: string; address?: string } | null
+        const row = clientRow as { tax_id?: string; name?: string; address?: string; postal_code?: string; city?: string; province?: string } | null
         if (typeof row?.tax_id === 'string' && row.tax_id.trim()) cifEmpresa = row.tax_id.trim()
         if (typeof row?.name === 'string' && row.name.trim()) nombreEmpresa = row.name.trim()
-        if (typeof row?.address === 'string' && row.address.trim()) direccionEmpresa = row.address.trim()
+        const addrParts = [row?.address, row?.postal_code, row?.city, row?.province].filter(p => typeof p === 'string' && p.trim()).map(p => (p as string).trim())
+        if (addrParts.length > 0) direccionEmpresa = addrParts.join(' ')
         
         // Extraer los últimos proveedores usados por este cliente para ayudar a la IA
         const { data: recentSuppliers } = await supabase
           .from('suppliers')
-          .select('name, tax_id, address, postal_code, province')
+          .select('name, tax_id, address, postal_code, city, province')
           .eq('client_id', clientId)
           .eq('org_id', orgId)
           .order('updated_at', { ascending: false })
           .limit(200)
           
         if (recentSuppliers) {
-          const pMap = new Map<string, { nombre: string; nif: string; direccion?: string; cp?: string; provincia?: string }>()
+          const pMap = new Map<string, { nombre: string; nif: string; direccion?: string; cp?: string; poblacion?: string; provincia?: string }>()
           for (const s of recentSuppliers) {
             const nif = s.tax_id?.toUpperCase().trim()
             if (nif && nif !== cifEmpresa) { // Evitar meter a la propia empresa como proveedor conocido
@@ -79,6 +80,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
                 nif: nif,
                 direccion: s.address?.trim() || '',
                 cp: s.postal_code?.trim() || '',
+                poblacion: s.city?.trim() || '',
                 provincia: s.province?.trim() || ''
               })
             }

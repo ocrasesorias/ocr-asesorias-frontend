@@ -6,6 +6,7 @@ export interface Supplier {
   tax_id: string;
   address: string | null;
   postal_code: string | null;
+  city: string | null;
   province: string | null;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,9 @@ export interface Cliente {
   name: string;
   tax_id: string | null;
   address?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  province?: string | null;
   preferred_income_account?: string | null;
   preferred_expense_account?: string | null;
   activity_description?: string | null;

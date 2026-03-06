@@ -12,6 +12,7 @@ export interface FacturaData {
     cif: string;
     direccion: string;
     codigoPostal: string;
+    poblacion: string;
     provincia: string;
   };
   

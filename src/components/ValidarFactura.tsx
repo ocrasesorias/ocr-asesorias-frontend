@@ -243,6 +243,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     tax_id: string
     address?: string | null
     postal_code?: string | null
+    city?: string | null
     province?: string | null
   } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -282,6 +283,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             tax_id: s.tax_id,
             address: s.address ?? null,
             postal_code: s.postal_code ?? null,
+            city: s.city ?? null,
             province: s.province ?? null,
           })
         } else {
@@ -318,6 +320,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       next.proveedor.cif = supplier.tax_id
       if (supplier.address != null) next.proveedor.direccion = supplier.address
       if (supplier.postal_code != null) next.proveedor.codigoPostal = supplier.postal_code
+      if (supplier.city != null) next.proveedor.poblacion = supplier.city
       if (supplier.province != null) next.proveedor.provincia = supplier.province
       if (uppercaseNombreDireccion) {
         if (next.proveedor.nombre) next.proveedor.nombre = next.proveedor.nombre.toLocaleUpperCase('es-ES')
@@ -338,6 +341,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       if (supplierEnBd.tax_id) next.proveedor.cif = supplierEnBd.tax_id
       if (supplierEnBd.address != null) next.proveedor.direccion = supplierEnBd.address
       if (supplierEnBd.postal_code != null) next.proveedor.codigoPostal = supplierEnBd.postal_code
+      if (supplierEnBd.city != null) next.proveedor.poblacion = supplierEnBd.city
       if (supplierEnBd.province != null) next.proveedor.provincia = supplierEnBd.province
       if (uppercaseNombreDireccion) {
         if (next.proveedor.nombre) next.proveedor.nombre = next.proveedor.nombre.toLocaleUpperCase('es-ES')
@@ -361,6 +365,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       !eq(p?.cif, supplierEnBd.tax_id) ||
       !eq(p?.direccion, supplierEnBd.address ?? '') ||
       !eq(p?.codigoPostal, supplierEnBd.postal_code ?? '') ||
+      !eq(p?.poblacion, supplierEnBd.city ?? '') ||
       !eq(p?.provincia, supplierEnBd.province ?? '')
     )
   }, [supplierEnBd, factura.proveedor])
@@ -1013,6 +1018,16 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={factura.proveedor.codigoPostal}
                           onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </FieldRow>
+                    </div>
+                    <div>
+                      <FieldRow label="POBL." widthClass="w-12">
+                        <input
+                          type="text"
+                          value={factura.proveedor.poblacion}
+                          onChange={(e) => handleChange('proveedor.poblacion', e.target.value)}
                           className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
                         />
                       </FieldRow>

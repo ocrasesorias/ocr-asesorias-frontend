@@ -35,6 +35,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         tax_id: taxId,
         address: typeof body.address === 'string' && body.address.trim() ? body.address.trim() : null,
         postal_code: typeof body.postal_code === 'string' && body.postal_code.trim() ? body.postal_code.trim() : null,
+        city: typeof body.city === 'string' && body.city.trim() ? body.city.trim() : null,
         province: typeof body.province === 'string' && body.province.trim() ? body.province.trim() : null,
       })
       .eq('id', supplierId)

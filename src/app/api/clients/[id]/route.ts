@@ -16,6 +16,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const name = typeof body?.name === 'string' ? body.name.trim() : ''
     const tax_id = typeof body?.tax_id === 'string' ? body.tax_id.trim() : ''
     const address = typeof body?.address === 'string' ? body.address.trim() : ''
+    const postal_code = typeof body?.postal_code === 'string' ? body.postal_code.trim() : ''
+    const city = typeof body?.city === 'string' ? body.city.trim() : ''
+    const province = typeof body?.province === 'string' ? body.province.trim() : ''
     const preferred_income_account =
       typeof body?.preferred_income_account === 'string' ? body.preferred_income_account.trim() : ''
     const preferred_expense_account =
@@ -33,6 +36,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         name,
         tax_id: tax_id || null,
         address: address || null,
+        postal_code: postal_code || null,
+        city: city || null,
+        province: province || null,
         preferred_income_account: preferred_income_account || null,
         preferred_expense_account: preferred_expense_account || null,
         activity_description: activity_description || null,

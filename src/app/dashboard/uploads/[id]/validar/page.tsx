@@ -27,6 +27,7 @@ type UploadInvoiceRow = {
     supplier_tax_id: string | null
     supplier_address?: string | null
     supplier_postal_code?: string | null
+    supplier_city?: string | null
     supplier_province?: string | null
     invoice_number: string | null
     invoice_date: string | null
@@ -40,6 +41,7 @@ type UploadInvoiceRow = {
     supplier_tax_id: string | null
     supplier_address?: string | null
     supplier_postal_code?: string | null
+    supplier_city?: string | null
     supplier_province?: string | null
     invoice_number: string | null
     invoice_date: string | null
@@ -53,6 +55,10 @@ type UploadInvoiceRow = {
 type InvoiceFieldsRow = {
   supplier_name: string | null
   supplier_tax_id: string | null
+  supplier_address?: string | null
+  supplier_postal_code?: string | null
+  supplier_city?: string | null
+  supplier_province?: string | null
   invoice_number: string | null
   invoice_date: string | null
   base_amount: string | number | null
@@ -325,6 +331,7 @@ function toFacturaData(
     (typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : '')
   const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
   const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
+  const exPoblacion = typeof ex?.cliente_poblacion === 'string' ? (ex.cliente_poblacion as string) : ''
   const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
   const exRetPct = toNumLoose(ex?.retencion_porcentaje)
   const exRetImp = toNumLoose(ex?.retencion_importe)
@@ -362,6 +369,7 @@ function toFacturaData(
       cif: f?.supplier_tax_id || exNif || '',
       direccion: (f?.supplier_address != null ? String(f.supplier_address) : null) ?? exDireccion ?? '',
       codigoPostal: (f?.supplier_postal_code != null ? String(f.supplier_postal_code) : null) ?? exCp ?? '',
+      poblacion: (f?.supplier_city != null ? String(f.supplier_city) : null) ?? exPoblacion ?? '',
       provincia: (f?.supplier_province != null ? String(f.supplier_province) : null) ?? exProv ?? '',
     },
     factura: {
@@ -858,6 +866,7 @@ export default function ValidarUploadPage() {
       (typeof ex?.cliente_nif === 'string' ? (ex.cliente_nif as string) : '')
     const exDireccion = typeof ex?.cliente_direccion === 'string' ? (ex.cliente_direccion as string) : ''
     const exCp = typeof ex?.cliente_codigo_postal === 'string' ? (ex.cliente_codigo_postal as string) : ''
+    const exPoblacion = typeof ex?.cliente_poblacion === 'string' ? (ex.cliente_poblacion as string) : ''
     const exProv = typeof ex?.cliente_provincia === 'string' ? (ex.cliente_provincia as string) : ''
     const exNumero = typeof ex?.numero_factura === 'string' ? (ex.numero_factura as string) : ''
     const exFecha = typeof ex?.fecha === 'string' ? (ex.fecha as string) : ''
@@ -878,6 +887,7 @@ export default function ValidarUploadPage() {
     if (!next.proveedor.cif && supplierTaxId) next.proveedor.cif = supplierTaxId
     if (!next.proveedor.direccion && exDireccion) next.proveedor.direccion = exDireccion
     if (!next.proveedor.codigoPostal && exCp) next.proveedor.codigoPostal = exCp
+    if (!next.proveedor.poblacion && exPoblacion) next.proveedor.poblacion = exPoblacion
     if (!next.proveedor.provincia && exProv) next.proveedor.provincia = exProv
 
     if (!next.factura.numero && invoiceNumber) next.factura.numero = invoiceNumber
@@ -1146,6 +1156,7 @@ export default function ValidarUploadPage() {
             supplier_tax_id: factura.proveedor.cif || null,
             supplier_address: factura.proveedor.direccion || null,
             supplier_postal_code: factura.proveedor.codigoPostal || null,
+            supplier_city: factura.proveedor.poblacion || null,
             supplier_province: factura.proveedor.provincia || null,
             invoice_number: factura.factura.numero || null,
             invoice_date: toISODate(factura.factura.fecha) || null,

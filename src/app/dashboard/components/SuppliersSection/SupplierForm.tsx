@@ -56,7 +56,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
           disabled={isDisabled}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label htmlFor="supplier-postal-code" className="block text-sm font-medium text-foreground mb-2">
             Código postal
@@ -70,6 +70,20 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
             placeholder="28001"
             disabled={isDisabled}
             maxLength={10}
+          />
+        </div>
+        <div>
+          <label htmlFor="supplier-city" className="block text-sm font-medium text-foreground mb-2">
+            Población
+          </label>
+          <input
+            id="supplier-city"
+            type="text"
+            value={proveedor.city}
+            onChange={(e) => setProveedor((prev) => ({ ...prev, city: e.target.value }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="Madrid"
+            disabled={isDisabled}
           />
         </div>
         <div>

@@ -8,6 +8,7 @@ export type SupplierFormState = {
   tax_id: string
   address: string
   postal_code: string
+  city: string
   province: string
 }
 
@@ -16,6 +17,7 @@ const emptySupplierForm: SupplierFormState = {
   tax_id: '',
   address: '',
   postal_code: '',
+  city: '',
   province: '',
 }
 
@@ -88,6 +90,7 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
           tax_id: nuevoProveedor.tax_id.trim().toUpperCase(),
           address: nuevoProveedor.address.trim() || null,
           postal_code: nuevoProveedor.postal_code.trim() || null,
+          city: nuevoProveedor.city.trim() || null,
           province: nuevoProveedor.province.trim() || null,
         }),
       })
@@ -119,6 +122,7 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
       tax_id: s.tax_id || '',
       address: s.address || '',
       postal_code: s.postal_code || '',
+      city: s.city || '',
       province: s.province || '',
     })
     setIsEditModalOpen(true)
@@ -146,6 +150,7 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
           tax_id: editProveedor.tax_id.trim().toUpperCase(),
           address: editProveedor.address.trim() || null,
           postal_code: editProveedor.postal_code.trim() || null,
+          city: editProveedor.city.trim() || null,
           province: editProveedor.province.trim() || null,
         }),
       })

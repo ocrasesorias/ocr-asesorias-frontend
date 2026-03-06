@@ -38,6 +38,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       'supplier_tax_id',
       'supplier_address',
       'supplier_postal_code',
+      'supplier_city',
       'supplier_province',
       'invoice_number',
       'invoice_date',
@@ -88,6 +89,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             postal_code:
               typeof body.supplier_postal_code === 'string' && body.supplier_postal_code.trim()
                 ? body.supplier_postal_code.trim()
+                : null,
+            city:
+              typeof body.supplier_city === 'string' && body.supplier_city.trim()
+                ? body.supplier_city.trim()
                 : null,
             province:
               typeof body.supplier_province === 'string' && body.supplier_province.trim()

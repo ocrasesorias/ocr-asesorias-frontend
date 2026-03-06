@@ -8,6 +8,9 @@ interface ClientFormProps {
     name: string;
     tax_id: string;
     address: string;
+    postal_code: string;
+    city: string;
+    province: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;
@@ -16,6 +19,9 @@ interface ClientFormProps {
     name: string;
     tax_id: string;
     address: string;
+    postal_code: string;
+    city: string;
+    province: string;
     preferred_income_account: string;
     preferred_expense_account: string;
     activity_description: string;
@@ -88,12 +94,58 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           value={cliente.address}
           onChange={(e) => setCliente(prev => ({ ...prev, address: e.target.value }))}
           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          placeholder="Ej: Calle Mayor 1, 28013 Madrid"
+          placeholder="Ej: Calle Mayor 1"
           disabled={isDisabled}
         />
         <p className="mt-1 text-xs text-foreground-secondary">
           Se usa para evitar que la IA confunda tu empresa con el proveedor al extraer facturas.
         </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label htmlFor="client-postal-code" className="block text-sm font-medium text-foreground mb-2">
+            Código postal
+          </label>
+          <input
+            id="client-postal-code"
+            type="text"
+            value={cliente.postal_code}
+            onChange={(e) => setCliente(prev => ({ ...prev, postal_code: e.target.value }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="28013"
+            disabled={isDisabled}
+            maxLength={10}
+          />
+        </div>
+        <div>
+          <label htmlFor="client-city" className="block text-sm font-medium text-foreground mb-2">
+            Población
+          </label>
+          <input
+            id="client-city"
+            type="text"
+            value={cliente.city}
+            onChange={(e) => setCliente(prev => ({ ...prev, city: e.target.value }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="Madrid"
+            disabled={isDisabled}
+          />
+        </div>
+        <div>
+          <label htmlFor="client-province" className="block text-sm font-medium text-foreground mb-2">
+            Provincia
+          </label>
+          <input
+            id="client-province"
+            type="text"
+            value={cliente.province}
+            onChange={(e) => setCliente(prev => ({ ...prev, province: e.target.value }))}
+            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            placeholder="Madrid"
+            disabled={isDisabled}
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
