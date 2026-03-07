@@ -31,7 +31,7 @@ import { Switch } from '@heroui/react';
          // getUser() valida el JWT contra el servidor (más seguro que getSession())
          const { data: { user }, error: authError } = await supabase.auth.getUser();
          if (authError || !user) {
-           router.push('/login?redirect=/dashboard/preferencias');
+           router.push('/login?redirect=/panel/preferencias');
            return;
          }
  
@@ -42,7 +42,7 @@ import { Switch } from '@heroui/react';
            .limit(1);
  
          if (membershipError || !memberships || memberships.length === 0) {
-           router.push('/dashboard/bienvenida');
+           router.push('/panel/bienvenida');
            return;
          }
  
@@ -140,10 +140,10 @@ import { Switch } from '@heroui/react';
        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
          <div className="mb-8 flex items-center gap-3">
            <Link
-             href="/dashboard"
+             href="/panel"
              className="p-2 -ml-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors shrink-0"
-             aria-label="Volver al dashboard"
-             title="Volver al dashboard"
+             aria-label="Volver al panel"
+             title="Volver al panel"
            >
              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

@@ -13,6 +13,9 @@ interface UploadItemProps {
   onCancelEdit: () => void;
   onEditingNombreChange: (nombre: string) => void;
   onDelete: () => void;
+  isSelectionMode?: boolean;
+  isChecked?: boolean;
+  onToggleCheck?: () => void;
 }
 
 export function UploadItem({
@@ -26,6 +29,9 @@ export function UploadItem({
   onCancelEdit,
   onEditingNombreChange,
   onDelete,
+  isSelectionMode = false,
+  isChecked = false,
+  onToggleCheck,
 }: UploadItemProps) {
   return (
     <div
@@ -38,6 +44,14 @@ export function UploadItem({
       `}
     >
       <div className="flex items-start gap-3">
+        {isSelectionMode && subida.uploadId && (
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={onToggleCheck}
+            className="mt-1.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+          />
+        )}
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <div className="relative">

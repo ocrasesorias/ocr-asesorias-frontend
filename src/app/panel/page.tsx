@@ -76,6 +76,7 @@ export default function DashboardPage() {
     handleDeleteClient,
     handleConfirmDeleteClient,
     handleCancelDeleteClient,
+    handleBulkDeleteClients,
   } = useClientManagement(orgId);
 
   // Supplier Management (proveedores del cliente seleccionado)
@@ -103,6 +104,7 @@ export default function DashboardPage() {
     openDeleteProveedor,
     handleConfirmEliminarProveedor,
     handleCancelDeleteProveedor,
+    handleBulkDeleteSuppliers,
   } = useSupplierManagement(clienteSeleccionado?.id ?? null, orgId);
   
   // Upload Management
@@ -129,6 +131,7 @@ export default function DashboardPage() {
     handleSeleccionarSubida,
     handleEliminarSubida,
     handleConfirmEliminarSubida,
+    handleBulkDeleteUploads,
   } = useUploadManagement();
   
   // Invoice Processing
@@ -277,6 +280,7 @@ export default function DashboardPage() {
               onCancelCrearCliente={handleCancelCrearCliente}
               onEditClient={handleEditClient}
               onDeleteClient={handleDeleteClient}
+              onBulkDelete={handleBulkDeleteClients}
             />
 
             {clienteSeleccionado && (
@@ -297,6 +301,7 @@ export default function DashboardPage() {
                 }}
                 onEditingNombreChange={setSubidaEditandoNombre}
                 onDeleteSubida={handleEliminarSubida}
+                onBulkDelete={(ids) => handleBulkDeleteUploads(ids, refreshInvoiceCounter)}
               />
             )}
 
@@ -326,6 +331,7 @@ export default function DashboardPage() {
                 onDeleteProveedor={openDeleteProveedor}
                 onConfirmEliminarProveedor={handleConfirmEliminarProveedor}
                 onCancelDeleteProveedor={handleCancelDeleteProveedor}
+                onBulkDelete={handleBulkDeleteSuppliers}
               />
             )}
           </div>

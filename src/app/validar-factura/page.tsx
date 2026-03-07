@@ -77,9 +77,9 @@ export default function ValidarFacturaPage() {
         return;
       }
 
-      // Ruta antigua (MVP). Ahora la validación vive en /dashboard/uploads/[id]/validar
-      showError('Ruta antigua. Te llevamos al dashboard para validar desde una subida.');
-      router.replace('/dashboard');
+      // Ruta antigua (MVP). Ahora la validación vive en /panel/uploads/[id]/validar
+      showError('Ruta antigua. Te llevamos al panel para validar desde una subida.');
+      router.replace('/panel');
 
       setIsCheckingSession(false);
     };
@@ -140,8 +140,8 @@ export default function ValidarFacturaPage() {
       setFacturaActual(facturaActual + 1);
     } else {
       // Todas las facturas validadas
-      // Opcional: redirigir al dashboard
-      // router.push('/dashboard');
+      // Opcional: redirigir al panel
+      // router.push('/panel');
     }
   };
 
@@ -151,8 +151,8 @@ export default function ValidarFacturaPage() {
     }
   };
 
-  const handleVolverDashboard = () => {
-    router.push('/dashboard');
+  const handleVolverPanel = () => {
+    router.push('/panel');
   };
 
   const handleGenerarExport = async () => {
@@ -211,10 +211,10 @@ export default function ValidarFacturaPage() {
             No hay facturas para validar
           </h2>
           <p className="text-foreground-secondary mb-6">
-            Sube facturas desde el dashboard para comenzar el proceso de validación
+            Sube facturas desde el panel para comenzar el proceso de validación
           </p>
-          <Button variant="primary" onClick={handleVolverDashboard}>
-            Volver al Dashboard
+          <Button variant="primary" onClick={handleVolverPanel}>
+            Volver al Panel
           </Button>
         </div>
       </div>
@@ -226,7 +226,7 @@ export default function ValidarFacturaPage() {
       {/* Header con navegación */}
       <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center space-x-4">
-          <Link href="/dashboard" className="text-primary hover:text-primary-hover">
+          <Link href="/panel" className="text-primary hover:text-primary-hover">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -298,10 +298,10 @@ export default function ValidarFacturaPage() {
               <button
                 type="button"
                 className="text-sm text-foreground-secondary hover:text-foreground transition-colors"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/panel')}
                 disabled={isExporting}
               >
-                Volver al dashboard
+                Volver al panel
               </button>
             </div>
           </div>

@@ -119,7 +119,7 @@ export function useInvoiceProcessing() {
     }
 
     if (uploaded > 0 && !isAllReady) {
-      msgs.push(`Procesando… (${readyCount + errorCount}/${uploaded} listas). Máx. 5 en paralelo.`);
+      msgs.push(`Procesando… (${readyCount + errorCount}/${uploaded} listas).`);
     }
     if (!hasUploadingFiles && uploaded > 0 && isAllReady) {
       msgs.push('¡Todo listo! Ya puedes empezar a validar.');
@@ -520,7 +520,7 @@ export function useInvoiceProcessing() {
       // noop
     }
 
-    const base = `/dashboard/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`;
+    const base = `/panel/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`;
     const url = invoiceId ? `${base}&invoice=${encodeURIComponent(invoiceId)}` : base;
     router.push(url);
   }, [archivosSubidos, router, showError, hasUploadingFiles, canValidate, readyCount, errorCount]);

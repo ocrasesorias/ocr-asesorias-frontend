@@ -5,7 +5,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rutas que requieren autenticación
-  const protectedRoutes = ['/dashboard', '/validar-factura']
+  const protectedRoutes = ['/panel', '/validar-factura']
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
 
   let response = NextResponse.next({ request })

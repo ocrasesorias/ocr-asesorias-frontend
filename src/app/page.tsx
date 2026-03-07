@@ -93,10 +93,10 @@ export default async function Home() {
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
                   {hasSession ? (
                     <Link
-                      href="/dashboard"
+                      href="/panel"
                       className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
-                      Ir al dashboard
+                      Ir al panel
                     </Link>
                   ) : (
                     <>
@@ -350,10 +350,10 @@ export default async function Home() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {hasSession ? (
                   <Link
-                    href="/dashboard"
+                    href="/panel"
                     className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                   >
-                    Ir al dashboard
+                    Ir al panel
                   </Link>
                 ) : (
                   <>

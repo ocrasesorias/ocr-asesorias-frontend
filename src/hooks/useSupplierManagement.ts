@@ -209,6 +209,29 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
     setProveedorParaEliminar(null)
   }
 
+  // Bulk delete suppliers
+  const handleBulkDeleteSuppliers = useCallback(async (supplierIds: string[]) => {
+    if (supplierIds.length === 0) return
+
+    let deleted = 0
+    const errors: string[] = []
+
+    for (const id of supplierIds) {
+      try {
+        const res = await fetch(`/api/suppliers/${id}`, { method: 'DELETE' })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.error || 'Error')
+        deleted++
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : 'Error')
+      }
+    }
+
+    setSuppliers((prev) => prev.filter((s) => !supplierIds.includes(s.id)))
+    if (deleted > 0) showSuccess(`${deleted} proveedor${deleted !== 1 ? 'es' : ''} eliminado${deleted !== 1 ? 's' : ''}`)
+    if (errors.length > 0) showError(`${errors.length} proveedor${errors.length !== 1 ? 'es' : ''} no se pudieron eliminar`)
+  }, [showError, showSuccess])
+
   return {
     suppliers,
     isLoading,
@@ -233,6 +256,7 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
     openDeleteProveedor,
     handleConfirmEliminarProveedor,
     handleCancelDeleteProveedor,
+    handleBulkDeleteSuppliers,
     refreshSuppliers: loadSuppliers,
   }
 }

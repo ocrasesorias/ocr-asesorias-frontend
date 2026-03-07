@@ -236,6 +236,35 @@ export function useUploadManagement() {
     }
   }, [showError, showSuccess, subidaActual, subidaParaEliminar]);
 
+  // Bulk delete uploads
+  const handleBulkDeleteUploads = useCallback(async (uploadIds: string[], onRefresh: () => void) => {
+    if (uploadIds.length === 0) return;
+
+    let deleted = 0;
+    const errors: string[] = [];
+
+    for (const id of uploadIds) {
+      try {
+        const resp = await fetch(`/api/uploads/${id}`, { method: 'DELETE' });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(data?.error || 'Error');
+        deleted++;
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : 'Error');
+      }
+    }
+
+    // Remove deleted from state
+    setSubidasFacturas(prev => prev.filter(s => !s.uploadId || !uploadIds.includes(s.uploadId)));
+    if (subidaActual?.uploadId && uploadIds.includes(subidaActual.uploadId)) {
+      setSubidaActual(null);
+    }
+
+    if (deleted > 0) showSuccess(`${deleted} subida${deleted !== 1 ? 's' : ''} eliminada${deleted !== 1 ? 's' : ''}`);
+    if (errors.length > 0) showError(`${errors.length} subida${errors.length !== 1 ? 's' : ''} no se pudieron eliminar`);
+    onRefresh();
+  }, [showError, showSuccess, subidaActual]);
+
   return {
     subidasFacturas,
     setSubidasFacturas,
@@ -259,5 +288,6 @@ export function useUploadManagement() {
     handleSeleccionarSubida,
     handleEliminarSubida,
     handleConfirmEliminarSubida,
+    handleBulkDeleteUploads,
   };
 }

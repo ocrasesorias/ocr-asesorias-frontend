@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 
 /**
- * Hook para manejar la autenticación y verificación de organización en el dashboard
+ * Hook para manejar la autenticación y verificación de organización en el panel
  */
 export function useDashboardAuth() {
   const router = useRouter();
@@ -22,7 +22,7 @@ export function useDashboardAuth() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        router.push('/login?redirect=/dashboard');
+        router.push('/login?redirect=/panel');
         return;
       }
 
@@ -34,12 +34,12 @@ export function useDashboardAuth() {
 
       if (membershipError) {
         console.warn('Error al verificar organización, redirigiendo a bienvenida:', membershipError.message);
-        router.push('/dashboard/bienvenida');
+        router.push('/panel/bienvenida');
         return;
       }
 
       if (!memberships || memberships.length === 0) {
-        router.push('/dashboard/bienvenida');
+        router.push('/panel/bienvenida');
         return;
       }
 

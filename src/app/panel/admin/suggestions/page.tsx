@@ -106,12 +106,12 @@ export default function AdminSuggestionsPage() {
       const data = await res.json().catch(() => ({}));
 
       if (res.status === 401) {
-        router.push('/login?redirect=/dashboard/admin/suggestions');
+        router.push('/login?redirect=/panel/admin/suggestions');
         return;
       }
       if (res.status === 403) {
         showError('No tienes permiso para ver esta página.');
-        router.push('/dashboard');
+        router.push('/panel');
         return;
       }
       if (!res.ok) {
@@ -198,10 +198,10 @@ export default function AdminSuggestionsPage() {
               <span className="text-2xl font-bold text-primary">KontaScan</span>
             </Link>
             <Link
-              href="/dashboard"
+              href="/panel"
               className="text-sm font-medium text-primary hover:underline"
             >
-              Volver al dashboard
+              Volver al panel
             </Link>
           </div>
         </div>
@@ -210,10 +210,10 @@ export default function AdminSuggestionsPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href="/panel"
             className="p-2 -ml-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors shrink-0"
-            aria-label="Volver al dashboard"
-            title="Volver al dashboard"
+            aria-label="Volver al panel"
+            title="Volver al panel"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

@@ -708,7 +708,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           No se pudo cargar la previsualización de esta factura.
                         </p>
                         <p className="text-xs text-slate-500 mt-1">
-                          Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.
+                          Vuelve al panel y reintenta la subida o revisa permisos de Storage/RLS.
                         </p>
                       </div>
                     </div>
@@ -739,7 +739,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 <div className="h-full w-full flex items-center justify-center text-center px-6">
                   <div>
                     <p className="text-sm text-slate-500">No se pudo cargar la previsualización de esta factura.</p>
-                    <p className="text-xs text-slate-500 mt-1">Vuelve al dashboard y reintenta la subida o revisa permisos de Storage/RLS.</p>
+                    <p className="text-xs text-slate-500 mt-1">Vuelve al panel y reintenta la subida o revisa permisos de Storage/RLS.</p>
                   </div>
                 </div>
               ) : (

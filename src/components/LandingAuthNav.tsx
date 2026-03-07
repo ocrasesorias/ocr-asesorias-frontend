@@ -19,7 +19,7 @@ export function LandingAuthNav() {
         const supabase = createClient()
 
         // getSession() es aceptable aquí porque es solo para UI de la landing.
-        // La verificación real ocurre en el middleware al navegar a /dashboard.
+        // La verificación real ocurre en el middleware al navegar a /panel.
         const { data: { session } } = await supabase.auth.getSession()
         if (!cancelled) setHasSession(!!session)
 
@@ -58,10 +58,10 @@ export function LandingAuthNav() {
     return (
       <div className="flex items-center space-x-4">
         <Link
-          href="/dashboard"
+          href="/panel"
           className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
         >
-          Ir al dashboard
+          Ir al panel
         </Link>
         <button
           type="button"

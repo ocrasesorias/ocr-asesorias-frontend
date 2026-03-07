@@ -74,7 +74,7 @@ export function useClientManagement(orgId: string | null) {
 
     // Persistir selección
     if (orgId) {
-      const key = `dashboard:selectedClientId:${orgId}`;
+      const key = `panel:selectedClientId:${orgId}`;
       if (clienteId) safeSetItem(key, clienteId);
       else safeRemoveItem(key);
     }
@@ -91,7 +91,7 @@ export function useClientManagement(orgId: string | null) {
     if (clienteSeleccionado) return;
     if (clientes.length === 0) return;
 
-    const key = `dashboard:selectedClientId:${orgId}`;
+    const key = `panel:selectedClientId:${orgId}`;
     const savedId = safeGetItem(key);
     if (!savedId) return;
 
@@ -143,7 +143,7 @@ export function useClientManagement(orgId: string | null) {
       // Seleccionar el nuevo cliente automáticamente
       setClienteSeleccionado(data.client);
       if (orgId) {
-        safeSetItem(`dashboard:selectedClientId:${orgId}`, data.client.id);
+        safeSetItem(`panel:selectedClientId:${orgId}`, data.client.id);
       }
 
       // Limpiar el formulario y cerrar
@@ -238,6 +238,32 @@ export function useClientManagement(orgId: string | null) {
     }
   }, [clientParaEliminar, clienteSeleccionado?.id, showError, showSuccess]);
 
+  // Bulk delete clients
+  const handleBulkDeleteClients = useCallback(async (clientIds: string[]) => {
+    if (clientIds.length === 0) return;
+
+    let deleted = 0;
+    const errors: string[] = [];
+
+    for (const id of clientIds) {
+      try {
+        const resp = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+        const data = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(data?.error || 'Error');
+        deleted++;
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : 'Error');
+      }
+    }
+
+    setClientes((prev) => prev.filter((c) => !clientIds.includes(c.id)));
+    if (clienteSeleccionado && clientIds.includes(clienteSeleccionado.id)) {
+      setClienteSeleccionado(null);
+    }
+    if (deleted > 0) showSuccess(`${deleted} cliente${deleted !== 1 ? 's' : ''} eliminado${deleted !== 1 ? 's' : ''}`);
+    if (errors.length > 0) showError(`${errors.length} cliente${errors.length !== 1 ? 's' : ''} no se pudieron eliminar`);
+  }, [clienteSeleccionado, showError, showSuccess]);
+
   return {
     clientes,
     clienteSeleccionado,
@@ -275,5 +301,6 @@ export function useClientManagement(orgId: string | null) {
       setIsDeleteClientModalOpen(false);
       setClientParaEliminar(null);
     },
+    handleBulkDeleteClients,
   };
 }

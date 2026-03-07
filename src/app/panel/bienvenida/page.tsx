@@ -25,7 +25,7 @@ export default function BienvenidaPage() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        router.push('/login?redirect=/dashboard/bienvenida');
+        router.push('/login?redirect=/panel/bienvenida');
         return;
       }
 
@@ -40,8 +40,8 @@ export default function BienvenidaPage() {
         // Si hay error, asumimos que no tiene organización y continuamos
         console.warn('Error al verificar organización:', error.message);
       } else if (memberships && memberships.length > 0) {
-        // Ya tiene organización, redirigir al dashboard
-        router.push('/dashboard');
+        // Ya tiene organización, redirigir al panel
+        router.push('/panel');
         return;
       }
 
@@ -78,14 +78,14 @@ export default function BienvenidaPage() {
         return;
       }
 
-      // Organización creada exitosamente, redirigir al dashboard
+      // Organización creada exitosamente, redirigir al panel
       showSuccess('¡Organización creada exitosamente!');
       try {
         sessionStorage.setItem('onboarding:accountingProgram', accountingProgram);
       } catch {
         // noop
       }
-      router.push('/dashboard');
+      router.push('/panel');
     } catch (error) {
       console.error('Error al crear organización:', error);
       showError('Error al crear la organización. Por favor, intenta de nuevo.');

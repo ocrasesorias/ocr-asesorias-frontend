@@ -40,7 +40,7 @@ export function DashboardHeader({
     }
 
     if (orgId) {
-      safeRemoveItem(`dashboard:selectedClientId:${orgId}`);
+      safeRemoveItem(`panel:selectedClientId:${orgId}`);
     }
     showSuccess('Sesión cerrada');
     router.push('/login');
@@ -75,7 +75,7 @@ export function DashboardHeader({
               </svg>
             </button>
             <Link
-              href="/dashboard/pendientes"
+              href="/panel/pendientes"
               className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
               aria-label="Facturas por procesar"
               title="Facturas por procesar"
@@ -86,7 +86,7 @@ export function DashboardHeader({
               </svg>
             </Link>
             <Link
-              href="/dashboard/admin/suggestions"
+              href="/panel/admin/suggestions"
               className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
               aria-label="Panel admin - Sugerencias"
               title="Panel admin - Sugerencias"
@@ -97,7 +97,7 @@ export function DashboardHeader({
               </svg>
             </Link>
             <Link
-              href="/dashboard/preferencias"
+              href="/panel/preferencias"
               className="p-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
               aria-label="Preferencias"
               title="Preferencias"
@@ -133,7 +133,7 @@ export function DashboardHeader({
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
             <h2 className="text-3xl font-light text-foreground mb-2 truncate">
-              {organizationName || 'Dashboard'}
+              {organizationName || 'Panel'}
             </h2>
             <p className="text-foreground-secondary">
               Gestiona las facturas de tus clientes

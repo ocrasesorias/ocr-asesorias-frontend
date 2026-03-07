@@ -593,7 +593,7 @@ export default function ValidarUploadPage() {
     return () => clearInterval(id)
   }, [isAllDone, uploadId])
 
-  // Si venimos con ?invoice=xxx (clic en factura concreta desde el dashboard), ir directo a esa factura
+  // Si venimos con ?invoice=xxx (clic en factura concreta desde el panel), ir directo a esa factura
   useEffect(() => {
     const invoiceParam = searchParams.get('invoice')
     if (!invoiceParam || invoiceRows.length === 0) return
@@ -657,7 +657,7 @@ export default function ValidarUploadPage() {
         const supabase = createClient()
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         if (authError || !authUser) {
-          router.push(`/login?redirect=/dashboard/uploads/${uploadId}/validar`)
+          router.push(`/login?redirect=/panel/uploads/${uploadId}/validar`)
           return
         }
 
@@ -1015,7 +1015,7 @@ export default function ValidarUploadPage() {
   }
 
   // Bombeo de cola local: asegura que las facturas que no entraron en proceso (estado 'uploaded')
-  // sigan extrayéndose de 5 en 5 si el dashboard dejó de encolarlas al navegar.
+  // sigan extrayéndose de 5 en 5 si el panel dejó de encolarlas al navegar.
   useEffect(() => {
     if (invoiceRows.length === 0) return
     const MAX_CONCURRENT = 5
@@ -1028,7 +1028,7 @@ export default function ValidarUploadPage() {
       }
     }
 
-    // Contar también las que están 'processing' en la BD (pueden venir del dashboard en 2º plano)
+    // Contar también las que están 'processing' en la BD (pueden venir del panel en 2º plano)
     // para no saturar al backend
     for (const inv of invoiceRows) {
       if (!startedRef.current[inv.id] && (inv.status === 'processing' || invoiceStatus[inv.id] === 'processing')) {
@@ -1413,8 +1413,8 @@ export default function ValidarUploadPage() {
         <div className="text-center max-w-md">
           <h2 className="text-2xl font-bold text-foreground mb-4">No hay facturas para validar</h2>
           <p className="text-foreground-secondary mb-6">Esta subida no contiene facturas.</p>
-          <Button variant="primary" onClick={() => router.push('/dashboard')}>
-            Volver al Dashboard
+          <Button variant="primary" onClick={() => router.push('/panel')}>
+            Volver al Panel
           </Button>
         </div>
       </div>
