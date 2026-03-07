@@ -101,6 +101,16 @@ function getLatestExtraction(inv: UploadInvoiceRow): Record<string, unknown> | n
   return typeof raw === 'object' ? (raw as Record<string, unknown>) : null
 }
 
+type DuplicateInfo = {
+  invoice_id: string
+  upload_id: string
+  supplier_name: string | null
+  invoice_number: string
+  invoice_date: string | null
+  total_amount: number | null
+  original_filename: string | null
+}
+
 type RetencionPorcentaje = FacturaData['retencion']['porcentaje']
 type RetencionTipo = FacturaData['retencion']['tipo']
 
@@ -443,6 +453,7 @@ export default function ValidarUploadPage() {
   const [workingQuarter, setWorkingQuarter] = useState<string>('')
   /** IDs de facturas cuyo preview devolvió distinto de 200 (para mostrar "No se pudo cargar" en vez de "Cargando...") */
   const [previewFailedIds, setPreviewFailedIds] = useState<Record<string, true>>({})
+  const [duplicatesByInvoiceId, setDuplicatesByInvoiceId] = useState<Record<string, DuplicateInfo[]>>({})
 
   const statusStats = useMemo(() => {
     const total = invoiceRows.length
@@ -826,6 +837,13 @@ export default function ValidarUploadPage() {
         })
         startedRef.current = {}
 
+        // Check duplicates for invoices that already have fields
+        for (const inv of invoices) {
+          if (initialStatus[inv.id] === 'ready') {
+            checkDuplicates(inv.id)
+          }
+        }
+
       } catch (e) {
         showError(e instanceof Error ? e.message : 'Error cargando la subida')
       } finally {
@@ -855,6 +873,23 @@ export default function ValidarUploadPage() {
 
   const bumpRevision = (invoiceId: string) => {
     setFacturaRevisions((prev) => ({ ...prev, [invoiceId]: (prev[invoiceId] || 0) + 1 }))
+  }
+
+  const checkDuplicates = (invoiceId: string) => {
+    void (async () => {
+      try {
+        const resp = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/duplicates`)
+        if (!resp.ok) return
+        const data = await resp.json()
+        const dupes: DuplicateInfo[] = Array.isArray(data?.duplicates) ? data.duplicates : []
+        setDuplicatesByInvoiceId((prev) => {
+          if (dupes.length === 0 && !prev[invoiceId]) return prev
+          return { ...prev, [invoiceId]: dupes }
+        })
+      } catch {
+        // noop — non-blocking
+      }
+    })()
   }
 
   const patchFacturaFromExtraction = (prevFactura: FacturaData, extraction: unknown, fields: InvoiceFieldsRow | null) => {
@@ -993,6 +1028,7 @@ export default function ValidarUploadPage() {
     )
 
     bumpRevision(invoiceId)
+    checkDuplicates(invoiceId)
   }
 
   const startExtractSingle = async (invoiceId: string): Promise<void> => {
@@ -1179,6 +1215,16 @@ export default function ValidarUploadPage() {
       nuevas[facturaActual] = factura
       return nuevas
     })
+
+    // Re-check duplicates after saving fields (this invoice + others that are ready)
+    if (invoiceId) {
+      checkDuplicates(invoiceId)
+      for (const inv of invoiceRows) {
+        if (inv.id !== invoiceId && invoiceStatus[inv.id] === 'ready') {
+          checkDuplicates(inv.id)
+        }
+      }
+    }
 
     // Marcar como validada y persistir (sesión)
     if (invoiceId) {
@@ -1547,6 +1593,7 @@ export default function ValidarUploadPage() {
                 const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated
                 const isVisited = Boolean(visitedByInvoiceId[inv.id])
                 const isCurrent = allIdx === facturaActual
+                const hasDuplicates = (duplicatesByInvoiceId[inv.id]?.length ?? 0) > 0
 
                 const bgClass = isValidated
                   ? 'bg-secondary'
@@ -1566,11 +1613,12 @@ export default function ValidarUploadPage() {
                       bgClass,
                       visibleIdx === arr.length - 1 ? '' : 'border-r border-slate-200',
                       isCurrent ? 'ring-1 ring-primary ring-inset' : '',
+                      hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
                       invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
                         ? 'cursor-not-allowed opacity-60'
                         : 'cursor-pointer',
                     ].join(' ')}
-                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error' ? ' · procesando…' : ''}`}
+                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error' ? ' · procesando…' : ''}${hasDuplicates ? ' · posible duplicada' : ''}`}
                     aria-label={`Ir a factura ${allIdx + 1}`}
                     disabled={invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'}
                   />
@@ -1646,6 +1694,8 @@ export default function ValidarUploadPage() {
                   ? 'ERROR (REINTENTA)'
                   : undefined
 
+          const currentDuplicates = currentId ? duplicatesByInvoiceId[currentId] : undefined
+
           return (
             <ValidarFactura
               key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
@@ -1656,6 +1706,7 @@ export default function ValidarUploadPage() {
               workingQuarter={workingQuarter}
               factura={facturas[facturaActual]}
               previewFailed={currentId ? Boolean(previewFailedIds[currentId]) : false}
+              duplicateWarning={currentDuplicates && currentDuplicates.length > 0 ? currentDuplicates : null}
               onValidar={handleValidar}
               onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
               onSiguiente={handleSiguiente}
