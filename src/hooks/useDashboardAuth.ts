@@ -11,6 +11,7 @@ export function useDashboardAuth() {
   const { showError } = useToast();
   const [organizationName, setOrganizationName] = useState<string>('');
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'owner' | 'member'>('member');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +30,7 @@ export function useDashboardAuth() {
       // Verificar si el usuario tiene al menos una organización
       const { data: memberships, error: membershipError } = await supabase
         .from('organization_members')
-        .select('org_id')
+        .select('org_id, role')
         .eq('user_id', user.id);
 
       if (membershipError) {
@@ -56,6 +57,11 @@ export function useDashboardAuth() {
       }
       setOrgId(currentOrgId);
 
+      // Determine role for the selected org
+      const membership = memberships.find((m) => m.org_id === currentOrgId)
+      const role = String((membership as Record<string, unknown>)?.role || '').toLowerCase()
+      setUserRole(role === 'owner' ? 'owner' : 'member')
+
       const { data: organization, error: orgError } = await supabase
         .from('organizations')
         .select('name')
@@ -78,6 +84,7 @@ export function useDashboardAuth() {
   return {
     organizationName,
     orgId,
+    userRole,
     isLoading,
   };
 }

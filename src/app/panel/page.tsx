@@ -40,7 +40,7 @@ export default function DashboardPage() {
   // ============================================================================
   
   // Authentication & Organization
-  const { organizationName, orgId, isLoading: isLoadingAuth } = useDashboardAuth();
+  const { organizationName, orgId, userRole, isLoading: isLoadingAuth } = useDashboardAuth();
   
   // Invoice Counter
   const {
@@ -281,6 +281,7 @@ export default function DashboardPage() {
               onEditClient={handleEditClient}
               onDeleteClient={handleDeleteClient}
               onBulkDelete={handleBulkDeleteClients}
+              canDelete={userRole === 'owner'}
             />
 
             {clienteSeleccionado && (

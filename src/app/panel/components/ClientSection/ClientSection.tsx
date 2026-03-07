@@ -40,6 +40,8 @@ interface ClientSectionProps {
   onEditClient: (client: Cliente) => void;
   onDeleteClient: (client: Cliente) => void;
   onBulkDelete?: (clientIds: string[]) => Promise<void>;
+  /** Solo el owner puede borrar clientes. Si false, se ocultan los botones de eliminar. */
+  canDelete?: boolean;
 }
 
 export function ClientSection({
@@ -56,6 +58,7 @@ export function ClientSection({
   onEditClient,
   onDeleteClient,
   onBulkDelete,
+  canDelete = true,
 }: ClientSectionProps) {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -130,15 +133,17 @@ export function ClientSection({
           >
             Editar
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            className="flex-1 border-red-700 text-red-700 hover:bg-red-700"
-            onClick={() => onDeleteClient(clienteSeleccionado)}
-          >
-            Eliminar
-          </Button>
+          {canDelete && (
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              className="flex-1 border-red-700 text-red-700 hover:bg-red-700"
+              onClick={() => onDeleteClient(clienteSeleccionado)}
+            >
+              Eliminar
+            </Button>
+          )}
         </div>
       )}
 
@@ -148,8 +153,8 @@ export function ClientSection({
         </p>
       )}
 
-      {/* Multi-select list for bulk delete */}
-      {clientes.length > 1 && (
+      {/* Multi-select list for bulk delete (solo owner) */}
+      {canDelete && clientes.length > 1 && (
         <div className="mt-4 border-t border-gray-100 pt-3">
           {isSelectionMode ? (
             <>

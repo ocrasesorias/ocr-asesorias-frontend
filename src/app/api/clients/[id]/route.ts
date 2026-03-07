@@ -68,7 +68,19 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const { id: clientId } = await context.params
     const { data: auth, response: authError } = await requireAuth()
     if (authError) return authError
-    const { supabase, orgIds } = auth
+    const { supabase, orgId, orgIds } = auth
+
+    // Solo el owner puede eliminar clientes
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('org_id', orgId)
+      .eq('user_id', auth.user.id)
+      .maybeSingle()
+
+    if (!membership || String(membership.role).toLowerCase() !== 'owner') {
+      return NextResponse.json({ error: 'Solo el propietario puede eliminar clientes' }, { status: 403 })
+    }
 
     // Seguridad: si tiene subidas, no lo borramos (evita dejar históricos huérfanos)
     const { data: anyUpload, error: uploadError } = await supabase
