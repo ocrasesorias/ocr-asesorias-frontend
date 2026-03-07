@@ -377,7 +377,7 @@ function toFacturaData(
       fecha: f?.invoice_date ? String(f.invoice_date) : '',
       fechaVencimiento: '',
     },
-    subcuentaGasto: opts?.defaultSubcuenta || '',
+    subcuentaGasto: (typeof ex?.subcuenta_gasto === 'string' && ex.subcuenta_gasto.trim()) ? ex.subcuenta_gasto.trim() : (opts?.defaultSubcuenta || ''),
     retencion: {
       aplica: hasRetencion,
       porcentaje: toRetencionPorcentaje(exRetPct),
@@ -892,6 +892,9 @@ export default function ValidarUploadPage() {
 
     if (!next.factura.numero && invoiceNumber) next.factura.numero = invoiceNumber
     if (!next.factura.fecha && invoiceDate) next.factura.fecha = invoiceDate
+
+    const exSubcuenta = typeof ex?.subcuenta_gasto === 'string' ? ex.subcuenta_gasto.trim() : ''
+    if (!next.subcuentaGasto && exSubcuenta) next.subcuentaGasto = exSubcuenta
 
     const line0 = next.lineas?.[0] ? { ...next.lineas[0] } : null
     if (line0) {

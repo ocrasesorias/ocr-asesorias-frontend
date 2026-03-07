@@ -602,10 +602,27 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       { value: '708', label: '708 - Devoluciones y descuentos' },
     ]
     : [
-      { value: '600', label: '600' },
-      { value: '620', label: '620' },
-      { value: '621', label: '621' },
-      { value: '628', label: '628' },
+      { value: '600', label: '600 - Compra mercaderías' },
+      { value: '601', label: '601 - Compra materias primas' },
+      { value: '602', label: '602 - Otros aprovisionamientos' },
+      { value: '607', label: '607 - Trabajos otras empresas' },
+      { value: '620', label: '620 - Gastos I+D' },
+      { value: '621', label: '621 - Arrendamientos y cánones' },
+      { value: '622', label: '622 - Reparaciones y conservación' },
+      { value: '623', label: '623 - Servicios profesionales' },
+      { value: '624', label: '624 - Transportes' },
+      { value: '625', label: '625 - Primas de seguros' },
+      { value: '626', label: '626 - Servicios bancarios' },
+      { value: '627', label: '627 - Publicidad y RRPP' },
+      { value: '628', label: '628 - Suministros' },
+      { value: '629', label: '629 - Otros servicios' },
+      { value: '631', label: '631 - Otros tributos' },
+      { value: '640', label: '640 - Sueldos y salarios' },
+      { value: '642', label: '642 - Seg. Social empresa' },
+      { value: '649', label: '649 - Otros gastos sociales' },
+      { value: '662', label: '662 - Intereses deudas' },
+      { value: '669', label: '669 - Otros gastos financieros' },
+      { value: '681', label: '681 - Amortización inmov. material' },
     ]
 
   return (

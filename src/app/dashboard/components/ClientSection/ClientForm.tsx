@@ -178,10 +178,27 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             disabled={isDisabled}
           >
-            <option value="600">600</option>
-            <option value="620">620</option>
-            <option value="621">621</option>
-            <option value="628">628</option>
+            <option value="600">600 - Compra mercaderías</option>
+            <option value="601">601 - Compra materias primas</option>
+            <option value="602">602 - Otros aprovisionamientos</option>
+            <option value="607">607 - Trabajos otras empresas</option>
+            <option value="620">620 - Gastos I+D</option>
+            <option value="621">621 - Arrendamientos y cánones</option>
+            <option value="622">622 - Reparaciones y conservación</option>
+            <option value="623">623 - Servicios profesionales</option>
+            <option value="624">624 - Transportes</option>
+            <option value="625">625 - Primas de seguros</option>
+            <option value="626">626 - Servicios bancarios</option>
+            <option value="627">627 - Publicidad y RRPP</option>
+            <option value="628">628 - Suministros</option>
+            <option value="629">629 - Otros servicios</option>
+            <option value="631">631 - Otros tributos</option>
+            <option value="640">640 - Sueldos y salarios</option>
+            <option value="642">642 - Seg. Social empresa</option>
+            <option value="649">649 - Otros gastos sociales</option>
+            <option value="662">662 - Intereses deudas</option>
+            <option value="669">669 - Otros gastos financieros</option>
+            <option value="681">681 - Amortización inmov. material</option>
           </select>
         </div>
       </div>
