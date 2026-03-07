@@ -53,26 +53,38 @@ export function CreateClientModal({
       }}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-white shadow-xl border border-gray-200"
+        className="w-full max-w-lg max-h-[90vh] rounded-xl bg-white shadow-xl border border-gray-200 flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <form onSubmit={onSubmit}>
-          <div className="p-6">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 shrink-0">
+          <div>
             <h3 className="text-lg font-semibold text-foreground">Crear cliente</h3>
-            <p className="mt-2 text-sm text-foreground-secondary">
+            <p className="mt-1 text-sm text-foreground-secondary">
               Introduce los datos del nuevo cliente. Las cuentas preferentes se usarán por defecto al validar facturas.
             </p>
-
-            <div className="mt-4">
-              <ClientForm
+          </div>
+          <button
+            type="button"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            disabled={isCreating}
+            onClick={onClose}
+            aria-label="Cerrar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form onSubmit={onSubmit} className="flex flex-col overflow-hidden flex-1">
+          <div className="p-6 overflow-y-auto flex-1">
+            <ClientForm
                 cliente={nuevoCliente}
                 setCliente={setNuevoCliente}
                 isDisabled={isCreating}
               />
-            </div>
           </div>
 
-          <div className="px-6 pb-6 flex justify-end gap-3">
+          <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-100 shrink-0">
             <button
               type="button"
               className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

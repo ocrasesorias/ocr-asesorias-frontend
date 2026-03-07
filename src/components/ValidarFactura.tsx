@@ -1023,16 +1023,6 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       </FieldRow>
                     </div>
                     <div>
-                      <FieldRow label="POBL." widthClass="w-12">
-                        <input
-                          type="text"
-                          value={factura.proveedor.poblacion}
-                          onChange={(e) => handleChange('proveedor.poblacion', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                        />
-                      </FieldRow>
-                    </div>
-                    <div>
                       <FieldRow label="PROV." widthClass="w-12">
                         <input
                           type="text"
@@ -1043,15 +1033,27 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       </FieldRow>
                     </div>
                   </div>
-                  <div>
-                    <FieldRow label="DIRECCIÓN" widthClass="w-20">
-                      <input
-                        type="text"
-                        value={factura.proveedor.direccion}
-                        onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
-                      />
-                    </FieldRow>
+                  <div className="grid grid-cols-[65fr_35fr] gap-1">
+                    <div>
+                      <FieldRow label="DIR." widthClass="w-10">
+                        <input
+                          type="text"
+                          value={factura.proveedor.direccion}
+                          onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </FieldRow>
+                    </div>
+                    <div>
+                      <FieldRow label="POBL." widthClass="w-12">
+                        <input
+                          type="text"
+                          value={factura.proveedor.poblacion}
+                          onChange={(e) => handleChange('proveedor.poblacion', e.target.value)}
+                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </FieldRow>
+                    </div>
                   </div>
                 </div>
               </div>
