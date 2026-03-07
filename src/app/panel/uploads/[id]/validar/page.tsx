@@ -1464,6 +1464,7 @@ export default function ValidarUploadPage() {
         body: JSON.stringify({
           invoice_ids: validatedInvoiceIds,
           program,
+          tipo: tipoFactura,
         }),
       })
       const data = await resp.json()
