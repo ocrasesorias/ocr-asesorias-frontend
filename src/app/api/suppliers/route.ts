@@ -73,6 +73,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 })
     }
 
+    // Verificar nombre duplicado (case-insensitive)
+    const { data: existingByName } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('client_id', clientId)
+      .ilike('name', name)
+      .limit(1)
+
+    if (existingByName && existingByName.length > 0) {
+      return NextResponse.json({ error: 'Ya existe un proveedor con ese nombre para este cliente' }, { status: 409 })
+    }
+
+    // Verificar CIF duplicado (case-insensitive)
+    const { data: existingByTaxId } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('client_id', clientId)
+      .ilike('tax_id', taxId)
+      .limit(1)
+
+    if (existingByTaxId && existingByTaxId.length > 0) {
+      return NextResponse.json({ error: 'Ya existe un proveedor con ese CIF/NIF para este cliente' }, { status: 409 })
+    }
+
     const { data: supplier, error } = await supabase
       .from('suppliers')
       .insert({

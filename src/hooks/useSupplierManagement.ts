@@ -79,6 +79,20 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
       return
     }
 
+    // Validación client-side: nombre o CIF duplicado
+    const nameNorm = nuevoProveedor.name.trim().toUpperCase()
+    const taxIdNorm = nuevoProveedor.tax_id.trim().toUpperCase()
+    const dupByName = suppliers.find((s) => s.name.toUpperCase() === nameNorm)
+    if (dupByName) {
+      showError(`Ya existe un proveedor con ese nombre (${dupByName.name})`)
+      return
+    }
+    const dupByTaxId = suppliers.find((s) => s.tax_id.toUpperCase() === taxIdNorm)
+    if (dupByTaxId) {
+      showError(`Ya existe un proveedor con ese CIF/NIF (${dupByTaxId.name})`)
+      return
+    }
+
     setIsCreating(true)
     try {
       const res = await fetch('/api/suppliers', {
@@ -137,6 +151,20 @@ export function useSupplierManagement(clientId: string | null, orgId: string | n
     }
     if (!editProveedor.tax_id.trim() || editProveedor.tax_id.trim().length < 8) {
       showError('El CIF/NIF es requerido y debe tener al menos 8 caracteres')
+      return
+    }
+
+    // Validación client-side: nombre o CIF duplicado (excluyendo self)
+    const editNameNorm = editProveedor.name.trim().toUpperCase()
+    const editTaxIdNorm = editProveedor.tax_id.trim().toUpperCase()
+    const dupEditName = suppliers.find((s) => s.id !== proveedorParaEditar.id && s.name.toUpperCase() === editNameNorm)
+    if (dupEditName) {
+      showError(`Ya existe otro proveedor con ese nombre (${dupEditName.name})`)
+      return
+    }
+    const dupEditTaxId = suppliers.find((s) => s.id !== proveedorParaEditar.id && s.tax_id.toUpperCase() === editTaxIdNorm)
+    if (dupEditTaxId) {
+      showError(`Ya existe otro proveedor con ese CIF/NIF (${dupEditTaxId.name})`)
       return
     }
 

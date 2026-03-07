@@ -28,6 +28,44 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'tax_id (CIF/NIF) es requerido y debe tener al menos 8 caracteres' }, { status: 400 })
     }
 
+    // Obtener el proveedor actual para saber su client_id
+    const { data: current, error: currentErr } = await supabase
+      .from('suppliers')
+      .select('id, client_id')
+      .eq('id', supplierId)
+      .eq('org_id', orgId)
+      .single()
+
+    if (currentErr || !current) {
+      return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 })
+    }
+
+    // Verificar nombre duplicado (case-insensitive, excluyendo self)
+    const { data: existingByName } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('client_id', current.client_id)
+      .ilike('name', name)
+      .neq('id', supplierId)
+      .limit(1)
+
+    if (existingByName && existingByName.length > 0) {
+      return NextResponse.json({ error: 'Ya existe otro proveedor con ese nombre para este cliente' }, { status: 409 })
+    }
+
+    // Verificar CIF duplicado (case-insensitive, excluyendo self)
+    const { data: existingByTaxId } = await supabase
+      .from('suppliers')
+      .select('id')
+      .eq('client_id', current.client_id)
+      .ilike('tax_id', taxId)
+      .neq('id', supplierId)
+      .limit(1)
+
+    if (existingByTaxId && existingByTaxId.length > 0) {
+      return NextResponse.json({ error: 'Ya existe otro proveedor con ese CIF/NIF para este cliente' }, { status: 409 })
+    }
+
     const { data: supplier, error } = await supabase
       .from('suppliers')
       .update({

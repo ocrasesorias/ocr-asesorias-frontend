@@ -64,6 +64,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     }
 
     // Actualizar o crear proveedor habitual en la tabla 'suppliers'
+    // Lógica: buscar primero por CIF, luego por nombre. Si encuentra, actualizar. Si no, insertar.
     try {
       const supplierName = body.supplier_name
       const supplierTaxId = body.supplier_tax_id
@@ -75,56 +76,84 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         typeof supplierTaxId === 'string' &&
         supplierTaxId.trim().length >= 8
       ) {
-        // Usamos el cliente normal, pero con onConflict por columnas (es lo que recomienda Supabase JS)
-        const { error: upsertError } = await supabase.from('suppliers').upsert(
-          {
-            org_id: orgId,
-            client_id: invoice.client_id,
-            name: supplierName.trim(),
-            tax_id: supplierTaxId.trim().toUpperCase(),
-            address:
-              typeof body.supplier_address === 'string' && body.supplier_address.trim()
-                ? body.supplier_address.trim()
-                : null,
-            postal_code:
-              typeof body.supplier_postal_code === 'string' && body.supplier_postal_code.trim()
-                ? body.supplier_postal_code.trim()
-                : null,
-            city:
-              typeof body.supplier_city === 'string' && body.supplier_city.trim()
-                ? body.supplier_city.trim()
-                : null,
-            province:
-              typeof body.supplier_province === 'string' && body.supplier_province.trim()
-                ? body.supplier_province.trim()
-                : null,
-          },
-          { onConflict: 'client_id,tax_id' }
-        )
-        if (upsertError) {
-          console.error('Error en upsert de suppliers:', upsertError)
-          // Si falla por RLS, intentamos con el admin client como fallback
+        const sName = supplierName.trim()
+        const sTaxId = supplierTaxId.trim().toUpperCase()
+        const sAddress = typeof body.supplier_address === 'string' && body.supplier_address.trim() ? body.supplier_address.trim() : null
+        const sPostalCode = typeof body.supplier_postal_code === 'string' && body.supplier_postal_code.trim() ? body.supplier_postal_code.trim() : null
+        const sCity = typeof body.supplier_city === 'string' && body.supplier_city.trim() ? body.supplier_city.trim() : null
+        const sProvince = typeof body.supplier_province === 'string' && body.supplier_province.trim() ? body.supplier_province.trim() : null
+
+        // 1) Buscar por CIF (match exacto)
+        const { data: byTaxId } = await supabase
+          .from('suppliers')
+          .select('id')
+          .eq('client_id', invoice.client_id)
+          .ilike('tax_id', sTaxId)
+          .limit(1)
+          .maybeSingle()
+
+        // 2) Si no hay match por CIF, buscar por nombre (case-insensitive)
+        const existingId = byTaxId?.id ?? null
+        let matchByName: string | null = null
+        if (!existingId) {
+          const { data: byName } = await supabase
+            .from('suppliers')
+            .select('id')
+            .eq('client_id', invoice.client_id)
+            .ilike('name', sName)
+            .limit(1)
+            .maybeSingle()
+          matchByName = byName?.id ?? null
+        }
+
+        const updatePayload = {
+          name: sName,
+          tax_id: sTaxId,
+          address: sAddress,
+          postal_code: sPostalCode,
+          city: sCity,
+          province: sProvince,
+        }
+
+        let saveError: { message: string } | null = null
+
+        if (existingId) {
+          // Actualizar proveedor encontrado por CIF
+          const { error } = await supabase
+            .from('suppliers')
+            .update(updatePayload)
+            .eq('id', existingId)
+          saveError = error
+        } else if (matchByName) {
+          // Actualizar proveedor encontrado por nombre (puede haber cambiado el CIF)
+          const { error } = await supabase
+            .from('suppliers')
+            .update(updatePayload)
+            .eq('id', matchByName)
+          saveError = error
+        } else {
+          // No existe: insertar nuevo
+          const { error } = await supabase
+            .from('suppliers')
+            .insert({ org_id: orgId, client_id: invoice.client_id, ...updatePayload })
+          saveError = error
+        }
+
+        if (saveError) {
+          console.error('Error guardando proveedor:', saveError)
+          // Fallback con admin client
           const { createAdminClient } = await import('@/lib/supabase/admin')
           const admin = createAdminClient()
           if (admin) {
-            await admin.from('suppliers').upsert(
-              {
-                org_id: orgId,
-                client_id: invoice.client_id,
-                name: supplierName.trim(),
-                tax_id: supplierTaxId.trim().toUpperCase(),
-                address: typeof body.supplier_address === 'string' ? body.supplier_address.trim() : null,
-                postal_code: typeof body.supplier_postal_code === 'string' ? body.supplier_postal_code.trim() : null,
-                province: typeof body.supplier_province === 'string' ? body.supplier_province.trim() : null,
-              },
-              { onConflict: 'client_id,tax_id' }
-            )
+            if (existingId) {
+              await admin.from('suppliers').update(updatePayload).eq('id', existingId)
+            } else if (matchByName) {
+              await admin.from('suppliers').update(updatePayload).eq('id', matchByName)
+            } else {
+              await admin.from('suppliers').insert({ org_id: orgId, client_id: invoice.client_id, ...updatePayload })
+            }
           }
-        } else {
-          console.log(`Proveedor ${supplierName} guardado en suppliers correctamente.`)
         }
-      } else {
-        console.log('No se guardó el proveedor por falta de datos o NIF corto:', { supplierName, supplierTaxId, clientId: invoice.client_id })
       }
     } catch (err) {
       console.error('Error actualizando proveedor habitual:', err)
