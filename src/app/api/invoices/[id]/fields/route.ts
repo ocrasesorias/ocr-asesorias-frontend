@@ -46,6 +46,12 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       'vat_amount',
       'total_amount',
       'vat_rate',
+      'subcuenta_gasto',
+      'retencion_porcentaje',
+      'retencion_importe',
+      'retencion_tipo',
+      'inversion_sujeto_pasivo',
+      'iva_lines',
     ])
 
     const payload: Record<string, unknown> = { invoice_id: invoiceId, updated_by: user.id }

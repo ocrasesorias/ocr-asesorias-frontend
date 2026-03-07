@@ -21,35 +21,7 @@ type UploadInvoiceRow = {
     raw_json: unknown
     created_at: string
   }>
-  invoice_fields?:
-  | {
-    supplier_name: string | null
-    supplier_tax_id: string | null
-    supplier_address?: string | null
-    supplier_postal_code?: string | null
-    supplier_city?: string | null
-    supplier_province?: string | null
-    invoice_number: string | null
-    invoice_date: string | null
-    base_amount: string | number | null
-    vat_amount: string | number | null
-    total_amount: string | number | null
-    vat_rate: string | number | null
-  }
-  | Array<{
-    supplier_name: string | null
-    supplier_tax_id: string | null
-    supplier_address?: string | null
-    supplier_postal_code?: string | null
-    supplier_city?: string | null
-    supplier_province?: string | null
-    invoice_number: string | null
-    invoice_date: string | null
-    base_amount: string | number | null
-    vat_amount: string | number | null
-    total_amount: string | number | null
-    vat_rate: string | number | null
-  }>
+  invoice_fields?: InvoiceFieldsRow | InvoiceFieldsRow[]
 }
 
 type InvoiceFieldsRow = {
@@ -65,6 +37,19 @@ type InvoiceFieldsRow = {
   vat_amount: string | number | null
   total_amount: string | number | null
   vat_rate: string | number | null
+  subcuenta_gasto?: string | null
+  retencion_porcentaje?: number | null
+  retencion_importe?: number | null
+  retencion_tipo?: string | null
+  inversion_sujeto_pasivo?: boolean | null
+  iva_lines?: Array<{
+    base: number | null
+    porcentaje_iva: number | null
+    cuota_iva: number | null
+    porcentaje_recargo?: number | null
+    cuota_recargo?: number | null
+    tipo_exencion?: string | null
+  }> | null
 }
 
 function coerceInvoiceFieldsRow(value: unknown): InvoiceFieldsRow | null {
@@ -347,12 +332,20 @@ function toFacturaData(
   const exRetImp = toNumLoose(ex?.retencion_importe)
   const hasRetencion = Boolean((exRetPct && Math.abs(exRetPct) > 0) || (exRetImp && Math.abs(exRetImp) > 0))
 
+  // Retención guardada en invoice_fields (preferente sobre extracción)
+  const fRetPct = f?.retencion_porcentaje != null ? Number(f.retencion_porcentaje) : null
+  const fRetImp = f?.retencion_importe != null ? Number(f.retencion_importe) : null
+  const fHasRetencion = Boolean((fRetPct && Math.abs(fRetPct) > 0) || (fRetImp && Math.abs(fRetImp) > 0))
+
   const extractedIvas = extractIvaLinesFromExtraction(ex)
+
+  // Si hay iva_lines guardadas en DB (factura ya validada), restaurarlas directamente
+  const savedIvaLines: NonNullable<InvoiceFieldsRow['iva_lines']> | null = Array.isArray(f?.iva_lines) ? f.iva_lines : null
 
   // Si tenemos desglose de IVAs, preferimos rellenar desde ahí (evita el caso "IVA total" con porcentaje 0).
   // Si no hay desglose, caemos al comportamiento legacy (1 sola línea con base/iva/%).
   const baseLineas: FacturaData['lineas'] =
-    extractedIvas.length > 0
+    (savedIvaLines || extractedIvas.length > 0)
       ? [
           { base: '', porcentajeIva: '21', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
           { base: '', porcentajeIva: '10', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
@@ -370,7 +363,19 @@ function toFacturaData(
           { base: '', porcentajeIva: '4', cuotaIva: '', porcentajeRecargo: '0', cuotaRecargo: '0.00' },
         ]
 
-  const lineas = applyExtractedIvasToLineas({ lineas: baseLineas, extracted: extractedIvas, overwrite: true })
+  // Preferir iva_lines guardadas sobre las de extracción
+  const ivasToApply: ExtractedIvaLine[] = savedIvaLines
+    ? savedIvaLines.map((l) => ({
+        base: l.base ?? null,
+        porcentaje: l.porcentaje_iva ?? null,
+        iva: l.cuota_iva ?? null,
+        recargoPorcentaje: l.porcentaje_recargo ?? null,
+        recargo: l.cuota_recargo ?? null,
+        tipoExencion: l.tipo_exencion ?? null,
+      }))
+    : extractedIvas
+
+  const finalLineas = applyExtractedIvasToLineas({ lineas: baseLineas, extracted: ivasToApply, overwrite: true })
 
   return {
     empresa: { cif: opts?.clientTaxId || 'B12345678', trimestre: 'Q1', actividad: opts?.actividad ?? '' },
@@ -387,15 +392,14 @@ function toFacturaData(
       fecha: f?.invoice_date ? String(f.invoice_date) : '',
       fechaVencimiento: '',
     },
-    subcuentaGasto: (typeof ex?.subcuenta_gasto === 'string' && ex.subcuenta_gasto.trim()) ? ex.subcuenta_gasto.trim() : (opts?.defaultSubcuenta || ''),
+    subcuentaGasto: (typeof f?.subcuenta_gasto === 'string' && f.subcuenta_gasto.trim()) ? f.subcuenta_gasto.trim() : (typeof ex?.subcuenta_gasto === 'string' && ex.subcuenta_gasto.trim()) ? (ex.subcuenta_gasto as string).trim() : (opts?.defaultSubcuenta || ''),
     retencion: {
-      aplica: hasRetencion,
-      porcentaje: toRetencionPorcentaje(exRetPct),
-      // No tenemos tipo en extracción; por defecto "PROFESIONAL" si hay retención
-      tipo: defaultRetencionTipo(hasRetencion, exRetPct),
-      cantidad: exRetImp !== null ? String(Math.abs(exRetImp)) : '',
+      aplica: fHasRetencion || hasRetencion,
+      porcentaje: toRetencionPorcentaje(fRetPct ?? exRetPct),
+      tipo: (f?.retencion_tipo as 'PROFESIONAL' | 'ALQUILERES' | '' | undefined) || defaultRetencionTipo(fHasRetencion || hasRetencion, fRetPct ?? exRetPct),
+      cantidad: fRetImp !== null ? String(Math.abs(fRetImp)) : exRetImp !== null ? String(Math.abs(exRetImp)) : '',
     },
-    lineas,
+    lineas: finalLineas,
     anexosObservaciones: '',
     total: total !== null ? String(total) : '',
     archivo: {
@@ -406,7 +410,7 @@ function toFacturaData(
       bucket: inv.bucket,
       storagePath: inv.storage_path,
     },
-    inversion_sujeto_pasivo: Boolean(ex?.inversion_sujeto_pasivo),
+    inversion_sujeto_pasivo: Boolean(f?.inversion_sujeto_pasivo ?? ex?.inversion_sujeto_pasivo),
     tipo_documento: normalizeTipoDocumento(ex?.tipo_documento),
   }
 }
@@ -928,8 +932,9 @@ export default function ValidarUploadPage() {
     if (!next.factura.numero && invoiceNumber) next.factura.numero = invoiceNumber
     if (!next.factura.fecha && invoiceDate) next.factura.fecha = invoiceDate
 
-    const exSubcuenta = typeof ex?.subcuenta_gasto === 'string' ? ex.subcuenta_gasto.trim() : ''
-    if (!next.subcuentaGasto && exSubcuenta) next.subcuentaGasto = exSubcuenta
+    const fSubcuenta = typeof fields?.subcuenta_gasto === 'string' ? fields.subcuenta_gasto.trim() : ''
+    const exSubcuenta = typeof ex?.subcuenta_gasto === 'string' ? (ex.subcuenta_gasto as string).trim() : ''
+    if (!next.subcuentaGasto && (fSubcuenta || exSubcuenta)) next.subcuentaGasto = fSubcuenta || exSubcuenta
 
     const line0 = next.lineas?.[0] ? { ...next.lineas[0] } : null
     if (line0) {
@@ -968,11 +973,12 @@ export default function ValidarUploadPage() {
       }
     }
 
-    // Retención: si viene en la extracción, la aplicamos por defecto.
-    // Aceptamos varias claves por compatibilidad.
+    // Retención: preferir valores guardados en DB, luego extracción.
+    const fRetPctP = fields?.retencion_porcentaje != null ? Number(fields.retencion_porcentaje) : null
+    const fRetImpP = fields?.retencion_importe != null ? Number(fields.retencion_importe) : null
     const retPctRaw =
-      toNumLoose(ex?.retencion_porcentaje) ?? toNumLoose(ex?.porcentaje_retencion) ?? toNumLoose(ex?.retencion_pct) ?? null
-    const retImpRaw = toNumLoose(ex?.retencion_importe) ?? toNumLoose(ex?.retencion) ?? null
+      fRetPctP ?? toNumLoose(ex?.retencion_porcentaje) ?? toNumLoose(ex?.porcentaje_retencion) ?? toNumLoose(ex?.retencion_pct) ?? null
+    const retImpRaw = fRetImpP ?? toNumLoose(ex?.retencion_importe) ?? toNumLoose(ex?.retencion) ?? null
 
     const retPct = retPctRaw !== null ? Math.abs(retPctRaw) : null
     const retImp = retImpRaw !== null ? Math.abs(retImpRaw) : null
@@ -980,7 +986,7 @@ export default function ValidarUploadPage() {
     if (!next.retencion.aplica && ((retPct && retPct > 0) || (retImp && retImp > 0))) {
       next.retencion.aplica = true
     }
-    if (ex?.inversion_sujeto_pasivo === true) {
+    if (fields?.inversion_sujeto_pasivo === true || ex?.inversion_sujeto_pasivo === true) {
       next.inversion_sujeto_pasivo = true
     }
     if (ex?.tipo_documento !== undefined && ex?.tipo_documento !== null) {
@@ -992,8 +998,9 @@ export default function ValidarUploadPage() {
     if (!next.retencion.cantidad && retImp !== null) {
       next.retencion.cantidad = String(retImp)
     }
-    if (!next.retencion.tipo && next.retencion.aplica) {
-      // Si la extracción nos dio % y no hay tipo, lo inferimos.
+    if (!next.retencion.tipo && fields?.retencion_tipo) {
+      next.retencion.tipo = fields.retencion_tipo as 'PROFESIONAL' | 'ALQUILERES' | ''
+    } else if (!next.retencion.tipo && next.retencion.aplica) {
       next.retencion.tipo = inferRetencionTipoFromPct(retPct) || next.retencion.tipo
     }
 
@@ -1185,6 +1192,33 @@ export default function ValidarUploadPage() {
         // Solo guardamos un único tipo si la factura tiene 1 IVA; si hay varios, dejamos null.
         const vatRate = vatRatesUsed.size === 1 ? [...vatRatesUsed][0] : null
 
+        // Build IVA lines array for persistence
+        const ivaLines = factura.lineas
+          .map((l) => {
+            const base = toNumber(l.base)
+            const cuotaIva = toNumber(l.cuotaIva)
+            if (base === null && cuotaIva === null) return null
+            const pctRaw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
+            const porcentajeIva = Number.isFinite(Number(pctRaw)) ? Number(pctRaw) : null
+            const recPctRaw = String(l.porcentajeRecargo || '').replace('%', '').trim().replace(',', '.')
+            const porcentajeRecargo = Number.isFinite(Number(recPctRaw)) && Number(recPctRaw) !== 0 ? Number(recPctRaw) : null
+            const cuotaRecargo = toNumber(l.cuotaRecargo)
+            return {
+              base,
+              porcentaje_iva: porcentajeIva,
+              cuota_iva: cuotaIva,
+              porcentaje_recargo: porcentajeRecargo,
+              cuota_recargo: porcentajeRecargo ? cuotaRecargo : null,
+              tipo_exencion: l.tipoExencion || null,
+            }
+          })
+          .filter(Boolean)
+
+        // Parse retención
+        const retPctStr = String(factura.retencion.porcentaje || '').replace('%', '').trim()
+        const retPct = Number.isFinite(Number(retPctStr)) && Number(retPctStr) > 0 ? Number(retPctStr) : null
+        const retImporte = factura.retencion.aplica ? toNumber(factura.retencion.cantidad) : null
+
         await fetch(`/api/invoices/${invoiceId}/fields`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -1203,6 +1237,12 @@ export default function ValidarUploadPage() {
             vat_amount: vatSum || null,
             total_amount: total || null,
             vat_rate: Number.isFinite(vatRate as number) ? (vatRate as number) : null,
+            subcuenta_gasto: factura.subcuentaGasto?.trim() || null,
+            retencion_porcentaje: retPct,
+            retencion_importe: retImporte,
+            retencion_tipo: factura.retencion.aplica && factura.retencion.tipo ? factura.retencion.tipo : null,
+            inversion_sujeto_pasivo: Boolean(factura.inversion_sujeto_pasivo),
+            iva_lines: ivaLines.length > 0 ? ivaLines : null,
           }),
         })
       } catch {
