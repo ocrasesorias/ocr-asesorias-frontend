@@ -1,0 +1,32 @@
+Perfecto. Esto es lo que necesitas hacer para que yo tenga acceso directo a Supabase y Stripe desde aquí:
+
+  Supabase MCP (oficial)
+
+  claude mcp add --transport http supabase https://mcp.supabase.com/mcp
+
+  Luego dentro de Claude Code ejecutas /mcp, seleccionas "Authenticate" y te lleva al navegador donde eliges el proyecto
+   específico de tu cliente.
+
+  Stripe MCP (oficial)
+
+  Opción A — HTTP con OAuth (más fácil):
+  claude mcp add --transport http stripe https://mcp.stripe.com
+  Igual, /mcp → Authenticate → seleccionas la cuenta de Stripe del cliente.
+
+  Opción B — Local con API key (si quieres una cuenta específica directamente):
+  claude mcp add --transport stdio stripe -- cmd /c npx -y @stripe/mcp --api-key=sk_live_TU_CLAVE
+
+  Verificar
+
+  Después de añadirlos:
+  claude mcp list        # ver los servers configurados
+
+  Y dentro de la conversación, /mcp para ver el estado de conexión.
+
+  ---
+  Pasos concretos:
+
+  1. Cierra esta conversación (o abre otro terminal)
+  2. Ejecuta los dos comandos claude mcp add de arriba
+  3. Vuelve a abrir Claude Code
+  4. Ejecuta /mcp y autentica cada uno seleccionando la cuenta/proyecto correcto del cliente

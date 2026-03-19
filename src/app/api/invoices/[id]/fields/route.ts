@@ -172,8 +172,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         .update({ status: 'ready', error_message: null })
         .eq('id', invoiceId)
         .eq('org_id', orgId)
-    } catch {
-      // noop (no bloqueamos la validación por esto)
+    } catch (err) {
+      console.error(`Error actualizando status a 'ready' para factura ${invoiceId}:`, err)
     }
 
     return NextResponse.json({ success: true, fields: data }, { status: 200 })

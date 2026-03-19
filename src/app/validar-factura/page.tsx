@@ -50,7 +50,8 @@ const toNumber = (value: string) => {
     normalized = raw.replace(',', '.')
   } else if (hasDot) {
     const parts = raw.split('.')
-    normalized = parts.length === 2 && parts[1].length === 2 ? raw : raw.replace(/\./g, '')
+    const isThousands = parts.length >= 2 && parts.slice(1).every(p => p.length === 3)
+    normalized = isThousands ? raw.replace(/\./g, '') : raw
   }
 
   const n = Number(normalized)

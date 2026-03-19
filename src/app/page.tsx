@@ -4,6 +4,7 @@ import { PricingCards } from "@/components/PricingCards";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
 import { createClient } from "@/lib/supabase/server";
+import { isStripeEnabled } from "@/lib/features";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -54,12 +55,14 @@ export default async function Home() {
               >
                 Cómo funciona
               </a>
-              <a
-                href="#planes"
-                className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
-              >
-                Planes
-              </a>
+              {isStripeEnabled && (
+                <a
+                  href="#planes"
+                  className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+                >
+                  Planes
+                </a>
+              )}
               <a
                 href="#contacto"
                 className="text-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
@@ -98,14 +101,29 @@ export default async function Home() {
                     >
                       Ir al panel
                     </Link>
-                  ) : (
+                  ) : isStripeEnabled ? (
                     <>
-                      <a
-                        href="mailto:ocrasesorias@gmail.com"
+                      <Link
+                        href="/registro"
                         className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       >
-                        Contactar
-                      </a>
+                        Empieza gratis
+                      </Link>
+                      <Link
+                        href="#como-funciona"
+                        className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        Ver cómo funciona
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        Iniciar sesión
+                      </Link>
                       <Link
                         href="#como-funciona"
                         className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -321,7 +339,7 @@ export default async function Home() {
         </section>
 
         {/* Planes / Precios Section */}
-        <PricingCards />
+        {isStripeEnabled && <PricingCards hasSession={hasSession} />}
 
         {/* Integraciones Section */}
         <section id="integraciones" className="py-20 bg-foreground text-white">
@@ -355,21 +373,28 @@ export default async function Home() {
                   >
                     Ir al panel
                   </Link>
-                ) : (
+                ) : isStripeEnabled ? (
                   <>
-                    <a
-                      href="mailto:ocrasesorias@gmail.com"
-                      className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                    <Link
+                      href="/registro"
+                      className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                     >
-                      Contactar
-                    </a>
+                      Empieza gratis
+                    </Link>
                     <Link
                       href="/login"
-                      className="border-2 border-white text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                      className="border-2 border-primary text-primary px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary hover:text-white transition-colors text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
                     >
                       Iniciar sesión
                     </Link>
                   </>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-primary-hover transition-colors shadow-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+                  >
+                    Iniciar sesión
+                  </Link>
                 )}
               </div>
             </div>

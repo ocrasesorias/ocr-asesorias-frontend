@@ -88,8 +88,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
           proveedoresConocidos = Array.from(pMap.values())
         }
       }
-    } catch {
-      // noop
+    } catch (err) {
+      console.error('Error obteniendo contexto de factura para extracción:', err)
     }
 
     // Cola en backend: máximo 5 extracts en paralelo; el resto esperan

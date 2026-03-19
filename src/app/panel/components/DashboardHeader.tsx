@@ -10,6 +10,7 @@ import { translateError } from '@/utils/errorMessages';
 import { formatMiles } from '@/utils/formatNumber';
 import { SuggestionsModal } from './modals/SuggestionsModal';
 import { safeRemoveItem } from '@/utils/safeStorage';
+import { isStripeEnabled } from '@/lib/features';
 
 interface DashboardHeaderProps {
   organizationName: string;
@@ -17,6 +18,9 @@ interface DashboardHeaderProps {
   isLoadingCredits: boolean;
   isUnlimitedCredits?: boolean;
   orgId: string | null;
+  planName?: string | null;
+  subscriptionStatus?: string | null;
+  isTrial?: boolean;
 }
 
 export function DashboardHeader({
@@ -25,6 +29,9 @@ export function DashboardHeader({
   isLoadingCredits,
   isUnlimitedCredits = false,
   orgId,
+  planName,
+  subscriptionStatus,
+  isTrial = false,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const { showError, showSuccess } = useToast();
@@ -153,20 +160,64 @@ export function DashboardHeader({
             </p>
           </div>
 
-          <div className="shrink-0 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-right min-w-[170px]">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Créditos disponibles
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
-              {isLoadingCredits
-                ? '…'
-                : isUnlimitedCredits
-                  ? 'Ilimitados'
-                  : (creditsBalance != null ? formatMiles(creditsBalance, 0) : '—')}
+          <div className="shrink-0 flex flex-col items-end gap-2">
+            {/* Plan badge */}
+            {isTrial && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                Prueba gratuita
+              </span>
+            )}
+            {!isTrial && planName && (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                Plan {planName}
+              </span>
+            )}
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-right min-w-[170px]">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                Créditos disponibles
+              </div>
+              <div className="mt-1 text-2xl font-semibold text-foreground tabular-nums">
+                {isLoadingCredits
+                  ? '…'
+                  : isUnlimitedCredits
+                    ? 'Ilimitados'
+                    : (creditsBalance != null ? formatMiles(creditsBalance, 0) : '—')}
+              </div>
+              {isStripeEnabled && !isUnlimitedCredits && (
+                <Link
+                  href="/panel/planes"
+                  className="mt-1 inline-block text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Ver planes →
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Banner de créditos agotados */}
+      {!isLoadingCredits && !isUnlimitedCredits && creditsBalance != null && creditsBalance <= 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between">
+            <p className="text-sm text-amber-800">
+              <span className="font-semibold">Has agotado tus créditos.</span>{' '}
+              {isStripeEnabled
+                ? 'Suscríbete a un plan para seguir procesando facturas.'
+                : 'Contacta con soporte para seguir procesando facturas.'}
+            </p>
+            {isStripeEnabled && (
+              <Link
+                href="/panel/planes"
+                className="shrink-0 ml-4 px-4 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
+              >
+                Ver planes
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       <SuggestionsModal isOpen={isSuggestionsOpen} onClose={() => setIsSuggestionsOpen(false)} />
     </header>

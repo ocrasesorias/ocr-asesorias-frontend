@@ -207,7 +207,8 @@ export function useInvoiceProcessing() {
             ? { ...prev, archivos: prev.archivos.map((a) => (a.invoiceId === invoiceId ? { ...a, dbStatus: 'needs_review', dbErrorMessage: null } : a)) }
             : prev
         );
-      } catch {
+      } catch (err) {
+        console.error(`Error extrayendo factura ${invoiceId}:`, err);
         setExtractStatusByInvoiceId((prev) => ({ ...prev, [invoiceId]: 'error' }));
         setArchivosSubidos((prev) =>
           prev.map((a) =>
@@ -314,8 +315,10 @@ export function useInvoiceProcessing() {
     setSubidaActual(prev => (prev ? { ...prev, archivos: archivosConPlaceholders } : null));
 
     // Subir archivos en paralelo (todas a la vez)
+    let creditsExhausted = false;
     const uploadOne = async (file: File, index: number): Promise<string | null> => {
       const placeholderId = placeholders[index].id;
+      if (creditsExhausted) return null;
       try {
         const fd = new FormData();
         fd.append('file', file);
@@ -326,6 +329,9 @@ export function useInvoiceProcessing() {
         const resp = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
         const data = await resp.json();
 
+        if (resp.status === 402) {
+          throw Object.assign(new Error(data?.error || 'Has agotado tus créditos. Suscríbete a un plan para continuar.'), { status: 402 });
+        }
         if (!resp.ok) {
           throw new Error(data?.error || 'Error subiendo la factura');
         }
@@ -340,8 +346,8 @@ export function useInvoiceProcessing() {
             const r2 = await fetch(`/api/invoices/${invoice.id}/preview?expires=${60 * 60 * 24 * 7}`);
             const j2 = await r2.json();
             if (r2.ok && j2?.signedUrl) url = j2.signedUrl;
-          } catch {
-            // noop
+          } catch (err) {
+            console.error(`Error obteniendo preview para factura ${invoice?.id}:`, err);
           }
         }
 
@@ -383,6 +389,10 @@ export function useInvoiceProcessing() {
         });
         return invoice.id;
       } catch (e) {
+        // Si es 402, marcar para detener uploads restantes
+        if (e && typeof e === 'object' && 'status' in e && (e as { status: number }).status === 402) {
+          creditsExhausted = true;
+        }
         const nextArchivo: ArchivoSubido = { ...placeholders[index], estado: 'error', url: '' };
         setArchivosSubidos(prev => {
           const merged = prev.map(a => (a.id === placeholderId ? nextArchivo : a));
@@ -427,8 +437,8 @@ export function useInvoiceProcessing() {
     if (createdNow && successCount === 0 && realUploadId) {
       try {
         await fetch(`/api/uploads/${realUploadId}`, { method: 'DELETE' });
-      } catch {
-        // noop
+      } catch (err) {
+        console.error(`Error eliminando upload vacío ${realUploadId}:`, err);
       }
 
       setSubidaActual(null);

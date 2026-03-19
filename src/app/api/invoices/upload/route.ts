@@ -125,7 +125,7 @@ export async function POST(request: Request) {
         p_org_id: orgId,
         p_invoice_id: invoiceId,
         p_upload_id: uploadId || null,
-        p_allow_negative: true, // Cambiar a false cuando apliques límites estrictos por plan
+        p_allow_negative: false,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -138,8 +138,8 @@ export async function POST(request: Request) {
       // Fallback: increment_org_invoices_consumed si la migración ledger aún no está
       try {
         await supabase.rpc('increment_org_invoices_consumed', { p_org_id: orgId })
-      } catch {
-        // Ignorar si las migraciones aún no se han ejecutado
+      } catch (err) {
+        console.error('Error incrementando facturas consumidas (migración pendiente?):', err)
       }
     }
 

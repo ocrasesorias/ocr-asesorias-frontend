@@ -116,8 +116,8 @@ export async function extractInvoiceAndPersist(params: {
       if (currentStatus !== 'ready') {
         await supabase.from('invoices').update({ status: 'error', error_message: msg }).eq('id', invoiceId)
       }
-    } catch {
-      // noop
+    } catch (err) {
+      console.error(`Error actualizando estado a 'error' para factura ${invoiceId}:`, err)
     }
     return { ok: false as const, error: msg }
   }
@@ -126,8 +126,8 @@ export async function extractInvoiceAndPersist(params: {
   if (currentStatus !== 'ready') {
     try {
       await supabase.from('invoices').update({ status: 'processing', error_message: null }).eq('id', invoiceId)
-    } catch {
-      // noop
+    } catch (err) {
+      console.error(`Error actualizando estado a 'processing' para factura ${invoiceId}:`, err)
     }
   }
 
@@ -290,8 +290,8 @@ export async function extractInvoiceAndPersist(params: {
         .from('invoices')
         .update({ status: 'needs_review', error_message: null })
         .eq('id', invoiceId)
-    } catch {
-      // noop
+    } catch (err) {
+      console.error(`Error actualizando estado a 'needs_review' para factura ${invoiceId}:`, err)
     }
   }
 

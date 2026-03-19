@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/contexts/ToastContext';
 import { translateError } from '@/utils/errorMessages';
+import { isStripeEnabled } from '@/lib/features';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -341,16 +342,18 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Registros temporalmente cerrados */}
-        <p className="text-center text-sm text-foreground-secondary">
-          ¿Interesado en KontaScan?{' '}
-          <Link
-            href="/#contacto"
-            className="font-medium text-primary hover:text-primary-hover transition-colors"
-          >
-            Contáctanos
-          </Link>
-        </p>
+        {/* Link a registro */}
+        {isStripeEnabled && (
+          <p className="text-center text-sm text-foreground-secondary">
+            ¿No tienes cuenta?{' '}
+            <Link
+              href="/registro"
+              className="font-medium text-primary hover:text-primary-hover transition-colors"
+            >
+              Regístrate gratis
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

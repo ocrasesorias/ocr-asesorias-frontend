@@ -1,13 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { isStripeEnabled } from '@/lib/features';
 
-const NAV_LINKS = [
+const ALL_NAV_LINKS = [
   { href: '#beneficios', label: 'Beneficios' },
   { href: '#como-funciona', label: 'Cómo funciona' },
   { href: '#planes', label: 'Planes' },
   { href: '#contacto', label: 'Contacto' },
 ] as const;
+
+const NAV_LINKS = ALL_NAV_LINKS.filter(l => l.href !== '#planes' || isStripeEnabled);
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);

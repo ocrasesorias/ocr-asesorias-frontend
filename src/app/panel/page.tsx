@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 // Custom hooks
 import { useDashboardAuth } from '@/hooks/useDashboardAuth';
 import { useInvoiceCounter } from '@/hooks/useInvoiceCounter';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useClientManagement } from '@/hooks/useClientManagement';
 import { useSupplierManagement } from '@/hooks/useSupplierManagement';
 import { useUploadManagement } from '@/hooks/useUploadManagement';
@@ -49,6 +50,9 @@ export default function DashboardPage() {
     isLoading: isLoadingCredits,
     refresh: refreshInvoiceCounter,
   } = useInvoiceCounter(orgId);
+
+  // Subscription
+  const { subscription } = useSubscription(orgId);
   
   // Client Management
   const {
@@ -261,6 +265,9 @@ export default function DashboardPage() {
         isLoadingCredits={isLoadingCredits}
         isUnlimitedCredits={isUnlimitedCredits}
         orgId={orgId}
+        planName={subscription.planName}
+        subscriptionStatus={subscription.status}
+        isTrial={subscription.isTrial}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

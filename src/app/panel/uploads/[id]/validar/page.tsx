@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/Button'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ValidarFactura } from '@/components/ValidarFactura'
 import { FacturaData } from '@/types/factura'
 import { useToast } from '@/contexts/ToastContext'
@@ -1143,14 +1144,14 @@ export default function ValidarUploadPage() {
       // ES típico: 1.000,56 ya vendría con '.', pero si solo hay coma asumimos coma decimal
       normalized = raw.replace(',', '.')
     } else if (hasDot) {
-      // Si solo hay '.', puede ser decimal (94.50) o miles (1.000)
+      // Si solo hay '.', puede ser decimal (5.5, 94.50) o miles (1.000, 1.000.000)
+      // Convención ES: separador de miles agrupa siempre en bloques de 3 dígitos
       const parts = raw.split('.')
-      if (parts.length === 2 && parts[1].length === 2) {
-        // 94.50 -> decimal
-        normalized = raw
-      } else {
-        // 1.000 o 1.000.000 -> miles
+      const isThousands = parts.length >= 2 && parts.slice(1).every(p => p.length === 3)
+      if (isThousands) {
         normalized = raw.replace(/\./g, '')
+      } else {
+        normalized = raw
       }
     }
 
@@ -1738,25 +1739,27 @@ export default function ValidarUploadPage() {
           const currentDuplicates = currentId ? duplicatesByInvoiceId[currentId] : undefined
 
           return (
-            <ValidarFactura
-              key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
-              empresaNombre={clienteNombre}
-              clientId={clientId}
-              tipo={tipoFactura}
-              uppercaseNombreDireccion={uppercasePref}
-              workingQuarter={workingQuarter}
-              factura={facturas[facturaActual]}
-              previewFailed={currentId ? Boolean(previewFailedIds[currentId]) : false}
-              duplicateWarning={currentDuplicates && currentDuplicates.length > 0 ? currentDuplicates : null}
-              onValidar={handleValidar}
-              onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
-              onSiguiente={handleSiguiente}
-              onParaDespues={handleParaDespues}
-              isLast={isLast}
-              canGoNext={canGoNext}
-              disableValidar={disableValidar}
-              validarText={validarText}
-            />
+            <ErrorBoundary>
+              <ValidarFactura
+                key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
+                empresaNombre={clienteNombre}
+                clientId={clientId}
+                tipo={tipoFactura}
+                uppercaseNombreDireccion={uppercasePref}
+                workingQuarter={workingQuarter}
+                factura={facturas[facturaActual]}
+                previewFailed={currentId ? Boolean(previewFailedIds[currentId]) : false}
+                duplicateWarning={currentDuplicates && currentDuplicates.length > 0 ? currentDuplicates : null}
+                onValidar={handleValidar}
+                onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
+                onSiguiente={handleSiguiente}
+                onParaDespues={handleParaDespues}
+                isLast={isLast}
+                canGoNext={canGoNext}
+                disableValidar={disableValidar}
+                validarText={validarText}
+              />
+            </ErrorBoundary>
           )
         })()}
       </div>

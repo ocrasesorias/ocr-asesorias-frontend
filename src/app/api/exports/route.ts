@@ -97,17 +97,23 @@ function round2(v: number | null): number | null {
   return v != null ? Math.round(v * 100) / 100 : null
 }
 
-/** Subcuenta IVA for COMPRAS: 4720 (>0%), 472090 (0% no exenta), null (exenta) */
+/** Subcuenta IVA for COMPRAS: specific account per rate, 472090 (0% no exenta), null (exenta) */
 function subcuentaIvaCompras(pctIva: number | null, tipoExencion?: string | null): string | null {
   if (pctIva == null) return null
   if (pctIva === 0) return tipoExencion ? null : '472090'
+  if (pctIva === 21) return '472000000021'
+  if (pctIva === 10) return '472000000010'
+  if (pctIva === 4) return '47200000004'
   return '4720'
 }
 
-/** Subcuenta IVA for VENTAS: 4770 (>0%), 477090 (0% no exenta), null (exenta) */
+/** Subcuenta IVA for VENTAS: specific account per rate, 477090 (0% no exenta), null (exenta) */
 function subcuentaIvaVentas(pctIva: number | null, tipoExencion?: string | null): string | null {
   if (pctIva == null) return null
   if (pctIva === 0) return tipoExencion ? null : '477090'
+  if (pctIva === 21) return '477000000021'
+  if (pctIva === 10) return '477000000010'
+  if (pctIva === 4) return '47700000004'
   return '4770'
 }
 
@@ -467,7 +473,7 @@ export async function POST(request: Request) {
           .maybeSingle()
         const v = (orgPref as Record<string, unknown> | null)?.uppercase_names_addresses
         if (typeof v === 'boolean') uppercaseNamesAddresses = v
-      } catch { /* noop */ }
+      } catch (err) { console.error('Error cargando preferencia uppercase:', err) }
     }
     if (body && typeof body === 'object' && typeof (body as Record<string, unknown>).uppercase_names_addresses === 'boolean') {
       uppercaseNamesAddresses = (body as Record<string, unknown>).uppercase_names_addresses as boolean
