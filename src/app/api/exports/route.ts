@@ -92,6 +92,12 @@ function applyCase(s: string | null | undefined, upper: boolean): string {
   return upper ? v.toLocaleUpperCase('es-ES') : v
 }
 
+/** Pad subcuenta to 12 digits with trailing zeros */
+function padSubcuenta(s: string | null): string | null {
+  if (!s) return null
+  return s.padEnd(12, '0')
+}
+
 /** Round to 2 decimal places (avoid floating-point artifacts) */
 function round2(v: number | null): number | null {
   return v != null ? Math.round(v * 100) / 100 : null
@@ -100,21 +106,21 @@ function round2(v: number | null): number | null {
 /** Subcuenta IVA for COMPRAS: specific account per rate, 472090 (0% no exenta), null (exenta) */
 function subcuentaIvaCompras(pctIva: number | null, tipoExencion?: string | null): string | null {
   if (pctIva == null) return null
-  if (pctIva === 0) return tipoExencion ? null : '472090'
-  if (pctIva === 21) return '472000000021'
-  if (pctIva === 10) return '472000000010'
-  if (pctIva === 4) return '47200000004'
-  return '4720'
+  if (pctIva === 0) return tipoExencion ? null : padSubcuenta('472090')
+  if (pctIva === 21) return padSubcuenta('472000000021')
+  if (pctIva === 10) return padSubcuenta('472000000010')
+  if (pctIva === 4) return padSubcuenta('472000000004')
+  return padSubcuenta('4720')
 }
 
 /** Subcuenta IVA for VENTAS: specific account per rate, 477090 (0% no exenta), null (exenta) */
 function subcuentaIvaVentas(pctIva: number | null, tipoExencion?: string | null): string | null {
   if (pctIva == null) return null
-  if (pctIva === 0) return tipoExencion ? null : '477090'
-  if (pctIva === 21) return '477000000021'
-  if (pctIva === 10) return '477000000010'
-  if (pctIva === 4) return '47700000004'
-  return '4770'
+  if (pctIva === 0) return tipoExencion ? null : padSubcuenta('477090')
+  if (pctIva === 21) return padSubcuenta('477000000021')
+  if (pctIva === 10) return padSubcuenta('477000000010')
+  if (pctIva === 4) return padSubcuenta('477000000004')
+  return padSubcuenta('4770')
 }
 
 // ---------------------------------------------------------------------------
@@ -235,9 +241,9 @@ function buildComprasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow
         null,                                           // R  SUBCUENTA R.E.
         showRetencion ? retPct : null,                  // S  % IRPF
         showRetencion ? retImpExport : null,            // T  CUOTA IRPF
-        showRetencion ? '4751' : null,                  // U  SUBCUENTA IRPF
+        showRetencion ? padSubcuenta('4751') : null,     // U  SUBCUENTA IRPF
         isRectificativa ? 'X' : null,                   // V  RECTIFICATIVA
-        subcuentaGasto || null,                         // W  SUBCUENTA GASTO
+        padSubcuenta(subcuentaGasto) || null,           // W  SUBCUENTA GASTO
         base,                                           // X  IMPORTE GASTO
         null,                                           // Y  DEBE
         null,                                           // Z  HABER
@@ -378,9 +384,9 @@ function buildVentasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow[
         null,                                           // R  SUBCUENTA RE
         showRetencion ? retPct : null,                  // S  % RETENCIÓN
         showRetencion ? retImpExport : null,            // T  IMPORTE RETEN
-        showRetencion ? '4730' : null,                  // U  SUBCUENTA RETENCION
+        showRetencion ? padSubcuenta('4730') : null,     // U  SUBCUENTA RETENCION
         isRectificativa ? 'X' : null,                   // V  RECTIFICATIVA
-        subcuentaIngreso || null,                       // W  SUBCUENTA INGRESO
+        padSubcuenta(subcuentaIngreso) || null,         // W  SUBCUENTA INGRESO
         base,                                           // X  BASE (importe ingreso)
         null,                                           // Y  DEBE
         null,                                           // Z  HABER
@@ -501,7 +507,7 @@ export async function POST(request: Request) {
     const filename = `${label}-${ts}.xlsx`
     const storagePath = `org/${orgIds[0]}/export/${exportId}/${filename}`
 
-    const upload = await supabase.storage
+    const upload = await db.storage
       .from(bucket)
       .upload(storagePath, buffer, {
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -515,7 +521,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: signed } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600)
+    const { data: signed } = await db.storage.from(bucket).createSignedUrl(storagePath, 3600)
 
     return NextResponse.json({
       success: true,
