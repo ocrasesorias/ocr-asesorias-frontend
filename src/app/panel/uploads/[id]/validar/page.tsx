@@ -1491,6 +1491,7 @@ export default function ValidarUploadPage() {
 
       showSuccess('Export generado correctamente')
       if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+      setIsExporting(false)
       setIsFinishedModalOpen(false)
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Error generando export')
