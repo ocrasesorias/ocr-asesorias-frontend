@@ -130,7 +130,25 @@ function toNumLoose(value: unknown): number | null {
   if (typeof value === 'string') {
     const s = value.trim().replace(/\u00A0/g, ' ').replace(/€/g, '').replace(/\s+/g, '')
     if (!s) return null
-    const n = Number(s.replace(/\./g, '').replace(',', '.'))
+    const hasDot = s.includes('.')
+    const hasComma = s.includes(',')
+    let normalized = s
+    if (hasDot && hasComma) {
+      const lastDot = s.lastIndexOf('.')
+      const lastComma = s.lastIndexOf(',')
+      const decimalSep = lastComma > lastDot ? ',' : '.'
+      const thousandsSep = decimalSep === ',' ? '.' : ','
+      normalized = s.replace(new RegExp(`\\${thousandsSep}`, 'g'), '').replace(decimalSep, '.')
+    } else if (hasComma) {
+      normalized = s.replace(',', '.')
+    } else if (hasDot) {
+      const parts = s.split('.')
+      const isThousands = parts.length >= 2 && parts.slice(1).every(p => p.length === 3)
+      if (isThousands) {
+        normalized = s.replace(/\./g, '')
+      }
+    }
+    const n = Number(normalized)
     return Number.isFinite(n) ? n : null
   }
   return null
