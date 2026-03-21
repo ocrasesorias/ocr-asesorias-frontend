@@ -180,8 +180,14 @@ export async function extractInvoiceAndPersist(params: {
     fd.append('proveedores_conocidos', JSON.stringify(proveedoresConocidos))
   }
 
+  const headers: Record<string, string> = {}
+  if (process.env.BACKEND_API_KEY) {
+    headers['X-API-Key'] = process.env.BACKEND_API_KEY
+  }
+
   const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
     method: 'POST',
+    headers,
     body: fd,
   })
 
