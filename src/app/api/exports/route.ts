@@ -103,20 +103,18 @@ function round2(v: number | null): number | null {
   return v != null ? Math.round(v * 100) / 100 : null
 }
 
-/** Subcuenta IVA for COMPRAS: specific account per rate, 472090 (0% no exenta), null (exenta) */
-function subcuentaIvaCompras(pctIva: number | null, tipoExencion?: string | null): string | null {
-  if (pctIva == null) return null
-  if (pctIva === 0) return tipoExencion ? null : padSubcuenta('472090')
+/** Subcuenta IVA for COMPRAS: specific account per rate, null for 0% */
+function subcuentaIvaCompras(pctIva: number | null): string | null {
+  if (pctIva == null || pctIva === 0) return null
   if (pctIva === 21) return padSubcuenta('472000000021')
   if (pctIva === 10) return padSubcuenta('472000000010')
   if (pctIva === 4) return padSubcuenta('472000000004')
   return padSubcuenta('4720')
 }
 
-/** Subcuenta IVA for VENTAS: specific account per rate, 477090 (0% no exenta), null (exenta) */
-function subcuentaIvaVentas(pctIva: number | null, tipoExencion?: string | null): string | null {
-  if (pctIva == null) return null
-  if (pctIva === 0) return tipoExencion ? null : padSubcuenta('477090')
+/** Subcuenta IVA for VENTAS: specific account per rate, null for 0% */
+function subcuentaIvaVentas(pctIva: number | null): string | null {
+  if (pctIva == null || pctIva === 0) return null
   if (pctIva === 21) return padSubcuenta('477000000021')
   if (pctIva === 10) return padSubcuenta('477000000010')
   if (pctIva === 4) return padSubcuenta('477000000004')
@@ -233,9 +231,9 @@ function buildComprasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow
         provincia,                                      // J  PROVINCIA
         cp,                                             // K  C.P.
         base,                                           // L  BASE
-        pctIva,                                         // M  %IVA/IGIC
+        pctIva === 0 ? null : pctIva,                   // M  %IVA/IGIC
         cuotaIva,                                       // N  CUOTA IVA/IGIC
-        subcuentaIvaCompras(pctIva, line.tipo_exencion), // O  SUBCUENTA IVA
+        subcuentaIvaCompras(pctIva),                    // O  SUBCUENTA IVA
         hasRecargo ? pctRecargo : null,                 // P  % R.E.
         hasRecargo ? cuotaRecargo : null,               // Q  IMPORTE R.E.
         null,                                           // R  SUBCUENTA R.E.
@@ -376,9 +374,9 @@ function buildVentasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow[
         provincia,                                      // J  PROVINCIA
         cp,                                             // K  C.P.
         base,                                           // L  BASE
-        pctIva,                                         // M  % IVA/IGIC
+        pctIva === 0 ? null : pctIva,                   // M  % IVA/IGIC
         cuotaIva,                                       // N  CUOTA IVA/IGIC
-        subcuentaIvaVentas(pctIva, line.tipo_exencion), // O  SUBCUENTA IVA
+        subcuentaIvaVentas(pctIva),                     // O  SUBCUENTA IVA
         hasRecargo ? pctRecargo : null,                 // P  % RE
         hasRecargo ? cuotaRecargo : null,               // Q  CUOTA RE
         null,                                           // R  SUBCUENTA RE
