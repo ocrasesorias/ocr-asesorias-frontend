@@ -24,7 +24,7 @@ const PLANS = [
     features: ['750 facturas/mes', 'Soporte email prioritario', 'Exceso: 0,12 €/factura'],
     prices: {
       mensual: { amount: 79, envKey: 'profesional_mensual' },
-      anual: { amount: 66, envKey: 'profesional_anual', sublabel: '790 €/año — ahorra 16%' },
+      anual: { amount: 66, envKey: 'profesional_anual', sublabel: '790 €/año — ahorra 2 meses' },
     },
   },
   {
@@ -34,7 +34,7 @@ const PLANS = [
     features: ['2.000 facturas/mes', 'Soporte prioritario + onboarding', 'Exportación masiva', 'Exceso: 0,08 €/factura'],
     prices: {
       mensual: { amount: 149, envKey: 'gestoria_mensual' },
-      anual: { amount: 125, envKey: 'gestoria_anual', sublabel: '1.490 €/año — ahorra 16%' },
+      anual: { amount: 125, envKey: 'gestoria_anual', sublabel: '1.490 €/año — ahorra 2 meses' },
     },
   },
 ];
@@ -54,10 +54,10 @@ export default function BienvenidaPage() {
     if (!isStripeEnabled) router.replace('/panel');
   }, [router]);
 
-  if (!isStripeEnabled) return null;
-
-  // Verificar sesión y si ya tiene organización
+  // Verificar sesión y si ya tiene organización (siempre declarar el hook; la lógica depende de Stripe)
   useEffect(() => {
+    if (!isStripeEnabled) return;
+
     const checkUser = async () => {
       const supabase = createClient();
 
@@ -87,6 +87,8 @@ export default function BienvenidaPage() {
 
     checkUser();
   }, [router]);
+
+  if (!isStripeEnabled) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

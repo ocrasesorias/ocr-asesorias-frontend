@@ -26,7 +26,7 @@ const PLANS = [
       anual: {
         amount: 66,
         label: '66 €/mes',
-        sublabel: '790 €/año — ahorra 16%',
+        sublabel: '790 €/año — ahorra 2 meses',
         envKey: 'profesional_anual',
       },
     },
@@ -51,7 +51,7 @@ const PLANS = [
       anual: {
         amount: 125,
         label: '125 €/mes',
-        sublabel: '1.490 €/año — ahorra 16%',
+        sublabel: '1.490 €/año — ahorra 2 meses',
         envKey: 'gestoria_anual',
       },
     },

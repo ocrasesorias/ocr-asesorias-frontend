@@ -22,7 +22,7 @@ const PLANS = [
     ],
     prices: {
       mensual: { amount: 79, label: '79 €', period: '/mes', sublabel: '' },
-      anual: { amount: 66, label: '66 €', period: '/mes', sublabel: '790 €/año — ahorra 16%' },
+      anual: { amount: 66, label: '66 €', period: '/mes', sublabel: '790 €/año — ahorra 2 meses' },
     },
   },
   {
@@ -38,7 +38,7 @@ const PLANS = [
     ],
     prices: {
       mensual: { amount: 149, label: '149 €', period: '/mes', sublabel: '' },
-      anual: { amount: 125, label: '125 €', period: '/mes', sublabel: '1.490 €/año — ahorra 16%' },
+      anual: { amount: 125, label: '125 €', period: '/mes', sublabel: '1.490 €/año — ahorra 2 meses' },
     },
   },
 ];
