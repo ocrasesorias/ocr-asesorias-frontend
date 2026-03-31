@@ -17,12 +17,12 @@
 }
 
 @theme inline {
-  /* Colores de marca para Tailwind */
+  /* Colores de marca para Tailwind — se adaptan al tema via fallback */
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-foreground-secondary: var(--foreground-secondary);
+  --color-background: var(--l-bg, var(--background));
+  --color-foreground: var(--l-text, var(--foreground));
+  --color-foreground-secondary: var(--l-text-secondary, var(--foreground-secondary));
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
@@ -47,7 +47,7 @@
   --color-secondary-600: var(--color-secondary-hover);
 
   /* Fuentes */
-  --font-sans: var(--font-lexend);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -66,9 +66,9 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-lexend), system-ui, -apple-system, sans-serif;
+  background: var(--l-bg, var(--background));
+  color: var(--l-text, var(--foreground));
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   font-weight: 400; /* font-normal para mejor legibilidad */
   line-height: 1.6;
 }
@@ -90,12 +90,41 @@ select:focus-visible {
   outline: none;
 }
 
-/* Scroll reveal (animaciones sutiles al entrar en viewport) */
+/* Inputs, selects y textareas se adaptan al tema */
+input, select, textarea {
+  background-color: var(--l-card, #ffffff);
+  color: var(--l-text, #1f2937);
+  border-color: var(--l-card-border, #e5e7eb);
+}
+
+/* Warning styles — clases directas para que las variables funcionen */
+.warn-bg { background-color: var(--l-warn-bg) !important; }
+.warn-bg-subtle { background-color: var(--l-warn-bg-subtle) !important; }
+.warn-border { border-color: var(--l-warn-border) !important; }
+.warn-text { color: var(--l-warn-text) !important; }
+.warn-text-light { color: var(--l-warn-text-light) !important; }
+
+/* Dark mode: date picker y selects nativos oscuros */
+[data-landing-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Options en desplegables */
+option {
+  background-color: var(--l-card, #ffffff);
+  color: var(--l-text, #1f2937);
+}
+
+/* Scroll reveal (animaciones con blur y movimiento) */
 .reveal {
   opacity: 0;
-  transform: translate3d(0, 14px, 0);
-  transition: opacity 600ms ease, transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: opacity, transform;
+  filter: blur(6px);
+  transform: translate3d(0, 20px, 0);
+  transition:
+    opacity 800ms ease,
+    filter 800ms ease,
+    transform 800ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, filter, transform;
 }
 
 .reveal[data-direction='down'] {
@@ -116,7 +145,130 @@ select:focus-visible {
 
 .reveal.is-visible {
   opacity: 1;
+  filter: blur(0);
   transform: translate3d(0, 0, 0);
+}
+
+/* ── Landing page theme variables ── */
+[data-landing-theme="light"] {
+  --l-bg: #ffffff;
+  --l-card: #ffffff;
+  --l-card-border: #e5e7eb;
+  --l-card-hover-border: #d1d5db;
+  --l-card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --l-text: #1f2937;
+  --l-text-secondary: #6b7280;
+  --l-text-muted: #9ca3af;
+  --l-grid-line: rgba(0, 0, 0, 0.04);
+  --l-glow: rgba(37, 99, 235, 0.06);
+  --l-header-bg: rgba(255, 255, 255, 0.85);
+  --l-header-border: rgba(0, 0, 0, 0.06);
+  --l-badge-bg: rgba(37, 99, 235, 0.08);
+  --l-badge-border: rgba(37, 99, 235, 0.18);
+  --l-outline-border: rgba(0, 0, 0, 0.15);
+  --l-outline-hover: rgba(0, 0, 0, 0.04);
+  --l-divider: rgba(0, 0, 0, 0.08);
+  --l-grid-fill: rgba(0, 0, 0, 0.07);
+  --l-img-opacity: 0.85;
+  --l-img-filter: invert(1) hue-rotate(180deg) brightness(0.95);
+  --l-warn-bg: rgba(254, 243, 199, 0.7);
+  --l-warn-bg-subtle: rgba(254, 243, 199, 0.4);
+  --l-warn-border: #f59e0b;
+  --l-warn-text: #92400e;
+  --l-warn-text-light: #b45309;
+  --l-footer-bg: #111827;
+  --l-footer-text: #9ca3af;
+}
+
+[data-landing-theme="dark"] {
+  --l-bg: #0a0a0a;
+  --l-card: #111827;
+  --l-card-border: #1f2937;
+  --l-card-hover-border: #374151;
+  --l-card-shadow: 0 0 30px rgba(16, 185, 129, 0.06);
+  --l-text: #ffffff;
+  --l-text-secondary: #9ca3af;
+  --l-text-muted: #6b7280;
+  --l-grid-line: rgba(255, 255, 255, 0.035);
+  --l-glow: rgba(37, 99, 235, 0.12);
+  --l-header-bg: rgba(10, 10, 10, 0.80);
+  --l-header-border: rgba(255, 255, 255, 0.05);
+  --l-badge-bg: rgba(37, 99, 235, 0.12);
+  --l-badge-border: rgba(37, 99, 235, 0.25);
+  --l-outline-border: rgba(255, 255, 255, 0.20);
+  --l-outline-hover: rgba(255, 255, 255, 0.05);
+  --l-divider: rgba(255, 255, 255, 0.10);
+  --l-grid-fill: rgba(255, 255, 255, 0.06);
+  --l-img-opacity: 1;
+  --l-img-filter: none;
+  --l-warn-bg: rgba(245, 158, 11, 0.15);
+  --l-warn-bg-subtle: rgba(245, 158, 11, 0.08);
+  --l-warn-border: #f59e0b;
+  --l-warn-text: #fbbf24;
+  --l-warn-text-light: #f59e0b;
+  --l-footer-bg: #0a0a0a;
+  --l-footer-text: #6b7280;
+}
+
+.landing-section {
+  background-color: var(--l-bg);
+  background-image:
+    linear-gradient(var(--l-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--l-grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.4s ease;
+}
+
+.landing-glow {
+  position: absolute;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--l-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bento-card {
+  background: var(--l-card);
+  border: 1px solid var(--l-card-border);
+  border-radius: 0;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.4s ease;
+}
+
+.bento-card:hover {
+  border-color: var(--l-card-hover-border);
+  box-shadow: var(--l-card-shadow);
+}
+
+.grid-cell {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  background: var(--l-grid-fill);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.landing-nav-link {
+  color: var(--l-text-secondary);
+  transition: color 0.2s;
+}
+.landing-nav-link:hover {
+  color: var(--l-text);
+}
+
+.landing-outline-btn {
+  border: 1px solid var(--l-outline-border);
+  color: var(--l-text);
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.landing-outline-btn:hover {
+  background-color: var(--l-outline-hover);
 }
 
 /* Flotación sutil para ilustraciones */
@@ -168,11 +320,16 @@ select:focus-visible {
   }
   .reveal {
     opacity: 1;
+    filter: none;
     transform: none;
     transition: none;
   }
   .float-slow {
     animation: none;
+  }
+  .grid-cell {
+    opacity: 1;
+    transition: none;
   }
   .ripple-span {
     animation: none;

@@ -107,12 +107,12 @@ export function SuppliersSection({
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] overflow-hidden">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="flex-1 flex items-center justify-between gap-2 p-4 text-left hover:bg-gray-50/50 transition-colors min-w-0"
+            className="flex-1 flex items-center justify-between gap-2 p-4 text-left hover:bg-[var(--l-bg,#f9fafb)]/50 transition-colors min-w-0"
           >
             <div>
               <h3 className="text-lg font-semibold text-foreground">
@@ -160,7 +160,7 @@ export function SuppliersSection({
                         type="checkbox"
                         checked={allSelected}
                         onChange={toggleSelectAll}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                        className="h-4 w-4 rounded border-[var(--l-card-border,#e5e7eb)] text-primary focus:ring-primary cursor-pointer"
                       />
                       Todos ({suppliers.length})
                     </label>
@@ -169,7 +169,7 @@ export function SuppliersSection({
                       <button
                         type="button"
                         onClick={() => setIsBulkDeleteModalOpen(true)}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors"
                       >
                         Eliminar {selectedIds.size}
                       </button>
@@ -177,7 +177,7 @@ export function SuppliersSection({
                     <button
                       type="button"
                       onClick={exitSelectionMode}
-                      className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-gray-200 rounded-lg transition-colors"
+                      className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors"
                     >
                       Cancelar
                     </button>
@@ -205,7 +205,7 @@ export function SuppliersSection({
                 suppliers.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between gap-2 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between gap-2 p-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)] transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       {isSelectionMode && (
@@ -213,7 +213,7 @@ export function SuppliersSection({
                           type="checkbox"
                           checked={selectedIds.has(s.id)}
                           onChange={() => toggleSelect(s.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer shrink-0"
+                          className="h-4 w-4 rounded border-[var(--l-card-border,#e5e7eb)] text-primary focus:ring-primary cursor-pointer shrink-0"
                         />
                       )}
                       <div className="min-w-0 flex-1">
@@ -236,7 +236,7 @@ export function SuppliersSection({
                         <button
                           type="button"
                           onClick={() => onDeleteProveedor(s)}
-                          className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+                          className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-error/10 rounded transition-colors"
                         >
                           Eliminar
                         </button>
@@ -262,7 +262,7 @@ export function SuppliersSection({
           onMouseDown={() => { if (!isBulkDeleting) setIsBulkDeleteModalOpen(false); }}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            className="w-full max-w-md rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -275,7 +275,7 @@ export function SuppliersSection({
             <div className="px-6 pb-6 flex justify-end gap-3">
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={() => setIsBulkDeleteModalOpen(false)}
               >
@@ -283,7 +283,7 @@ export function SuppliersSection({
               </button>
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={handleBulkDelete}
               >

@@ -21,7 +21,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
           required
           value={proveedor.name}
           onChange={(e) => setProveedor((prev) => ({ ...prev, name: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: Proveedor ABC S.L."
           disabled={isDisabled}
         />
@@ -36,7 +36,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
           required
           value={proveedor.tax_id}
           onChange={(e) => setProveedor((prev) => ({ ...prev, tax_id: e.target.value.toUpperCase() }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: B12345678"
           disabled={isDisabled}
           maxLength={9}
@@ -51,7 +51,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
           type="text"
           value={proveedor.address}
           onChange={(e) => setProveedor((prev) => ({ ...prev, address: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Calle, número, piso..."
           disabled={isDisabled}
         />
@@ -66,7 +66,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
             type="text"
             value={proveedor.postal_code}
             onChange={(e) => setProveedor((prev) => ({ ...prev, postal_code: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="28001"
             disabled={isDisabled}
             maxLength={10}
@@ -81,7 +81,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
             type="text"
             value={proveedor.city}
             onChange={(e) => setProveedor((prev) => ({ ...prev, city: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="Madrid"
             disabled={isDisabled}
           />
@@ -95,7 +95,7 @@ export function SupplierForm({ proveedor, setProveedor, isDisabled = false }: Su
             type="text"
             value={proveedor.province}
             onChange={(e) => setProveedor((prev) => ({ ...prev, province: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="Madrid"
             disabled={isDisabled}
           />

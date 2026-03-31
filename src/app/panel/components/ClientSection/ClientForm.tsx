@@ -52,7 +52,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           required
           value={cliente.name}
           onChange={(e) => setCliente(prev => ({ ...prev, name: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: Empresa ABC S.L."
           disabled={isDisabled}
         />
@@ -66,8 +66,8 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           type="text"
           value={cliente.tax_id}
           onChange={(e) => setCliente(prev => ({ ...prev, tax_id: e.target.value }))}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
-            taxIdValidation.error ? 'border-amber-500 bg-amber-50/70' : 'border-gray-200'
+          className={`w-full px-4 py-2 border rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all ${
+            taxIdValidation.error ? 'border-amber-500 bg-amber-50/70' : 'border-[var(--l-card-border,#e5e7eb)]'
           }`}
           placeholder="Ej: B12345678"
           disabled={isDisabled}
@@ -93,7 +93,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           type="text"
           value={cliente.address}
           onChange={(e) => setCliente(prev => ({ ...prev, address: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           placeholder="Ej: Calle Mayor 1"
           disabled={isDisabled}
         />
@@ -112,7 +112,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             type="text"
             value={cliente.postal_code}
             onChange={(e) => setCliente(prev => ({ ...prev, postal_code: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="28013"
             disabled={isDisabled}
             maxLength={10}
@@ -127,7 +127,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             type="text"
             value={cliente.city}
             onChange={(e) => setCliente(prev => ({ ...prev, city: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="Madrid"
             disabled={isDisabled}
           />
@@ -141,7 +141,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             type="text"
             value={cliente.province}
             onChange={(e) => setCliente(prev => ({ ...prev, province: e.target.value }))}
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             placeholder="Madrid"
             disabled={isDisabled}
           />
@@ -158,7 +158,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             onChange={(e) =>
               setCliente(prev => ({ ...prev, preferred_income_account: e.target.value }))
             }
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             disabled={isDisabled}
           >
             <option value="700">700 - Ventas</option>
@@ -175,7 +175,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
             onChange={(e) =>
               setCliente(prev => ({ ...prev, preferred_expense_account: e.target.value }))
             }
-            className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             disabled={isDisabled}
           >
             <option value="600">600 - Compra mercaderías</option>
@@ -212,7 +212,7 @@ export function ClientForm({ cliente, setCliente, isDisabled = false }: ClientFo
           rows={3}
           value={cliente.activity_description}
           onChange={(e) => setCliente(prev => ({ ...prev, activity_description: e.target.value }))}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+          className="w-full px-4 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
           placeholder="Ej: Comercio al por menor, Servicios profesionales..."
           disabled={isDisabled}
         />

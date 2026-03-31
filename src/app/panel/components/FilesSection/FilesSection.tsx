@@ -67,7 +67,7 @@ export function FilesSection({
   // Sin cliente seleccionado
   if (!clienteSeleccionado) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+      <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-12 text-center">
         <svg
           className="w-16 h-16 text-foreground-secondary mx-auto mb-4"
           fill="none"
@@ -94,7 +94,7 @@ export function FilesSection({
   // Sin subida seleccionada
   if (!subidaActual) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-6">
         <div className="mb-6">
           <p className="text-sm text-foreground-secondary">
             Cliente: {clienteSeleccionado.name}
@@ -131,9 +131,12 @@ export function FilesSection({
     );
   }
 
+  // Subida del histórico = tiene uploadId (viene de DB) y no se están subiendo archivos nuevos
+  const isFromHistory = Boolean(subidaActual?.uploadId) && !hasUploadingFiles;
+
   // Con subida seleccionada
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-6">
       <div className="mb-6">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-lg font-semibold text-foreground mb-2 min-w-0 truncate">
@@ -163,11 +166,41 @@ export function FilesSection({
         </p>
       </div>
 
+      {archivosSubidos.length > 0 && (
+        <div className="mb-4 flex items-stretch gap-3">
+          <div className="flex-1">
+            <ProcessingStatus
+              statusMessage={statusMessage}
+              totalFiles={archivosSubidos.length}
+              validatedCount={dbCounts.ready}
+              needsReviewCount={dbCounts.needsReview}
+              processingCount={dbCounts.processing}
+              uploadedCount={dbCounts.uploaded}
+              errorCount={dbCounts.error}
+              readyCount={readyCount}
+              showProgress={!isFromHistory && archivosSubidos.length > 0}
+            />
+          </div>
+          <div className="shrink-0 flex items-stretch">
+            <ValidationButtons
+              canValidate={canValidate}
+              hasUploadingFiles={hasUploadingFiles}
+              isAllReady={isAllReady}
+              readyCount={readyCount}
+              totalFiles={archivosSubidos.length}
+              isNewUpload={!isFromHistory}
+              onValidate={onValidarFacturas}
+            />
+          </div>
+        </div>
+      )}
+
       <FileUpload
         onFilesSelected={onFilesSelected}
         archivosSubidos={archivosSubidos}
         onRemoveFile={onRemoveFile}
-        maxVisibleFiles={3}
+        maxVisibleFiles={isFromHistory ? undefined : 3}
+        hideDropZone={isFromHistory}
         onFileClick={canValidate && onValidarFactura ? (a) => a.invoiceId && onValidarFactura(a.invoiceId) : undefined}
         canValidateRow={canValidate ? () => true : undefined}
         badgeForFile={(archivo) => {
@@ -221,7 +254,7 @@ export function FilesSection({
 
           return (
             <span
-              className={`text-xs px-2 py-1 rounded-full ${cls}`}
+              className={`text-xs px-2 py-1 rounded-none ${cls}`}
               title={archivo.dbErrorMessage ? archivo.dbErrorMessage : undefined}
             >
               {label}
@@ -229,31 +262,6 @@ export function FilesSection({
           );
         }}
       />
-
-      {archivosSubidos.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <ProcessingStatus
-            statusMessage={statusMessage}
-            totalFiles={archivosSubidos.length}
-            validatedCount={dbCounts.ready}
-            needsReviewCount={dbCounts.needsReview}
-            processingCount={dbCounts.processing}
-            uploadedCount={dbCounts.uploaded}
-            errorCount={dbCounts.error}
-            readyCount={readyCount}
-            showProgress={currentSessionInvoiceIds.length > 0 && archivosSubidos.length > 0}
-          />
-          <ValidationButtons
-            canValidate={canValidate}
-            hasUploadingFiles={hasUploadingFiles}
-            isAllReady={isAllReady}
-            readyCount={readyCount}
-            totalFiles={archivosSubidos.length}
-            isNewUpload={currentSessionInvoiceIds.length > 0}
-            onValidate={onValidarFacturas}
-          />
-        </div>
-      )}
     </div>
   );
 }

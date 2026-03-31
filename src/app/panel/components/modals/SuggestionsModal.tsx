@@ -71,7 +71,7 @@ export function SuggestionsModal({ isOpen, onClose }: SuggestionsModalProps) {
       onMouseDown={handleClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+        className="w-full max-w-md rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -91,7 +91,7 @@ export function SuggestionsModal({ isOpen, onClose }: SuggestionsModalProps) {
                 id="suggestions-type"
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 {TIPOS.map((t) => (
                   <option key={t.value || 'none'} value={t.value}>
@@ -114,7 +114,7 @@ export function SuggestionsModal({ isOpen, onClose }: SuggestionsModalProps) {
                 required
                 minLength={3}
                 maxLength={2000}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm placeholder:text-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                className="w-full px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm placeholder:text-foreground-secondary focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
               />
               <p className="mt-1 text-xs text-foreground-secondary">{message.length}/2000</p>
             </div>
@@ -122,7 +122,7 @@ export function SuggestionsModal({ isOpen, onClose }: SuggestionsModalProps) {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
-                className="px-4 py-2 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50"
                 disabled={isSending}
                 onClick={handleClose}
               >

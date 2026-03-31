@@ -56,7 +56,7 @@ function typePillClass(type: string | null): string {
     case 'duda':
       return 'bg-info text-white';
     case 'otro':
-      return 'bg-gray-500 text-white';
+      return 'bg-[var(--l-bg,#f9fafb)]0 text-white';
     default:
       return 'bg-gray-400 text-white';
   }
@@ -183,8 +183,8 @@ export default function AdminSuggestionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-white border-b border-gray-200 text-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header className="bg-[var(--l-card,#ffffff)] border-b border-[var(--l-card-border,#e5e7eb)] text-foreground">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <Link href="/" className="flex items-center space-x-3">
               <Image
@@ -207,11 +207,11 @@ export default function AdminSuggestionsPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex items-center gap-3">
           <Link
             href="/panel"
-            className="p-2 -ml-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors shrink-0"
+            className="p-2 -ml-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors shrink-0"
             aria-label="Volver al panel"
             title="Volver al panel"
           >
@@ -229,8 +229,8 @@ export default function AdminSuggestionsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-primary-lighter flex items-center justify-center shrink-0">
+          <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-none bg-primary/10 flex items-center justify-center shrink-0">
               <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
@@ -240,8 +240,8 @@ export default function AdminSuggestionsPage() {
               <p className="text-sm text-foreground-secondary">Nuevos</p>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+          <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-none bg-amber-50 flex items-center justify-center shrink-0">
               <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -251,8 +251,8 @@ export default function AdminSuggestionsPage() {
               <p className="text-sm text-foreground-secondary">En proceso</p>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-secondary-lighter flex items-center justify-center shrink-0">
+          <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-4 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-none bg-secondary-lighter flex items-center justify-center shrink-0">
               <svg className="w-6 h-6 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -265,7 +265,7 @@ export default function AdminSuggestionsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-4 mb-6">
           <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[200px] relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary pointer-events-none">
@@ -278,13 +278,13 @@ export default function AdminSuggestionsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Buscar por email o mensaje..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-foreground placeholder:text-foreground-secondary focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none text-foreground placeholder:text-foreground-secondary focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
             <select
               value={filterType}
               onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm min-w-[140px] focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[140px] focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               {TIPOS_OPTIONS.map((o) => (
                 <option key={o.value || 'all'} value={o.value}>{o.label}</option>
@@ -293,7 +293,7 @@ export default function AdminSuggestionsPage() {
             <select
               value={filterStatus}
               onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-              className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm min-w-[160px] focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[160px] focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.value || 'all'} value={o.value}>{o.label}</option>
@@ -301,14 +301,14 @@ export default function AdminSuggestionsPage() {
             </select>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors text-sm font-medium"
+              className="px-4 py-2 bg-primary text-white rounded-none hover:bg-primary-hover transition-colors text-sm font-medium"
             >
               Buscar
             </button>
             <button
               type="button"
               onClick={() => { setSearchInput(''); setSearch(''); setFilterType(''); setFilterStatus(''); setPage(1); fetchList(); }}
-              className="p-2 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors"
               title="Limpiar y recargar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,10 +319,10 @@ export default function AdminSuggestionsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] overflow-hidden">
           {isLoading ? (
             <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-3" />
+              <img src="/img/logo.png" alt="KontaScan" className="h-10 w-auto mx-auto mb-3 animate-pulse" />
               <p className="text-foreground-secondary">Cargando...</p>
             </div>
           ) : items.length === 0 ? (
@@ -333,7 +333,7 @@ export default function AdminSuggestionsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
+                  <tr className="border-b border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-bg,#f9fafb)]">
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Tipo</th>
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Mensaje</th>
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Usuario / Email</th>
@@ -347,9 +347,9 @@ export default function AdminSuggestionsPage() {
                     const { date, time } = formatDate(row.created_at);
                     const msgShort = row.message.length > 60 ? row.message.slice(0, 60) + '…' : row.message;
                     return (
-                      <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                      <tr key={row.id} className="border-b border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)]/50">
                         <td className="px-4 py-3">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${typePillClass(row.type)}`}>
+                          <span className={`inline-block px-2.5 py-0.5 rounded-none text-xs font-medium ${typePillClass(row.type)}`}>
                             {row.type || '—'}
                           </span>
                         </td>
@@ -371,7 +371,7 @@ export default function AdminSuggestionsPage() {
                             value={row.status}
                             onChange={(e) => handleStatusChange(row.id, e.target.value)}
                             disabled={updatingId === row.id}
-                            className={`text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white min-w-[120px] focus:ring-2 focus:ring-primary ${statusClass(row.status)}`}
+                            className={`text-sm border border-[var(--l-card-border,#e5e7eb)] rounded-none px-2 py-1 bg-[var(--l-card,#ffffff)] min-w-[120px] focus:ring-2 focus:ring-primary ${statusClass(row.status)}`}
                           >
                             {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
                               <option key={o.value} value={o.value}>{o.label}</option>
@@ -386,7 +386,7 @@ export default function AdminSuggestionsPage() {
                           <button
                             type="button"
                             onClick={() => setDetailItem(row)}
-                            className="p-2 rounded-lg text-foreground-secondary hover:text-primary hover:bg-primary-lighter transition-colors"
+                            className="p-2 rounded-none text-foreground-secondary hover:text-primary hover:bg-primary/10 transition-colors"
                             title="Ver detalle"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,7 +404,7 @@ export default function AdminSuggestionsPage() {
 
           {/* Pagination */}
           {total > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
+            <div className="px-4 py-3 border-t border-[var(--l-card-border,#e5e7eb)] flex flex-wrap items-center justify-between gap-3 bg-[var(--l-bg,#f9fafb)]/50">
               <p className="text-sm text-foreground-secondary">
                 Mostrando {formatMiles(from, 0)}-{formatMiles(to, 0)} de {formatMiles(total, 0)} registros
               </p>
@@ -413,7 +413,7 @@ export default function AdminSuggestionsPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="p-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)] text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--l-bg,#f9fafb)]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -426,7 +426,7 @@ export default function AdminSuggestionsPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="p-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)] text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--l-bg,#f9fafb)]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -446,15 +446,15 @@ export default function AdminSuggestionsPage() {
           aria-modal="true"
           aria-labelledby="detail-title"
         >
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-start">
+          <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-[var(--l-card-border,#e5e7eb)] flex justify-between items-start">
               <h2 id="detail-title" className="text-lg font-semibold text-foreground">
                 Detalle de la sugerencia
               </h2>
               <button
                 type="button"
                 onClick={() => setDetailItem(null)}
-                className="p-2 -mr-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100"
+                className="p-2 -mr-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5"
                 aria-label="Cerrar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,7 +465,7 @@ export default function AdminSuggestionsPage() {
             <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4">
               <div>
                 <p className="text-xs font-medium text-foreground-secondary uppercase tracking-wide mb-1">Tipo</p>
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${typePillClass(detailItem.type)}`}>
+                <span className={`inline-block px-2.5 py-0.5 rounded-none text-xs font-medium ${typePillClass(detailItem.type)}`}>
                   {detailItem.type || '—'}
                 </span>
               </div>
@@ -475,7 +475,7 @@ export default function AdminSuggestionsPage() {
                   value={detailItem.status}
                   onChange={(e) => handleStatusChange(detailItem.id, e.target.value)}
                   disabled={updatingId === detailItem.id}
-                  className={`text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white ${statusClass(detailItem.status)}`}
+                  className={`text-sm border border-[var(--l-card-border,#e5e7eb)] rounded-none px-3 py-2 bg-[var(--l-card,#ffffff)] ${statusClass(detailItem.status)}`}
                 >
                   {STATUS_OPTIONS.filter((o) => o.value).map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>

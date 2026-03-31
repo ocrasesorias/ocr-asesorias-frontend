@@ -103,7 +103,7 @@ export function ClientSection({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-6">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-foreground">
           Seleccionar cliente
@@ -155,7 +155,7 @@ export function ClientSection({
 
       {/* Multi-select list for bulk delete (solo owner) */}
       {canDelete && clientes.length > 1 && (
-        <div className="mt-4 border-t border-gray-100 pt-3">
+        <div className="mt-4 border-t border-[var(--l-card-border,#e5e7eb)] pt-3">
           {isSelectionMode ? (
             <>
               <div className="flex items-center gap-3 mb-2">
@@ -173,7 +173,7 @@ export function ClientSection({
                   <button
                     type="button"
                     onClick={() => setIsBulkDeleteModalOpen(true)}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors"
                   >
                     Eliminar {selectedIds.size}
                   </button>
@@ -181,7 +181,7 @@ export function ClientSection({
                 <button
                   type="button"
                   onClick={exitSelectionMode}
-                  className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-gray-200 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors"
                 >
                   Cancelar
                 </button>
@@ -190,7 +190,7 @@ export function ClientSection({
                 {clientes.map((c) => (
                   <label
                     key={c.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    className="flex items-center gap-3 p-2.5 rounded-none border border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)] transition-colors cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -232,7 +232,7 @@ export function ClientSection({
           onMouseDown={() => { if (!isBulkDeleting) setIsBulkDeleteModalOpen(false); }}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            className="w-full max-w-md rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -247,7 +247,7 @@ export function ClientSection({
             <div className="px-6 pb-6 flex justify-end gap-3">
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={() => setIsBulkDeleteModalOpen(false)}
               >
@@ -255,7 +255,7 @@ export function ClientSection({
               </button>
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={handleBulkDelete}
               >

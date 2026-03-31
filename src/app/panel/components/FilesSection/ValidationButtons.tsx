@@ -23,33 +23,35 @@ export function ValidationButtons({
   onValidate,
 }: ValidationButtonsProps) {
   return (
-    <div className="flex justify-end gap-2">
+    <div className="flex justify-end gap-2 h-full">
       {!isNewUpload ? (
         <>
           <Button
             variant="outline"
-            size="lg"
+            size="md"
             onClick={() => onValidate('all')}
             disabled={!canValidate}
+            className="h-full"
           >
             Ver todas
           </Button>
           <Button
-            variant="primary"
-            size="lg"
+            variant="secondary"
+            size="md"
             onClick={() => onValidate('pending')}
             disabled={!canValidate}
+            className="h-full"
           >
             Validar pendientes
           </Button>
         </>
       ) : (
         <Button
-          variant="primary"
-          size="lg"
+          variant="secondary"
+          size="md"
           onClick={() => onValidate('all')}
           disabled={!canValidate}
-          className="group"
+          className="group h-full"
         >
           <span className="inline-flex items-center justify-center gap-2 font-light">
             <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">

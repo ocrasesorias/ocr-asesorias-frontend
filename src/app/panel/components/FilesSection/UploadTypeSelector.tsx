@@ -19,10 +19,10 @@ export function UploadTypeSelector({ onSelectTipo, onCancel }: UploadTypeSelecto
         <button
           type="button"
           onClick={() => onSelectTipo('ingreso')}
-          className="group text-left border border-gray-200 rounded-xl p-5 hover:border-secondary hover:bg-gray-50 transition-colors"
+          className="group text-left border border-[var(--l-card-border,#e5e7eb)] rounded-none p-5 hover:border-secondary hover:bg-[var(--l-bg,#f9fafb)] transition-colors"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-secondary transition-colors">
+            <div className="w-10 h-10 rounded-none bg-green-50 flex items-center justify-center text-secondary transition-colors">
               <svg className="w-5 h-5 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12h16m0 0l-6-6m6 6l-6 6" />
               </svg>
@@ -40,10 +40,10 @@ export function UploadTypeSelector({ onSelectTipo, onCancel }: UploadTypeSelecto
         <button
           type="button"
           onClick={() => onSelectTipo('gasto')}
-          className="group text-left border border-gray-200 rounded-xl p-5 hover:border-primary hover:bg-primary-lighter transition-colors"
+          className="group text-left border border-[var(--l-card-border,#e5e7eb)] rounded-none p-5 hover:border-primary hover:bg-primary/10 transition-colors"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-primary-lighter flex items-center justify-center text-primary transition-colors">
+            <div className="w-10 h-10 rounded-none bg-primary/10 flex items-center justify-center text-primary transition-colors">
               <svg className="w-5 h-5 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4m0 0l6-6m-6 6l6 6" />
               </svg>

@@ -112,7 +112,7 @@ export default function PendientesPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+          <img src="/img/logo.png" alt="KontaScan" className="h-16 w-auto mx-auto mb-4 animate-pulse" />
           <p className="text-foreground-secondary">Cargando...</p>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function PendientesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--l-bg,#f9fafb)]">
       <DashboardHeader
         organizationName={organizationName}
         creditsBalance={creditsBalance}
@@ -129,11 +129,11 @@ export default function PendientesPage() {
         orgId={orgId}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8 flex items-center gap-3">
           <Link
             href="/panel"
-            className="p-2 -ml-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors shrink-0"
+            className="p-2 -ml-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors shrink-0"
             aria-label="Volver al panel"
             title="Volver al panel"
           >
@@ -149,21 +149,21 @@ export default function PendientesPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
+        <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] overflow-hidden">
+          <div className="px-4 py-3 border-b border-[var(--l-card-border,#e5e7eb)] flex flex-wrap items-center justify-between gap-3 bg-[var(--l-bg,#f9fafb)]/50">
             <div className="flex items-center gap-3">
               <span className="text-sm text-foreground-secondary">Mostrar:</span>
               <button
                 type="button"
                 onClick={() => { setStatusFilter('pending'); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'pending' ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-foreground hover:bg-gray-50'}`}
+                className={`px-3 py-1.5 rounded-none text-sm font-medium transition-colors ${statusFilter === 'pending' ? 'bg-primary text-white' : 'bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)]'}`}
               >
                 Solo pendientes
               </button>
               <button
                 type="button"
                 onClick={() => { setStatusFilter('all'); setPage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-foreground hover:bg-gray-50'}`}
+                className={`px-3 py-1.5 rounded-none text-sm font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-white' : 'bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)]'}`}
               >
                 Todas
               </button>
@@ -171,7 +171,7 @@ export default function PendientesPage() {
             <button
               type="button"
               onClick={() => fetchList()}
-              className="p-2 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors"
               title="Actualizar"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +182,7 @@ export default function PendientesPage() {
 
           {isLoading ? (
             <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-3" />
+              <img src="/img/logo.png" alt="KontaScan" className="h-10 w-auto mx-auto mb-3 animate-pulse" />
               <p className="text-foreground-secondary">Cargando facturas...</p>
             </div>
           ) : items.length === 0 ? (
@@ -195,7 +195,7 @@ export default function PendientesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
+                  <tr className="border-b border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-bg,#f9fafb)]">
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Cliente</th>
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Subida</th>
                     <th className="px-4 py-3 text-sm font-semibold text-foreground">Tipo</th>
@@ -207,7 +207,7 @@ export default function PendientesPage() {
                 </thead>
                 <tbody>
                   {items.map((row) => (
-                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                    <tr key={row.id} className="border-b border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)]/50">
                       <td className="px-4 py-3 text-sm text-foreground">{row.client_name || '—'}</td>
                       <td className="px-4 py-3 text-sm text-foreground">{row.upload_name || '—'}</td>
                       <td className="px-4 py-3">
@@ -232,7 +232,7 @@ export default function PendientesPage() {
                             type="button"
                             onClick={() => handleOpenInNewTab(row.id)}
                             disabled={openingId === row.id}
-                            className="px-2 py-1.5 rounded-lg text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
+                            className="px-2 py-1.5 rounded-none text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50 transition-colors"
                           >
                             {openingId === row.id ? '…' : 'Abrir'}
                           </button>
@@ -241,7 +241,7 @@ export default function PendientesPage() {
                             download
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-2 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors inline-flex items-center justify-center"
+                            className="p-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors inline-flex items-center justify-center"
                             title="Descargar"
                             aria-label="Descargar factura"
                           >
@@ -260,7 +260,7 @@ export default function PendientesPage() {
           )}
 
           {total > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-gray-50/50">
+            <div className="px-4 py-3 border-t border-[var(--l-card-border,#e5e7eb)] flex flex-wrap items-center justify-between gap-3 bg-[var(--l-bg,#f9fafb)]/50">
               <p className="text-sm text-foreground-secondary">
                 Mostrando {formatMiles(from, 0)}-{formatMiles(to, 0)} de {formatMiles(total, 0)} facturas
               </p>
@@ -269,7 +269,7 @@ export default function PendientesPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page <= 1}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="p-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)] text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--l-bg,#f9fafb)]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -282,7 +282,7 @@ export default function PendientesPage() {
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page >= totalPages}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  className="p-2 rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)] text-foreground disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--l-bg,#f9fafb)]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -49,7 +49,7 @@ export function MobileNav() {
         aria-expanded={isOpen}
         aria-controls="mobile-menu"
         aria-label={isOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
-        className="inline-flex items-center justify-center p-2 rounded-lg text-foreground hover:text-primary hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        className="inline-flex items-center justify-center p-2 rounded-lg text-foreground hover:text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         {isOpen ? (
           <svg

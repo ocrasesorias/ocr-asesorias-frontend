@@ -248,17 +248,16 @@ export default function DashboardPage() {
   
   if (isLoadingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-foreground-secondary">Cargando...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse">
+          <img src="/img/logo.png" alt="KontaScan" className="h-16 w-auto mx-auto" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--l-bg,#f9fafb)]">
       <DashboardHeader
         organizationName={organizationName}
         creditsBalance={creditsBalance}
@@ -270,7 +269,7 @@ export default function DashboardPage() {
         isTrial={subscription.isTrial}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Column: Client & Uploads */}
           <div className="lg:col-span-1 space-y-6">

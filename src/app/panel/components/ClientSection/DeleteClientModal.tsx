@@ -31,7 +31,7 @@ export function DeleteClientModal({
       }}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+        className="w-full max-w-md rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -47,7 +47,7 @@ export function DeleteClientModal({
         <div className="px-6 pb-6 flex justify-end gap-3">
           <button
             type="button"
-            className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isDeleting}
             onClick={onClose}
           >
@@ -55,7 +55,7 @@ export function DeleteClientModal({
           </button>
           <button
             type="button"
-            className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-3 rounded-none bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isDeleting}
             onClick={onConfirm}
           >

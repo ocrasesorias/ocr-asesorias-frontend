@@ -110,7 +110,7 @@ import { Switch } from '@heroui/react';
      return (
        <div className="min-h-screen bg-background flex items-center justify-center">
          <div className="text-center">
-           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+           <img src="/img/logo.png" alt="KontaScan" className="h-16 w-auto mx-auto mb-4 animate-pulse" />
            <p className="text-foreground-secondary">Cargando preferencias...</p>
          </div>
        </div>
@@ -119,8 +119,8 @@ import { Switch } from '@heroui/react';
  
    return (
      <div className="min-h-screen bg-background">
-       <header className="bg-white border-b border-gray-200 text-foreground">
-         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+       <header className="bg-[var(--l-card,#ffffff)] border-b border-[var(--l-card-border,#e5e7eb)] text-foreground">
+         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
            <div className="flex justify-between items-center py-4">
             <Link href="/" className="flex items-center space-x-3">
               <Image
@@ -141,7 +141,7 @@ import { Switch } from '@heroui/react';
          <div className="mb-8 flex items-center gap-3">
            <Link
              href="/panel"
-             className="p-2 -ml-2 rounded-full text-foreground-secondary hover:text-foreground hover:bg-slate-100 transition-colors shrink-0"
+             className="p-2 -ml-2 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors shrink-0"
              aria-label="Volver al panel"
              title="Volver al panel"
            >
@@ -157,7 +157,7 @@ import { Switch } from '@heroui/react';
            </div>
          </div>
  
-         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+         <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-6">
            <div className="flex items-start justify-between gap-6">
              <div className="min-w-0">
                <h2 className="text-lg font-semibold text-foreground">
@@ -185,7 +185,7 @@ import { Switch } from '@heroui/react';
             />
            </div>
 
-           <div className="mt-8 pt-6 border-t border-gray-200">
+           <div className="mt-8 pt-6 border-t border-[var(--l-card-border,#e5e7eb)]">
              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                <div className="min-w-0">
                  <h2 className="text-lg font-semibold text-foreground">
@@ -204,7 +204,7 @@ import { Switch } from '@heroui/react';
                  value={workingQuarter}
                  onChange={(e) => setWorkingQuarter(e.target.value)}
                  disabled={!canEdit}
-                 className="px-3 py-2 border border-gray-200 rounded-lg bg-white text-foreground text-sm min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
+                 className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[140px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
                  aria-label="Trimestre de trabajo"
                >
                  <option value="">No definido</option>

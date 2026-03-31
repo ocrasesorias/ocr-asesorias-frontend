@@ -1502,7 +1502,7 @@ export default function ValidarUploadPage() {
   if (isLoading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <img src="/img/logo.png" alt="KontaScan" className="h-12 w-auto animate-pulse" />
       </div>
     )
   }
@@ -1546,17 +1546,17 @@ export default function ValidarUploadPage() {
 
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-50">
+      <header className="px-6 py-3 sticky top-0 z-50" style={{ backgroundColor: 'var(--l-card, #ffffff)', borderBottom: '1px solid var(--l-card-border, #e5e7eb)' }}>
         <div className="flex items-center justify-between gap-6">
           {/* Izquierda */}
           <div className="flex items-center gap-4 min-w-0">
             <button
               onClick={() => router.back()}
-              className="p-2 rounded-full hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-none hover:bg-primary/5 transition-colors"
               aria-label="Volver"
               title="Volver"
             >
-              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="w-5 h-5 text-foreground-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -1569,47 +1569,79 @@ export default function ValidarUploadPage() {
             <div className="min-w-0">
               <div className="text-sm font-semibold tracking-tight truncate">
                 {clientTaxId ? (
-                  <span className="text-slate-900">CIF {clientTaxId}</span>
+                  <span className="text-foreground">CIF {clientTaxId}</span>
                 ) : (
-                  <span className="text-slate-900">CIF —</span>
+                  <span className="text-foreground">CIF —</span>
                 )}
-                <span className="text-slate-400">{' · '}</span>
+                <span className="text-foreground-secondary">{' · '}</span>
                 <span className="text-secondary">{clienteNombre || 'Validar facturas'}</span>
-                <span className="text-slate-400">{' · '}</span>
-                <span className="text-slate-900">{tipoFactura === 'ingreso' ? 'Ingresos' : 'Gastos'}</span>
+                <span className="text-foreground-secondary">{' · '}</span>
+                <span className="text-foreground">{tipoFactura === 'ingreso' ? 'Ingresos' : 'Gastos'}</span>
               </div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+              <div className="text-[10px] text-foreground-secondary uppercase tracking-widest font-medium">
                 Pantalla de Validación
               </div>
             </div>
           </div>
 
+          {/* Centro — progreso + nombre factura */}
+          <div className="flex flex-col items-center min-w-0">
+            <span className="text-sm font-semibold text-foreground">
+              {formatMiles(statusStats.done, 0)}/{formatMiles(statusStats.total, 0)} <span className="text-foreground-secondary font-normal">procesadas</span>
+            </span>
+            <div className="w-48 h-1.5 bg-[var(--l-card-border,#e2e8f0)] mt-1.5 overflow-hidden">
+              <div
+                className="bg-primary h-full transition-all"
+                style={{ width: `${statusStats.percent}%` }}
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              {(() => {
+                const td = facturas[facturaActual]?.tipo_documento || 'factura';
+                const label = td === 'albaran' ? 'Albarán' : td === 'nota_entrega' ? 'Nota de entrega' : td === 'otro' ? 'Otro' : 'Factura';
+                return (
+                  <span className="text-[10px] font-medium px-2 py-0.5 bg-primary/10 text-primary shrink-0">
+                    {label}
+                  </span>
+                );
+              })()}
+              {facturas[facturaActual]?.archivo?.nombre && (
+                <span className="text-[11px] text-foreground-secondary truncate max-w-[240px]">
+                  {facturas[facturaActual].archivo.nombre}
+                </span>
+              )}
+              {facturas[facturaActual]?.archivo?.url && (
+                <a
+                  href={facturas[facturaActual].archivo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:text-primary-hover transition-colors shrink-0"
+                  title="Abrir en nueva pestaña"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10v11h11" />
+                  </svg>
+                  <span>Abrir</span>
+                </a>
+              )}
+            </div>
+          </div>
+
           {/* Derecha */}
           <div className="flex items-center gap-4 shrink-0">
-            <div className="flex flex-col items-end">
-              <span className="text-xs font-medium text-slate-500">
-                {formatMiles(statusStats.done, 0)}/{formatMiles(statusStats.total, 0)} procesadas
-              </span>
-              <div className="w-32 h-1.5 bg-slate-200 rounded-full mt-1 overflow-hidden">
-                <div
-                  className="bg-secondary h-full rounded-full transition-all"
-                  style={{ width: `${statusStats.percent}%` }}
-                />
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={handleAnterior}
               disabled={viewMode === 'pending' ? !hasPrevPending : facturaActual === 0}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-6 py-3 text-base font-normal text-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Volver a la factura anterior"
               title="Anterior"
             >
-              <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="w-4 h-4 text-foreground-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              <span>Anterior</span>
+              <span>Factura anterior</span>
             </button>
 
             <span
@@ -1619,13 +1651,14 @@ export default function ValidarUploadPage() {
                   : `Exportar ${formatMiles(validatedInvoiceIds.length, 0)} facturas validadas`
               }
             >
-              <Button
-                variant="primary"
+              <button
+                type="button"
                 onClick={() => setIsFinishedModalOpen(true)}
                 disabled={validatedInvoiceIds.length === 0}
+                className="inline-flex items-center px-6 py-3 bg-primary text-white text-base font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Finalizar / Exportar
-              </Button>
+                Finalizar
+              </button>
             </span>
           </div>
         </div>
@@ -1633,7 +1666,7 @@ export default function ValidarUploadPage() {
         {/* Línea inferior de progreso (como en el screenshot cuando está completo) */}
         <div className="mt-3 -mx-6">
           <div className="px-6 pb-1 flex justify-end">
-            <div className="text-[11px] text-slate-500 whitespace-nowrap">
+            <div className="text-[11px] text-foreground-secondary whitespace-nowrap">
               {viewMode === 'pending'
                 ? `${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''}`
                 : `${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas`}
@@ -1644,7 +1677,7 @@ export default function ValidarUploadPage() {
               - warning: para después
               - neutral: visitada pero no validada
               - transparente: no visitada */}
-          <div className="h-2 w-full border border-slate-200 bg-transparent overflow-hidden">
+          <div className="h-2 w-full border border-[var(--l-card-border,#e5e7eb)] bg-transparent overflow-hidden">
             <div className="h-full w-full flex">
               {(viewMode === 'pending'
                 ? invoiceRows.map((inv, allIdx) => ({ inv, allIdx })).filter(({ inv }) => !validatedByInvoiceId[inv.id])
@@ -1661,7 +1694,7 @@ export default function ValidarUploadPage() {
                   : isDeferred
                     ? 'bg-warning'
                     : isVisited
-                      ? 'bg-slate-200'
+                      ? 'bg-[var(--l-card-border,#e2e8f0)]'
                       : 'bg-transparent'
 
                 return (
@@ -1672,7 +1705,7 @@ export default function ValidarUploadPage() {
                     className={[
                       'h-full flex-1 transition-colors',
                       bgClass,
-                      visibleIdx === arr.length - 1 ? '' : 'border-r border-slate-200',
+                      visibleIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
                       isCurrent ? 'ring-1 ring-primary ring-inset' : '',
                       hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
                       invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
@@ -1693,7 +1726,7 @@ export default function ValidarUploadPage() {
       {isFinishedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !isExporting && setIsFinishedModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-6 text-foreground">
+          <div className="relative w-full max-w-lg bg-[var(--l-card,#ffffff)] rounded-none shadow-xl border border-[var(--l-card-border,#e5e7eb)] p-6 text-foreground">
             <h2 className="text-xl font-semibold mb-2">Exportar facturas validadas</h2>
             <p className="text-sm text-foreground-secondary mb-6">
               Se generará el Excel con las facturas marcadas como validadas.

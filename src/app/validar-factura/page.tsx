@@ -197,7 +197,7 @@ export default function ValidarFacturaPage() {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <img src="/img/logo.png" alt="KontaScan" className="h-16 w-auto mx-auto mb-4 animate-pulse" />
           <p className="text-foreground-secondary">Verificando sesión...</p>
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function ValidarFacturaPage() {
   return (
     <div className="min-h-screen h-screen bg-background flex flex-col">
       {/* Header con navegación */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-[var(--l-card,#ffffff)] border-b border-[var(--l-card-border,#e5e7eb)] px-4 py-2 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center space-x-4">
           <Link href="/panel" className="text-primary hover:text-primary-hover">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +272,7 @@ export default function ValidarFacturaPage() {
             className="absolute inset-0 bg-black/40"
             onClick={() => !isExporting && setIsFinishedModalOpen(false)}
           />
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-200 p-6 text-foreground">
+          <div className="relative w-full max-w-lg bg-[var(--l-card,#ffffff)] rounded-2xl shadow-xl border border-[var(--l-card-border,#e5e7eb)] p-6 text-foreground">
             <h2 className="text-xl font-semibold mb-2">Has terminado la validación</h2>
             <p className="text-sm text-foreground-secondary mb-6">
               ¿Quieres revisar o cambiar algún dato, o prefieres continuar y generar el export?

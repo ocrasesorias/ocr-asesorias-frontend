@@ -1,14 +1,9 @@
 import { Providers } from "@/app/providers";
 import type { Metadata, Viewport } from "next";
-import { Lexend } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { DeferredAnalytics } from "@/components/DeferredAnalytics";
-
-const lexend = Lexend({
-  variable: "--font-lexend",
-  subsets: ["latin"],
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-});
 
 export const metadata: Metadata = {
   title: "KontaScan – De facturas a Excel contable en segundos",
@@ -30,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${lexend.variable} antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
         <DeferredAnalytics />

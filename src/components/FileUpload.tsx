@@ -14,6 +14,8 @@ interface FileUploadProps {
   /** Si existe y canValidateRow(archivo) es true, al hacer clic en la fila se llama con el archivo */
   onFileClick?: (archivo: ArchivoSubido) => void;
   canValidateRow?: (archivo: ArchivoSubido) => boolean;
+  /** Ocultar la zona de arrastrar archivos */
+  hideDropZone?: boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({
@@ -24,6 +26,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   badgeForFile,
   onFileClick,
   canValidateRow,
+  hideDropZone = false,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -81,6 +84,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   return (
     <div className="space-y-4">
       {/* Zona de drop */}
+      {!hideDropZone && (
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -88,10 +92,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         onMouseEnter={() => setIsSectionHovered(true)}
         onMouseLeave={() => setIsSectionHovered(false)}
         className={`
-          border-2 border-dashed rounded-lg p-8 text-center transition-colors
-          ${isDragging 
-            ? 'border-primary bg-primary-lighter' 
-            : 'border-gray-200 hover:border-primary hover:bg-gray-50'
+          border-2 border-dashed rounded-none p-8 text-center transition-colors
+          ${isDragging
+            ? 'border-primary bg-primary/10'
+            : 'border-[var(--l-card-border,#e5e7eb)] hover:border-primary hover:bg-[var(--l-bg,#f9fafb)]'
           }
         `}
       >
@@ -118,10 +122,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           </p>
         </label>
       </div>
+      )}
 
       {/* Lista de archivos subidos */}
       {archivosSubidos.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4 text-foreground">
+        <div className="bg-[var(--l-card,#ffffff)] rounded-none border border-[var(--l-card-border,#e5e7eb)] p-4 text-foreground">
           <div className="flex items-center justify-between gap-3 mb-3">
             <h3 className="text-sm font-semibold text-foreground">
               Facturas ({formatMiles(totalCount, 0)})
@@ -146,10 +151,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                 tabIndex={isClickable ? 0 : undefined}
                 onClick={isClickable ? () => onFileClick?.(archivo) : undefined}
                 onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFileClick?.(archivo); } } : undefined}
-                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                className={`group flex items-center justify-between p-3 rounded-none transition-colors ${
                   isClickable
-                    ? 'bg-gray-50 hover:bg-primary-lighter hover:border-primary/30 cursor-pointer border border-transparent'
-                    : 'bg-gray-50 hover:bg-gray-100'
+                    ? 'cursor-pointer border border-transparent hover:bg-[var(--l-bg,#f9fafb)]'
+                    : 'hover:bg-[var(--l-bg,#f9fafb)]'
                 }`}
               >
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -183,7 +188,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
+                    <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
                       {archivo.nombre}
                     </p>
                     <p className="text-xs text-foreground-secondary">
@@ -218,7 +223,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
           {isCollapsed && (
             <div className="mt-3 text-xs text-foreground-secondary">
-              Mostrando {formatMiles(displayedFiles.length, 0)} de {formatMiles(totalCount, 0)}. Hay más facturas procesándose…
+              Mostrando {formatMiles(displayedFiles.length, 0)} de {formatMiles(totalCount, 0)}.
             </div>
           )}
         </div>

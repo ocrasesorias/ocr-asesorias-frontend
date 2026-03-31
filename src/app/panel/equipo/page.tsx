@@ -164,7 +164,7 @@ export default function EquipoPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        <img src="/img/logo.png" alt="KontaScan" className="h-12 w-auto animate-pulse" />
       </div>
     )
   }
@@ -174,7 +174,7 @@ export default function EquipoPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-[var(--l-card,#ffffff)] border-b border-[var(--l-card-border,#e5e7eb)]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
@@ -210,8 +210,8 @@ export default function EquipoPage() {
         </div>
 
         {/* Members list */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)] rounded-none overflow-hidden">
+          <div className="px-5 py-4 border-b border-[var(--l-card-border,#e5e7eb)] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
               Miembros ({members.length})
             </h2>
@@ -227,7 +227,7 @@ export default function EquipoPage() {
 
           {/* Add member form */}
           {showAddForm && isOwner && (
-            <form onSubmit={handleAddMember} className="px-5 py-4 bg-gray-50 border-b border-gray-200">
+            <form onSubmit={handleAddMember} className="px-5 py-4 bg-[var(--l-bg,#f9fafb)] border-b border-[var(--l-card-border,#e5e7eb)]">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label htmlFor="new-member-email" className="block text-sm font-medium text-foreground mb-1">
@@ -239,7 +239,7 @@ export default function EquipoPage() {
                     required
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                     placeholder="trabajador@ejemplo.com"
                     disabled={isAdding}
                   />
@@ -254,7 +254,7 @@ export default function EquipoPage() {
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                     placeholder="Mínimo 6 caracteres"
                     disabled={isAdding}
                     minLength={6}
@@ -290,7 +290,7 @@ export default function EquipoPage() {
                       className="px-5 py-3 flex items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-none bg-gray-100 flex items-center justify-center shrink-0">
                           <span className="text-xs font-semibold text-foreground-secondary uppercase">
                             {member.email.charAt(0)}
                           </span>
@@ -328,7 +328,7 @@ export default function EquipoPage() {
                           <button
                             type="button"
                             onClick={() => setMemberToDelete(member)}
-                            className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                            className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-error/10 transition-colors"
                             title="Eliminar miembro"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -360,7 +360,7 @@ export default function EquipoPage() {
       {memberToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !isDeleting && setMemberToDelete(null)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 p-6">
+          <div className="relative w-full max-w-md bg-[var(--l-card,#ffffff)] rounded-none shadow-xl border border-[var(--l-card-border,#e5e7eb)] p-6">
             <h3 className="text-lg font-semibold text-foreground">Eliminar miembro</h3>
             <p className="text-sm text-foreground-secondary mt-2">
               Vas a eliminar a <span className="font-semibold text-foreground">{memberToDelete.email}</span> de la

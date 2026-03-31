@@ -59,10 +59,10 @@ export function ClientSelect({
         onClick={() => setOpen((v) => !v)}
         className={[
           'w-full flex items-center justify-between gap-3',
-          'px-4 py-3 rounded-lg border border-gray-200 bg-white',
+          'px-4 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)]',
           'text-left transition-all',
           'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50',
+          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--l-bg,#f9fafb)]',
         ].join(' ')}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -86,7 +86,7 @@ export function ClientSelect({
         <div
           className={[
             'absolute z-20 mt-2 w-full',
-            'rounded-lg border border-gray-200 bg-white shadow-lg',
+            'rounded-none border border-[var(--l-card-border,#e5e7eb)] bg-[var(--l-card,#ffffff)] shadow-lg',
             'max-h-64 overflow-auto',
           ].join(' ')}
           role="listbox"
@@ -99,8 +99,8 @@ export function ClientSelect({
             }}
             className={[
               'w-full text-left px-4 py-3 text-sm',
-              value === '' ? 'bg-primary-lighter text-foreground' : 'text-foreground-secondary',
-              'hover:bg-gray-50 transition-colors',
+              value === '' ? 'bg-primary/10 text-foreground' : 'text-foreground-secondary',
+              'hover:bg-[var(--l-bg,#f9fafb)] transition-colors',
             ].join(' ')}
           >
             {placeholder}
@@ -123,8 +123,8 @@ export function ClientSelect({
                   }}
                   className={[
                     'w-full text-left px-4 py-3 text-sm',
-                    isActive ? 'bg-primary-lighter text-foreground' : 'text-foreground',
-                    'hover:bg-gray-50 transition-colors',
+                    isActive ? 'bg-primary/10 text-foreground' : 'text-foreground',
+                    'hover:bg-[var(--l-bg,#f9fafb)] transition-colors',
                   ].join(' ')}
                 >
                   <div className="flex items-center justify-between gap-3">

@@ -56,10 +56,10 @@ export function EditClientModal({
       }}
     >
       <div
-        className="w-full max-w-lg max-h-[90vh] rounded-xl bg-white shadow-xl border border-gray-200 flex flex-col"
+        className="w-full max-w-lg max-h-[90vh] rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)] flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-[var(--l-card-border,#e5e7eb)] shrink-0">
           <div>
             <h3 className="text-lg font-semibold text-foreground">Editar cliente</h3>
             <p className="mt-1 text-sm text-foreground-secondary">
@@ -68,7 +68,7 @@ export function EditClientModal({
           </div>
           <button
             type="button"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-none text-foreground-secondary hover:text-foreground hover:bg-primary/5 transition-colors disabled:opacity-50"
             disabled={isUpdating}
             onClick={onClose}
             aria-label="Cerrar"
@@ -87,10 +87,10 @@ export function EditClientModal({
             />
           </div>
 
-          <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-100 shrink-0">
+          <div className="px-6 py-4 flex justify-end gap-3 border-t border-[var(--l-card-border,#e5e7eb)] shrink-0">
             <button
               type="button"
-              className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isUpdating}
               onClick={onClose}
             >
@@ -98,7 +98,7 @@ export function EditClientModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-3 rounded-none bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isUpdating}
             >
               {isUpdating ? 'Guardando…' : 'Guardar'}

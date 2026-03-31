@@ -648,50 +648,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       >
         {/* Columna izquierda: Imagen/PDF de la factura */}
         <div className="overflow-hidden h-full flex flex-col">
-          <div className="flex-1 bg-slate-200 rounded-xl overflow-hidden relative border border-slate-300 flex flex-col">
-            {/* Barra superior (estilo visor) */}
-            <div className="bg-slate-800 text-white px-4 py-2 flex items-center justify-between text-sm">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs font-medium truncate">{factura.archivo?.nombre || 'Factura'}</span>
-                <span
-                  className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-medium ${tipoDocumento === 'factura'
-                    ? 'bg-slate-600 text-white'
-                    : tipoDocumento === 'albaran'
-                      ? 'bg-blue-500/90 text-white'
-                      : tipoDocumento === 'nota_entrega'
-                        ? 'bg-slate-500/90 text-white'
-                        : 'bg-slate-500/80 text-white'
-                    }`}
-                  title={tipoDocumento === 'factura' ? 'Documento fiscal para contabilidad' : tipoDocumento === 'albaran' ? 'Documento de entrega; la factura puede llegar por separado' : tipoDocumento === 'nota_entrega' ? 'Prueba de entrega' : 'Otro tipo de documento'}
-                >
-                  {tipoDocumentoLabel}
-                </span>
-                {inversionSujetoPasivo && (
-                  <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/90 text-slate-900" title="IVA repercutido por el destinatario (Art. 196)">
-                    Inversión sujeto pasivo
-                  </span>
-                )}
-              </div>
-              {factura.archivo?.url ? (
-                <a
-                  href={factura.archivo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary-hover transition-colors"
-                  title="Abrir en nueva pestaña"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10v11h11" />
-                  </svg>
-                  <span className="whitespace-nowrap">Abrir en nueva pestaña</span>
-                </a>
-              ) : (
-                <div className="text-xs text-slate-300">—</div>
-              )}
-            </div>
-
-            <div className="flex-1 bg-white overflow-hidden">
+          <div className="flex-1 bg-[var(--l-bg,#e2e8f0)] rounded-none overflow-hidden relative border border-[var(--l-card-border,#e5e7eb)] flex flex-col">
+            <div className="flex-1 bg-[var(--l-card,#ffffff)] overflow-hidden">
               {factura.archivo?.tipo === 'pdf' ? (
                 <div className="w-full h-full">
                   {factura.archivo?.url ? (
@@ -702,7 +660,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       aria-label="Vista previa PDF"
                     >
                       <div className="text-center px-6 py-8">
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-foreground-secondary">
                           El visor de PDF no se pudo incrustar en esta página.
                         </p>
                         <a
@@ -718,10 +676,10 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   ) : previewFailed ? (
                     <div className="h-full w-full flex items-center justify-center text-center px-6">
                       <div>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-foreground-secondary">
                           No se pudo cargar la previsualización de esta factura.
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-foreground-secondary mt-1">
                           Vuelve al panel y reintenta la subida o revisa permisos de Storage/RLS.
                         </p>
                       </div>
@@ -729,17 +687,17 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-center px-6">
                       <div className="flex flex-col items-center gap-3">
-                        <svg className="animate-spin h-8 w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg className="animate-spin h-8 w-8 text-foreground-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <p className="text-sm text-slate-500">Cargando previsualización…</p>
+                        <p className="text-sm text-foreground-secondary">Cargando previsualización…</p>
                       </div>
                     </div>
                   )}
                 </div>
               ) : factura.archivo?.url ? (
-                <div className="w-full h-full overflow-hidden bg-white relative">
+                <div className="w-full h-full overflow-hidden bg-[var(--l-card,#ffffff)] relative">
                   <Image
                     src={factura.archivo.url}
                     alt="Factura"
@@ -752,18 +710,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               ) : previewFailed ? (
                 <div className="h-full w-full flex items-center justify-center text-center px-6">
                   <div>
-                    <p className="text-sm text-slate-500">No se pudo cargar la previsualización de esta factura.</p>
-                    <p className="text-xs text-slate-500 mt-1">Vuelve al panel y reintenta la subida o revisa permisos de Storage/RLS.</p>
+                    <p className="text-sm text-foreground-secondary">No se pudo cargar la previsualización de esta factura.</p>
+                    <p className="text-xs text-foreground-secondary mt-1">Vuelve al panel y reintenta la subida o revisa permisos de Storage/RLS.</p>
                   </div>
                 </div>
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-center px-6">
                   <div className="flex flex-col items-center gap-3">
-                    <svg className="animate-spin h-8 w-8 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <svg className="animate-spin h-8 w-8 text-foreground-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <p className="text-sm text-slate-500">Cargando previsualización…</p>
+                    <p className="text-sm text-foreground-secondary">Cargando previsualización…</p>
                   </div>
                 </div>
               )}
@@ -778,14 +736,14 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-0.5">
               {/* Aviso de factura duplicada */}
               {duplicateWarning && duplicateWarning.length > 0 && !duplicateDismissed && (
-                <div className="border border-amber-500 bg-amber-50 rounded-lg p-2.5 flex items-start gap-2">
+                <div className="border warn-border warn-bg rounded-none p-2.5 flex items-start gap-2">
                   <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-amber-800">Posible factura duplicada</p>
+                    <p className="text-xs font-semibold warn-text">Posible factura duplicada</p>
                     {duplicateWarning.map((d) => (
-                      <p key={d.invoice_id} className="text-[11px] text-amber-700 mt-0.5">
+                      <p key={d.invoice_id} className="text-[11px] warn-text-light mt-0.5">
                         Ya existe otra factura del mismo proveedor con el n.&ordm; {d.invoice_number}
                         {d.original_filename ? ` (${d.original_filename})` : ''}
                       </p>
@@ -794,7 +752,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   <button
                     type="button"
                     onClick={() => setDuplicateDismissed(true)}
-                    className="shrink-0 p-0.5 text-amber-600 hover:text-amber-800 transition-colors"
+                    className="shrink-0 p-0.5 text-amber-600 hover:warn-text transition-colors"
                     aria-label="Descartar aviso"
                     title="Descartar"
                   >
@@ -805,7 +763,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
               )}
               {/* Empresa */}
-              <div className="border border-gray-200 rounded-lg p-2">
+              <div className="border border-[var(--l-card-border,#e5e7eb)] rounded-none p-2">
                 <div className="flex items-center gap-2 mb-2">
                   <svg
                     className="w-4 h-4 text-secondary shrink-0"
@@ -821,14 +779,14 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       d="M2 20H4M4 20H14M4 20V6.2002C4 5.08009 4 4.51962 4.21799 4.0918C4.40973 3.71547 4.71547 3.40973 5.0918 3.21799C5.51962 3 6.08009 3 7.2002 3H10.8002C11.9203 3 12.4796 3 12.9074 3.21799C13.2837 3.40973 13.5905 3.71547 13.7822 4.0918C14 4.5192 14 5.07899 14 6.19691V12M14 20H20M14 20V12M20 20H22M20 20V12C20 11.0681 19.9999 10.6024 19.8477 10.2349C19.6447 9.74481 19.2557 9.35523 18.7656 9.15224C18.3981 9 17.9316 9 16.9997 9C16.0679 9 15.6019 9 15.2344 9.15224C14.7443 9.35523 14.3552 9.74481 14.1522 10.2349C14 10.6024 14 11.0681 14 12M7 10H11M7 7H11"
                     />
                   </svg>
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
                     Empresa - {empresaNombre}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-[2fr_2fr_0.9fr] gap-2 items-center">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-10 shrink-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-secondary w-10 shrink-0">
                       CIF
                     </div>
                     <div className="relative flex-1 min-w-0">
@@ -836,7 +794,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="text"
                         value={factura.empresa.cif}
                         onChange={(e) => handleChange('empresa.cif', e.target.value)}
-                        className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${cifVerification.empresaError ? 'border-amber-500 bg-amber-50/70 pr-7' : 'border-gray-200'
+                        className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded-none focus:ring-1 focus:ring-primary focus:border-transparent ${cifVerification.empresaError ? 'warn-border warn-bg-subtle pr-7' : 'border-[var(--l-card-border,#e5e7eb)]'
                           }`}
                         aria-describedby={cifVerification.empresaError ? 'cif-empresa-warning' : undefined}
                         title={cifVerification.empresaError ? `${cifVerification.empresaError}` : undefined}
@@ -844,7 +802,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       {cifVerification.empresaError && (
                         <Tooltip
                           content={
-                            <span id="cif-empresa-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                            <span id="cif-empresa-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-none shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
                               {cifVerification.empresaError}
                             </span>
                           }
@@ -858,7 +816,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                             className="absolute right-0 top-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
                             aria-label={`${cifVerification.empresaError}`}
                           >
-                            <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <svg className="w-4 h-4 warn-text shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </span>
@@ -868,19 +826,19 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-16 shrink-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-secondary w-16 shrink-0">
                       Actividad
                     </div>
                     <input
                       type="text"
                       value={factura.empresa.actividad}
                       onChange={(e) => handleChange('empresa.actividad', e.target.value)}
-                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                     />
                   </div>
 
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 w-7 shrink-0">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-foreground-secondary w-7 shrink-0">
                       Tri.
                     </div>
                     {(() => {
@@ -891,7 +849,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         <select
                           value={factura.empresa.trimestre}
                           onChange={(e) => handleChange('empresa.trimestre', e.target.value)}
-                          className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${noCoincide ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                          className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded-none focus:ring-1 focus:ring-primary focus:border-transparent ${noCoincide ? 'warn-border warn-bg' : 'border-[var(--l-card-border,#e5e7eb)]'
                             }`}
                           aria-invalid={noCoincide ? 'true' : undefined}
                         >
@@ -908,7 +866,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         return (
                           <div className="relative inline-block w-18 shrink-0 group">
                             {selectEl}
-                            <div className="absolute right-full top-1/2 mr-1 -translate-y-1/2 z-50 px-2 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute right-full top-1/2 mr-1 -translate-y-1/2 z-50 px-2 py-1.5 bg-[#0a0a0a] text-white text-xs rounded-none shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                               {tooltipMsg}
                               <span className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-800" aria-hidden="true" />
                             </div>
@@ -922,7 +880,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               </div>
 
               {/* Proveedor/Acreedor */}
-              <div className={`rounded-lg p-2 border ${showSupplierWarning ? 'border-amber-500 bg-amber-50/60' : 'border-gray-200'}`}>
+              <div className={`rounded-none p-2 border ${showSupplierWarning ? 'warn-border warn-bg-subtle' : 'border-[var(--l-card-border,#e5e7eb)]'}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 shrink-0" aria-hidden="true">
                     <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
@@ -931,7 +889,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       <path d="M5 21C5 17.134 8.13401 14 12 14C15.866 14 19 17.134 19 21M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"></path>
                     </g>
                   </svg>
-                  <div className={`text-[11px] font-bold uppercase tracking-widest flex-1 min-w-0 truncate ${showSupplierWarning ? 'text-amber-800' : 'text-slate-500'}`}>
+                  <div className={`text-[11px] font-bold uppercase tracking-widest flex-1 min-w-0 truncate ${showSupplierWarning ? 'warn-text' : 'text-foreground-secondary'}`}>
                     {contraparteTitle} - {factura.proveedor.nombre}
                     {showSupplierWarning && (
                       <span className="ml-1.5 text-amber-600 font-normal normal-case tracking-normal">
@@ -943,7 +901,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <button
                       type="button"
                       onClick={handleUsarDatosGuardados}
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition-colors shrink-0"
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium warn-text warn-bg hover:bg-amber-200 rounded-none border warn-border transition-colors shrink-0"
                       title="Usar los datos del proveedor guardados en base de datos"
                     >
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1007,24 +965,24 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                               setShowSuggestions(false)
                             }
                           }}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                           autoComplete="off"
                         />
                         {showSuggestions && filteredSuppliers.length > 0 && (
                           <ul
                             ref={suggestionsRef}
-                            className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-white border border-gray-200 rounded shadow-lg max-h-48 overflow-y-auto"
+                            className="absolute z-50 left-0 right-0 top-full mt-0.5 bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)] rounded-none shadow-lg max-h-48 overflow-y-auto"
                           >
                             {filteredSuppliers.map((supplier, idx) => (
                               <li
                                 key={supplier.id}
                                 onMouseDown={() => handleSelectSupplier(supplier)}
                                 className={`px-2 py-1.5 text-[13px] cursor-pointer flex items-center justify-between gap-2 ${
-                                  idx === highlightedIdx ? 'bg-primary/10' : 'hover:bg-gray-50'
+                                  idx === highlightedIdx ? 'bg-primary/10' : 'hover:bg-primary/5'
                                 }`}
                               >
                                 <span className="truncate">{supplier.name}</span>
-                                <span className="text-[11px] text-gray-400 shrink-0">{supplier.tax_id}</span>
+                                <span className="text-[11px] text-foreground-secondary shrink-0">{supplier.tax_id}</span>
                               </li>
                             ))}
                           </ul>
@@ -1040,7 +998,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                             type="text"
                             value={factura.proveedor.cif}
                             onChange={(e) => handleChange('proveedor.cif', e.target.value)}
-                            className={`w-full px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${cifVerification.proveedorError ? 'border-amber-500 bg-amber-50/70 pr-7' : 'border-gray-200'
+                            className={`w-full px-2 py-1 text-[13px] border rounded-none focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${cifVerification.proveedorError ? 'warn-border warn-bg-subtle pr-7' : 'border-[var(--l-card-border,#e5e7eb)]'
                               }`}
                             aria-describedby={cifVerification.proveedorError ? 'cif-proveedor-warning' : undefined}
                             title={cifVerification.proveedorError ? `${cifVerification.proveedorError}` : undefined}
@@ -1048,7 +1006,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           {cifVerification.proveedorError && (
                             <Tooltip
                               content={
-                                <span id="cif-proveedor-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-md shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                                <span id="cif-proveedor-warning" className="block bg-amber-600 text-white text-xs p-3 rounded-none shadow-lg min-w-[260px] max-w-[320px] text-center whitespace-normal">
                                   {cifVerification.proveedorError}
                                 </span>
                               }
@@ -1062,7 +1020,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 className="absolute right-0 bottom-0 pr-1.5 flex items-center justify-end h-7 w-7 cursor-help"
                                 aria-label={`${cifVerification.proveedorError}`}
                               >
-                                <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <svg className="w-4 h-4 warn-text shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
                               </span>
@@ -1077,7 +1035,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={factura.proveedor.codigoPostal}
                           onChange={(e) => handleChange('proveedor.codigoPostal', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                         />
                       </FieldRow>
                     </div>
@@ -1087,7 +1045,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={factura.proveedor.provincia}
                           onChange={(e) => handleChange('proveedor.provincia', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                         />
                       </FieldRow>
                     </div>
@@ -1099,7 +1057,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={factura.proveedor.direccion}
                           onChange={(e) => handleChange('proveedor.direccion', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                         />
                       </FieldRow>
                     </div>
@@ -1109,7 +1067,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           type="text"
                           value={factura.proveedor.poblacion}
                           onChange={(e) => handleChange('proveedor.poblacion', e.target.value)}
-                          className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                          className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                         />
                       </FieldRow>
                     </div>
@@ -1118,7 +1076,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               </div>
 
               {/* Datos de la factura */}
-              <div className="border border-gray-200 rounded-lg p-2">
+              <div className="border border-[var(--l-card-border,#e5e7eb)] rounded-none p-2">
                 <div className="flex items-center gap-2 mb-2">
                   <svg
                     className="w-4 h-4 text-secondary shrink-0"
@@ -1132,7 +1090,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                       d="M6 1C4.34315 1 3 2.34315 3 4V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V8.82843C21 8.03278 20.6839 7.26972 20.1213 6.70711L15.2929 1.87868C14.7303 1.31607 13.9672 1 13.1716 1H6ZM5 4C5 3.44772 5.44772 3 6 3H12V8C12 9.10457 12.8954 10 14 10H19V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V4ZM18.5858 8L14 3.41421V8H18.5858Z"
                     />
                   </svg>
-                  <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                  <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
                     Datos Factura
                   </div>
                 </div>
@@ -1143,7 +1101,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="text"
                         value={factura.factura.numero}
                         onChange={(e) => handleChange('factura.numero', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                       />
                     </FieldRow>
                   </div>
@@ -1153,7 +1111,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="date"
                         value={factura.factura.fecha}
                         onChange={(e) => handleChange('factura.fecha', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                       />
                     </FieldRow>
                   </div>
@@ -1163,18 +1121,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="date"
                         value={factura.factura.fechaVencimiento}
                         onChange={(e) => handleChange('factura.fechaVencimiento', e.target.value)}
-                        className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                        className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                       />
                     </FieldRow>
                   </div>
                 </div>
 
-                <div className="mt-2 border-t border-slate-100 pt-2">
+                <div className="mt-2 border-t border-[var(--l-card-border,#e5e7eb)] pt-2">
                   <FieldRow label="SUBCUENTA" widthClass="w-20">
                     <select
                       value={factura.subcuentaGasto}
                       onChange={(e) => handleChange('subcuentaGasto', e.target.value)}
-                      className="w-full px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      className="w-full px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                     >
                       <option value="">-</option>
                       {subcuentas.map((s) => (
@@ -1186,22 +1144,22 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </FieldRow>
                 </div>
 
-                <div className="mt-2 border-t border-slate-100 pt-2">
+                <div className="mt-2 border-t border-[var(--l-card-border,#e5e7eb)] pt-2">
                   <div className="flex justify-between items-center mb-1">
-                    <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                    <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
                       Desglose
                     </div>
                     <button
                       type="button"
                       onClick={agregarLinea}
-                      className="text-[11px] px-2 py-0.5 border border-gray-200 rounded hover:bg-gray-50"
+                      className="text-[11px] px-2 py-0.5 border border-[var(--l-card-border,#e5e7eb)] rounded-none hover:bg-primary/5"
                     >
                       + Línea
                     </button>
                   </div>
                   {ivaVerification.hasErrors && (
-                    <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
-                      <div className="flex items-center gap-2 text-amber-800">
+                    <div className="mb-2 p-2 rounded-none warn-bg border warn-border">
+                      <div className="flex items-center gap-2 warn-text">
                         <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                           <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                         </svg>
@@ -1212,8 +1170,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     </div>
                   )}
                   {totalVerification.hasErrors && (
-                    <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
-                      <div className="flex items-center gap-2 text-amber-800">
+                    <div className="mb-2 p-2 rounded-none warn-bg border warn-border">
+                      <div className="flex items-center gap-2 warn-text">
                         <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                           <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                         </svg>
@@ -1234,22 +1192,22 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         <col className="w-auto" />
                       </colgroup>
                       <thead>
-                        <tr className="bg-gray-100">
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">TIPO</th>
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
-                          <th className="border border-gray-200 px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
+                        <tr style={{ backgroundColor: 'var(--l-bg, #f3f4f6)' }}>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[13px] font-bold">BASE</th>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[10px] font-semibold">% IVA</th>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[10px] font-semibold">TIPO</th>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA</th>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[10px] font-semibold">% REC</th>
+                          <th className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5 text-left text-[13px] font-bold">CUOTA REC</th>
                         </tr>
                       </thead>
                       <tbody>
                         {factura.lineas.map((linea, index) => (
                           <tr
                             key={index}
-                            className={ivaVerification.errorLineIndices.includes(index) ? 'bg-amber-50' : undefined}
+                            className={ivaVerification.errorLineIndices.includes(index) ? 'warn-bg' : undefined}
                           >
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               <input
                                 type="text"
                                 value={moneyValue(`linea:${index}:base`, linea.base)}
@@ -1272,23 +1230,23 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                     return { ...prev, lineas: newLineas }
                                   })
                                 }}
-                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[13px] font-bold"
                               />
                             </td>
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               <input
                                 type="text"
                                 value={linea.porcentajeIva}
                                 onChange={(e) => handleLineaChange(index, 'porcentajeIva', e.target.value)}
-                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[10px]"
                               />
                             </td>
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               {String(linea.porcentajeIva || '').trim() === '0' ? (
                                 <select
                                   value={linea.tipoExencion || ''}
                                   onChange={(e) => handleLineaChange(index, 'tipoExencion', e.target.value)}
-                                  className="w-full px-0 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[9px] bg-transparent"
+                                  className="w-full px-0 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[9px] bg-transparent"
                                 >
                                   <option value="">—</option>
                                   <option value="suplidos">Suplidos</option>
@@ -1301,7 +1259,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                 <span className="text-[9px] text-gray-300 px-0.5">—</span>
                               )}
                             </td>
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               <input
                                 type="text"
                                 value={moneyValue(`linea:${index}:cuotaIva`, linea.cuotaIva)}
@@ -1324,18 +1282,18 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                     return { ...prev, lineas: newLineas }
                                   })
                                 }}
-                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[13px] font-bold"
                               />
                             </td>
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               <input
                                 type="text"
                                 value={linea.porcentajeRecargo}
                                 onChange={(e) => handleLineaChange(index, 'porcentajeRecargo', e.target.value)}
-                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[10px]"
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[10px]"
                               />
                             </td>
-                            <td className="border border-gray-200 px-0.5 py-0.5">
+                            <td className="border border-[var(--l-card-border,#e5e7eb)] px-0.5 py-0.5">
                               <input
                                 type="text"
                                 value={moneyValue(`linea:${index}:cuotaRecargo`, linea.cuotaRecargo)}
@@ -1358,7 +1316,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                                     return { ...prev, lineas: newLineas }
                                   })
                                 }}
-                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded text-[13px] font-bold"
+                                className="w-full px-0.5 py-0.5 border-0 focus:ring-1 focus:ring-primary rounded-none text-[13px] font-bold"
                               />
                             </td>
                           </tr>
@@ -1368,26 +1326,26 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   </div>
                 </div>
 
-                <div className="mt-2 border-t border-slate-100 pt-2">
-                  <div className="grid grid-cols-[5.5rem_1fr_6rem_1fr] gap-2 items-center border border-gray-200 rounded-lg p-2">
+                <div className="mt-2 border-t border-[var(--l-card-border,#e5e7eb)] pt-2">
+                  <div className="grid grid-cols-[5.5rem_1fr_6rem_1fr] gap-2 items-center border border-[var(--l-card-border,#e5e7eb)] rounded-none p-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-foreground-secondary">
                         Retención
                       </span>
                       {factura.retencion.tipo === 'ALQUILERES' && (
                         <Tooltip
                           content={
-                            <span className="block bg-amber-50 text-amber-800 text-xs p-3 rounded-md shadow-lg border border-amber-200 min-w-[260px] max-w-[320px] text-center whitespace-normal">
+                            <span className="block warn-bg warn-text text-xs p-3 rounded-none shadow-lg border warn-border min-w-[260px] max-w-[320px] text-center whitespace-normal">
                               Determinados programas contables necesitan marcar las retenciones de alquileres con un código específico para que lo lleven al modelo correspondiente.
                             </span>
                           }
                           placement="top"
                           showArrow
                           classNames={{
-                            base: 'border-0 p-0 bg-transparent shadow-none before:!bg-amber-50 before:!border-amber-200 data-[placement=top]:before:!-bottom-0.5',
+                            base: 'border-0 p-0 bg-transparent shadow-none before:!warn-bg before:!warn-border data-[placement=top]:before:!-bottom-0.5',
                           }}
                         >
-                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-50 text-amber-600 border border-amber-200 cursor-help" aria-label="Alquileres: info">
+                          <span className="inline-flex items-center justify-center w-4 h-4 rounded-none warn-bg text-amber-600 border warn-border cursor-help" aria-label="Alquileres: info">
                             <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                               <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                             </svg>
@@ -1399,7 +1357,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <select
                       value={factura.retencion.tipo}
                       onChange={(e) => handleChange('retencion.tipo', e.target.value)}
-                      className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded focus:ring-1 focus:ring-primary focus:border-transparent ${factura.retencion.tipo === 'ALQUILERES' ? 'border-amber-500 bg-amber-50' : 'border-gray-200'
+                      className={`w-full min-w-0 px-2 py-1 text-[13px] border rounded-none focus:ring-1 focus:ring-primary focus:border-transparent ${factura.retencion.tipo === 'ALQUILERES' ? 'warn-border warn-bg' : 'border-[var(--l-card-border,#e5e7eb)]'
                         }`}
                     >
                       <option value="">Tipo…</option>
@@ -1421,7 +1379,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           handleChange('retencion.tipo', inferred)
                         }
                       }}
-                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                     >
                       <option value="">%…</option>
                       {porcentajesRetencion.map((p) => (
@@ -1457,31 +1415,11 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           }
                         })
                       }}
-                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent"
+                      className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
                       placeholder="Importe…"
                     />
                   </div>
                 </div>
-              </div>
-
-              {/* Observaciones */}
-              <div className="border border-gray-200 rounded-lg p-1">
-                <FieldRow label="OBS." widthClass="w-12" alignTop>
-                  <textarea
-                    value={factura.anexosObservaciones}
-                    onChange={(e) => handleChange('anexosObservaciones', e.target.value)}
-                    onKeyDown={(e) => {
-                      // Permitir Enter en textarea, pero Ctrl+Enter o Cmd+Enter para submit
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault()
-                        handleSubmit(e as unknown as React.FormEvent)
-                      }
-                    }}
-                    rows={3}
-                    className="w-full px-2 py-2 text-sm border border-gray-200 rounded focus:ring-1 focus:ring-primary focus:border-transparent resize-none"
-                    placeholder="Albarán, ticket..."
-                  />
-                </FieldRow>
               </div>
 
               {/* Separación visual para que el scroll no quede “pegado” a la barra fija */}
@@ -1489,7 +1427,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
             </div>
 
             {/* Barra fija inferior (TOTAL + acciones) */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-2 py-2">
+            <div className="sticky bottom-0 bg-[var(--l-card,#ffffff)] border-t border-[var(--l-card-border,#e5e7eb)] px-2 py-2">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
@@ -1513,7 +1451,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         handleChange('total', normalizeEuroString(cur))
                       }
                     }}
-                    className={`w-full text-2xl font-bold text-foreground border rounded px-2 py-0.5 focus:ring-0 focus:outline-none ${totalVerification.hasErrors ? 'bg-amber-100 border-amber-300' : 'bg-transparent border-gray-200 focus:border-primary'
+                    className={`w-full text-2xl font-bold text-foreground border rounded-none px-2 py-0.5 focus:ring-0 focus:outline-none ${totalVerification.hasErrors ? 'warn-bg warn-border' : 'bg-transparent border-[var(--l-card-border,#e5e7eb)] focus:border-primary'
                       }`}
                     aria-invalid={totalVerification.hasErrors}
                   />
@@ -1525,10 +1463,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     size="md"
                     type="button"
                     onClick={() => (onParaDespues ? onParaDespues() : onSiguiente())}
-                    // Permitir "Para después" también en la última factura.
-                    // Bloqueamos si no podemos avanzar (salvo última).
                     disabled={Boolean(disableValidar || (!isLast && !canGoNext))}
-                    className="group px-4 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
+                    className="group px-5 py-3 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
                   >
                     <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">
                       PARA DESPUÉS
@@ -1553,7 +1489,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     size="md"
                     type="submit"
                     disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || (!isLast && !canGoNext)}
-                    className="px-5 py-2 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
+                    className="px-5 py-3 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
                   >
                     <AnimateIcon animateOnHover className="inline-flex items-center justify-center gap-2 w-full">
                       {validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}

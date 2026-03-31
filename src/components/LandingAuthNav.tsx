@@ -59,7 +59,7 @@ export function LandingAuthNav() {
       <div className="flex items-center space-x-4">
         <Link
           href="/panel"
-          className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
+          className="bg-secondary text-white px-6 py-2 rounded-none font-medium hover:bg-secondary-hover transition-colors"
         >
           Ir al panel
         </Link>
@@ -67,7 +67,7 @@ export function LandingAuthNav() {
           type="button"
           onClick={handleLogout}
           aria-label="Cerrar sesión de tu cuenta"
-          className="text-red-700 hover:text-red-800 transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 rounded-lg px-2 py-1"
+          className="text-primary hover:text-primary-hover transition-colors font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-none px-2 py-1"
           disabled={isLoading}
           aria-busy={isLoading}
         >
@@ -81,13 +81,13 @@ export function LandingAuthNav() {
     <div className={`flex items-center space-x-4 ${isLoading ? 'opacity-80' : ''}`}>
       <Link
         href="/login"
-        className="text-foreground hover:text-primary transition-colors font-medium"
+        className="text-primary hover:text-primary-hover font-medium transition-colors"
       >
         Iniciar sesión
       </Link>
       <a
         href="mailto:ocrasesorias@gmail.com"
-        className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-hover transition-colors"
+        className="bg-secondary text-white px-6 py-2 rounded-none font-medium hover:bg-secondary-hover transition-colors"
       >
         Contactar
       </a>

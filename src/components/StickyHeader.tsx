@@ -50,9 +50,10 @@ export function StickyHeader({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 bg-background border-b border-gray-200 transition-transform duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl transition-transform duration-300 ${
         visible ? 'translate-y-0' : '-translate-y-full'
       }`}
+      style={{ backgroundColor: 'var(--l-header-bg)', borderBottom: '1px solid var(--l-header-border)' }}
     >
       {children}
     </header>

@@ -153,9 +153,9 @@ export default function PlanesPage() {
   const hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--l-bg,#f9fafb)]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-[var(--l-card,#ffffff)] border-b border-[var(--l-card-border,#e5e7eb)]">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
@@ -172,7 +172,7 @@ export default function PlanesPage() {
               type="button"
               onClick={handleManageSubscription}
               disabled={loadingPlan === 'portal'}
-              className="text-sm px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="text-sm px-4 py-2 border border-gray-300 rounded-none hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50"
             >
               {loadingPlan === 'portal' ? 'Abriendo...' : 'Gestionar suscripción'}
             </button>
@@ -183,7 +183,7 @@ export default function PlanesPage() {
       <div className="max-w-5xl mx-auto px-4 py-12">
         {/* Status banner */}
         {hasActiveSubscription && (
-          <div className="mb-8 p-4 rounded-lg bg-green-50 border border-green-200">
+          <div className="mb-8 p-4 rounded-none bg-green-50 border border-green-200">
             <p className="text-green-800 font-medium">
               Plan actual: <span className="font-bold">{subscription.planName}</span>
               {subscription.periodEnd && (
@@ -197,13 +197,13 @@ export default function PlanesPage() {
 
         {/* Toggle mensual/anual */}
         <div className="flex justify-center mb-10">
-          <div className="inline-flex items-center bg-gray-100 rounded-full p-1">
+          <div className="inline-flex items-center bg-gray-100 rounded-none p-1">
             <button
               type="button"
               onClick={() => setBillingPeriod('mensual')}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-5 py-2 rounded-none text-sm font-medium transition-colors ${
                 billingPeriod === 'mensual'
-                  ? 'bg-white text-gray-900 shadow-sm'
+                  ? 'bg-[var(--l-card,#ffffff)] text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -212,9 +212,9 @@ export default function PlanesPage() {
             <button
               type="button"
               onClick={() => setBillingPeriod('anual')}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+              className={`px-5 py-2 rounded-none text-sm font-medium transition-colors ${
                 billingPeriod === 'anual'
-                  ? 'bg-white text-gray-900 shadow-sm'
+                  ? 'bg-[var(--l-card,#ffffff)] text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -236,14 +236,14 @@ export default function PlanesPage() {
             return (
               <div
                 key={plan.name}
-                className={`relative bg-white rounded-2xl border-2 p-8 ${
+                className={`relative bg-[var(--l-card,#ffffff)] rounded-none border-2 p-8 ${
                   plan.popular
                     ? 'border-blue-500 shadow-lg'
-                    : 'border-gray-200'
+                    : 'border-[var(--l-card-border,#e5e7eb)]'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-none">
                     Más popular
                   </div>
                 )}
@@ -285,7 +285,7 @@ export default function PlanesPage() {
                     isCurrentPlan ? handleManageSubscription() : handleSubscribe(envKey)
                   }
                   disabled={isLoading || isLoadingThis}
-                  className={`mt-8 w-full py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
+                  className={`mt-8 w-full py-3 rounded-none text-sm font-semibold transition-colors disabled:opacity-50 ${
                     isCurrentPlan
                       ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       : plan.popular
@@ -305,7 +305,7 @@ export default function PlanesPage() {
         </div>
 
         {/* Info */}
-        <p className="text-center text-xs text-gray-400 mt-8">
+        <p className="text-center text-xs text-foreground-secondary mt-8">
           Pago seguro con Stripe. Puedes cancelar en cualquier momento.
           Los precios no incluyen IVA.
         </p>

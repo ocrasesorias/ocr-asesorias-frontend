@@ -167,7 +167,7 @@ export default function BienvenidaPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <img src="/img/logo.png" alt="KontaScan" className="h-16 w-auto mx-auto animate-pulse" />
           <p className="mt-4 text-foreground-secondary">Verificando...</p>
         </div>
       </div>
@@ -200,7 +200,7 @@ export default function BienvenidaPage() {
         {step === 'create-org' && (
           <>
             {/* Card con formulario */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
+            <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-xl p-8 border border-[var(--l-card-border,#e5e7eb)]">
               <div className="mb-6">
                 <h2 className="text-2xl font-semibold text-foreground mb-2">
                   Crea tu organización
@@ -238,7 +238,7 @@ export default function BienvenidaPage() {
                       required
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
-                      className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg placeholder-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                      className="appearance-none block w-full pl-10 pr-3 py-3 border border-[var(--l-card-border,#e5e7eb)] rounded-none placeholder-foreground-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                       placeholder="Ej: Asesoría García López"
                       disabled={isLoading}
                     />
@@ -257,10 +257,10 @@ export default function BienvenidaPage() {
                       type="button"
                       onClick={() => setAccountingProgram('monitor')}
                       disabled={isLoading}
-                      className={`text-left w-full border rounded-lg p-4 transition-all ${
+                      className={`text-left w-full border rounded-none p-4 transition-all ${
                         accountingProgram === 'monitor'
-                          ? 'border-primary ring-2 ring-primary/20 bg-primary-lighter'
-                          : 'border-gray-200 hover:border-primary hover:bg-gray-50'
+                          ? 'border-primary ring-2 ring-primary/20 bg-primary/10'
+                          : 'border-[var(--l-card-border,#e5e7eb)] hover:border-primary hover:bg-[var(--l-bg,#f9fafb)]'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -269,20 +269,20 @@ export default function BienvenidaPage() {
                           <p className="text-xs text-foreground-secondary mt-1">Disponible</p>
                         </div>
                         <div
-                          className={`h-4 w-4 rounded-full border ${
+                          className={`h-4 w-4 rounded-none border ${
                             accountingProgram === 'monitor' ? 'bg-primary border-primary' : 'border-gray-300'
                           }`}
                         />
                       </div>
                     </button>
 
-                    <div className="text-left w-full border border-gray-200 rounded-lg p-4 opacity-60">
+                    <div className="text-left w-full border border-[var(--l-card-border,#e5e7eb)] rounded-none p-4 opacity-60">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-foreground">ContaSol</p>
                           <p className="text-xs text-foreground-secondary mt-1">Próximamente</p>
                         </div>
-                        <div className="h-4 w-4 rounded-full border border-gray-300 bg-gray-100" />
+                        <div className="h-4 w-4 rounded-none border border-gray-300 bg-gray-100" />
                       </div>
                     </div>
                   </div>
@@ -333,7 +333,7 @@ export default function BienvenidaPage() {
         {step === 'choose-plan' && (
           <>
             {/* Trial badge */}
-            <div className="bg-secondary-lighter border border-secondary rounded-xl p-4 mb-8 text-center">
+            <div className="bg-secondary-lighter border border-secondary rounded-none p-4 mb-8 text-center">
               <p className="text-secondary-foreground font-medium">
                 Tienes <span className="font-bold">25 facturas gratis</span> para probar KontaScan sin compromiso.
               </p>
@@ -341,13 +341,13 @@ export default function BienvenidaPage() {
 
             {/* Toggle mensual/anual */}
             <div className="flex justify-center mb-8">
-              <div className="inline-flex items-center bg-gray-100 rounded-full p-1">
+              <div className="inline-flex items-center bg-gray-100 rounded-none p-1">
                 <button
                   type="button"
                   onClick={() => setBillingPeriod('mensual')}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-5 py-2 rounded-none text-sm font-medium transition-colors ${
                     billingPeriod === 'mensual'
-                      ? 'bg-white text-gray-900 shadow-sm'
+                      ? 'bg-[var(--l-card,#ffffff)] text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -356,9 +356,9 @@ export default function BienvenidaPage() {
                 <button
                   type="button"
                   onClick={() => setBillingPeriod('anual')}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-5 py-2 rounded-none text-sm font-medium transition-colors ${
                     billingPeriod === 'anual'
-                      ? 'bg-white text-gray-900 shadow-sm'
+                      ? 'bg-[var(--l-card,#ffffff)] text-gray-900 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -377,12 +377,12 @@ export default function BienvenidaPage() {
                 return (
                   <div
                     key={plan.name}
-                    className={`relative bg-white rounded-2xl border-2 p-8 ${
-                      plan.popular ? 'border-blue-500 shadow-lg' : 'border-gray-200'
+                    className={`relative bg-[var(--l-card,#ffffff)] rounded-none border-2 p-8 ${
+                      plan.popular ? 'border-blue-500 shadow-lg' : 'border-[var(--l-card-border,#e5e7eb)]'
                     }`}
                   >
                     {plan.popular && (
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-none">
                         Más popular
                       </div>
                     )}
@@ -414,7 +414,7 @@ export default function BienvenidaPage() {
                       type="button"
                       onClick={() => handleSubscribe(priceInfo.envKey)}
                       disabled={isLoadingThis}
-                      className={`mt-6 w-full py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
+                      className={`mt-6 w-full py-3 rounded-none text-sm font-semibold transition-colors disabled:opacity-50 ${
                         plan.popular
                           ? 'bg-blue-600 text-white hover:bg-blue-700'
                           : 'bg-gray-900 text-white hover:bg-gray-800'
@@ -440,7 +440,7 @@ export default function BienvenidaPage() {
               </Link>
             </div>
 
-            <p className="text-center text-xs text-gray-400 mt-4">
+            <p className="text-center text-xs text-foreground-secondary mt-4">
               Pago seguro con Stripe. Puedes cancelar en cualquier momento.
             </p>
           </>

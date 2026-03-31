@@ -81,11 +81,11 @@ export function UploadsSection({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] overflow-hidden">
       <button
         type="button"
         onClick={() => setIsExpanded((prev) => !prev)}
-        className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-gray-50/50 transition-colors"
+        className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-[var(--l-bg,#f9fafb)]/50 transition-colors"
       >
         <div>
           <h3 className="text-lg font-semibold text-foreground">
@@ -126,7 +126,7 @@ export function UploadsSection({
                 <button
                   type="button"
                   onClick={() => setIsBulkDeleteModalOpen(true)}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors"
                 >
                   Eliminar {selectedIds.size}
                 </button>
@@ -134,7 +134,7 @@ export function UploadsSection({
               <button
                 type="button"
                 onClick={exitSelectionMode}
-                className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-gray-200 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors"
               >
                 Cancelar
               </button>
@@ -192,7 +192,7 @@ export function UploadsSection({
           onMouseDown={() => { if (!isBulkDeleting) setIsBulkDeleteModalOpen(false); }}
         >
           <div
-            className="w-full max-w-md rounded-xl bg-white shadow-xl border border-gray-200"
+            className="w-full max-w-md rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
             onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -205,7 +205,7 @@ export function UploadsSection({
             <div className="px-6 pb-6 flex justify-end gap-3">
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={() => setIsBulkDeleteModalOpen(false)}
               >
@@ -213,7 +213,7 @@ export function UploadsSection({
               </button>
               <button
                 type="button"
-                className="px-5 py-3 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-3 rounded-none bg-red-600 text-white hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isBulkDeleting}
                 onClick={handleBulkDelete}
               >

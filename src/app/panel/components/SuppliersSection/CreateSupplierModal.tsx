@@ -34,7 +34,7 @@ export function CreateSupplierModal({
       }}
     >
       <div
-        className="w-full max-w-lg rounded-xl bg-white shadow-xl border border-gray-200"
+        className="w-full max-w-lg rounded-none bg-[var(--l-card,#ffffff)] shadow-xl border border-[var(--l-card-border,#e5e7eb)]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <form onSubmit={onSubmit}>
@@ -54,7 +54,7 @@ export function CreateSupplierModal({
           <div className="px-6 pb-6 flex justify-end gap-3">
             <button
               type="button"
-              className="px-5 py-3 rounded-lg border border-gray-200 text-foreground hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isCreating}
               onClick={onClose}
             >
@@ -62,7 +62,7 @@ export function CreateSupplierModal({
             </button>
             <button
               type="submit"
-              className="px-5 py-3 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-3 rounded-none bg-primary text-white hover:bg-primary-hover transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isCreating}
             >
               {isCreating ? 'Creando…' : 'Crear proveedor'}
