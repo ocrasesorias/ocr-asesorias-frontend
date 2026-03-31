@@ -236,7 +236,7 @@ export default async function Home() {
                         style={{ border: '1px solid var(--l-card-border)' }}
                       >
                         <Image
-                          src="/img/bento-card-landing-img.jpg"
+                          src="/img/bento-card-landing-img-3.jpg"
                           alt="Flujo de procesamiento de facturas con IA en KontaScan"
                           width={600}
                           height={340}
@@ -258,23 +258,38 @@ export default async function Home() {
                           Precision real
                         </h3>
                         <p className="text-sm" style={{ color: 'var(--l-text-secondary)' }}>
-                          IA + verificacion: datos extraidos y validados para reducir errores al minimo.
+                          Datos extraidos y validados para reducir errores al minimo.
                         </p>
                       </div>
                       <div className="mt-6">
-                        <div className="text-5xl sm:text-6xl font-bold text-primary">
-                          99<span className="text-3xl">%</span>
+                        <div className="text-6xl sm:text-7xl font-bold text-primary">
+                          99<span className="text-4xl">%</span>
                         </div>
                         <p className="text-sm mt-1" style={{ color: 'var(--l-text-muted)' }}>
                           Tasa de extraccion correcta
                         </p>
+                        {/* Verification tags */}
+                        <div className="flex flex-wrap gap-2 mt-4">
+                          {['NIF/CIF', 'IVA', 'Totales'].map((label) => (
+                            <span
+                              key={label}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 bg-primary/10 border border-primary/20"
+                              style={{ color: 'var(--l-text-secondary)' }}
+                            >
+                              <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {label}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </ScrollReveal>
 
                   {/* Card 3 — Integration */}
                   <ScrollReveal delayMs={180}>
-                    <div className="bento-card p-6 sm:p-8 h-full flex flex-col justify-between min-h-[220px]">
+                    <div className="bento-card p-6 sm:p-8 h-full flex flex-col justify-between min-h-[280px]">
                       <div>
                         <span className="inline-block text-xs font-semibold tracking-wider text-primary uppercase mb-3">
                           Integracion
@@ -286,15 +301,30 @@ export default async function Home() {
                           Exporta en el formato que usa tu gestoria: Monitor Informatico y otros.
                         </p>
                       </div>
-                      <div className="mt-4 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-none bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
+                      {/* Mini spreadsheet preview */}
+                      <div className="mt-4 rounded-none border overflow-hidden" style={{ borderColor: 'var(--l-card-border)' }}>
+                        <div className="grid grid-cols-[1fr_1.2fr_0.8fr_0.8fr] text-[10px] font-semibold bg-primary/10 border-b" style={{ borderColor: 'var(--l-card-border)' }}>
+                          <div className="px-2 py-1.5 text-primary">Fecha</div>
+                          <div className="px-2 py-1.5 text-primary">NIF</div>
+                          <div className="px-2 py-1.5 text-primary text-right">Base</div>
+                          <div className="px-2 py-1.5 text-primary text-right">Total</div>
                         </div>
-                        <span className="text-sm font-medium" style={{ color: 'var(--l-text-secondary)' }}>
-                          Excel listo para importar
-                        </span>
+                        {[
+                          ['15/03/26', 'B123•••78', '1.200,00', '1.452,00'],
+                          ['12/03/26', 'A876•••21', '850,00', '1.028,50'],
+                          ['08/03/26', 'B998•••66', '3.500,00', '4.235,00'],
+                        ].map((row, i, arr) => (
+                          <div
+                            key={i}
+                            className={`grid grid-cols-[1fr_1.2fr_0.8fr_0.8fr] text-[10px]${i < arr.length - 1 ? ' border-b' : ''}`}
+                            style={{ borderColor: 'var(--l-card-border)', color: 'var(--l-text-secondary)' }}
+                          >
+                            <div className="px-2 py-1">{row[0]}</div>
+                            <div className="px-2 py-1 font-mono">{row[1]}</div>
+                            <div className="px-2 py-1 text-right">{row[2]}</div>
+                            <div className="px-2 py-1 text-right font-medium" style={{ color: 'var(--l-text)' }}>{row[3]}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </ScrollReveal>
@@ -348,15 +378,30 @@ export default async function Home() {
                           Tratamiento de datos seguro y confidencial. Tu informacion, protegida.
                         </p>
                       </div>
-                      <div className="mt-4 flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-none bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
+                      <div className="mt-4 flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-none overflow-hidden border border-primary/20 flex-shrink-0">
+                          <Image
+                            src="/img/bento-card-landing-shield.jpg"
+                            alt="Escudo de seguridad"
+                            width={80}
+                            height={80}
+                            className="w-full h-full object-cover"
+                            style={{ opacity: 'var(--l-img-opacity)', filter: 'var(--l-img-filter)' }}
+                          />
                         </div>
-                        <div>
-                          <span className="text-sm font-medium block" style={{ color: 'var(--l-text-secondary)' }}>Cifrado SSL</span>
-                          <span className="text-xs" style={{ color: 'var(--l-text-muted)' }}>Datos protegidos en todo momento</span>
+                        <div className="flex flex-wrap gap-2">
+                          {['SSL/TLS', 'RGPD', 'RLS'].map((label) => (
+                            <span
+                              key={label}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 bg-primary/10 border border-primary/20"
+                              style={{ color: 'var(--l-text-secondary)' }}
+                            >
+                              <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {label}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
