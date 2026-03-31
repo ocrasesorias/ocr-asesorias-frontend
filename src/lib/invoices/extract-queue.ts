@@ -1,6 +1,6 @@
 import 'server-only'
 
-const MAX_CONCURRENT_EXTRACTS = 5
+const MAX_CONCURRENT_EXTRACTS = 3
 
 let running = 0
 const waitQueue: Array<() => void> = []

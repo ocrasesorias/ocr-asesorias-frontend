@@ -3,8 +3,9 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
 import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
 
-/** Máximo de extracts en paralelo (frontend); al completar uno se lanza el siguiente */
-const MAX_EXTRACT_CONCURRENCY = 5;
+/** Máximo de extracts en paralelo (frontend); al completar uno se lanza el siguiente.
+ *  Valor bajo para no saturar la RAM del backend (512MB en Render). */
+const MAX_EXTRACT_CONCURRENCY = 3;
 
 /**
  * Hook para gestionar el procesamiento de facturas (upload, OCR/IA, validación)
