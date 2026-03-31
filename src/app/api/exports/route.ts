@@ -231,7 +231,7 @@ function buildComprasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow
         provincia,                                      // J  PROVINCIA
         cp,                                             // K  C.P.
         base,                                           // L  BASE
-        pctIva === 0 ? null : pctIva,                   // M  %IVA/IGIC
+        pctIva ?? null,                                  // M  %IVA/IGIC
         cuotaIva,                                       // N  CUOTA IVA/IGIC
         subcuentaIvaCompras(pctIva),                    // O  SUBCUENTA IVA
         hasRecargo ? pctRecargo : null,                 // P  % R.E.
@@ -374,7 +374,7 @@ function buildVentasSheet(ws: ExcelJS.Worksheet, invoices: InvoiceWithFieldsRow[
         provincia,                                      // J  PROVINCIA
         cp,                                             // K  C.P.
         base,                                           // L  BASE
-        pctIva === 0 ? null : pctIva,                   // M  % IVA/IGIC
+        pctIva ?? null,                                  // M  % IVA/IGIC
         cuotaIva,                                       // N  CUOTA IVA/IGIC
         subcuentaIvaVentas(pctIva),                     // O  SUBCUENTA IVA
         hasRecargo ? pctRecargo : null,                 // P  % RE
