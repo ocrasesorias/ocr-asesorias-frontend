@@ -379,7 +379,7 @@ export default async function Home() {
                         </p>
                       </div>
                       <div className="mt-4 flex items-center gap-4">
-                        <div className="w-20 h-20 rounded-none overflow-hidden border border-primary/20 flex-shrink-0">
+                        <div className="w-20 h-20 rounded-none overflow-hidden border border-primary/20 shrink-0">
                           <Image
                             src="/img/bento-card-landing-shield.jpg"
                             alt="Escudo de seguridad"
