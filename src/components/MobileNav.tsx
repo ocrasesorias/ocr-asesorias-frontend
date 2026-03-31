@@ -98,7 +98,7 @@ export function MobileNav() {
         id="mobile-menu"
         role="navigation"
         aria-label="Menú móvil"
-        className={`fixed top-[73px] left-0 right-0 z-50 bg-background border-b border-gray-200 shadow-lg transform transition-transform duration-200 ease-out md:hidden ${isOpen ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+        className={`fixed top-[73px] left-0 right-0 z-50 bg-background border-b border-gray-200 shadow-lg transform transition-[transform,visibility] duration-200 ease-out md:hidden ${isOpen ? 'translate-y-0 visible' : '-translate-y-full invisible pointer-events-none'
           }`}
       >
         <ul className="flex flex-col py-4 px-6 space-y-1">
