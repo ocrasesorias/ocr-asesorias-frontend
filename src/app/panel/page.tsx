@@ -270,9 +270,9 @@ export default function DashboardPage() {
       />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           {/* Left Column: Client & Uploads */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="md:col-span-1 space-y-6">
             <ClientSection
               clientes={clientes}
               clienteSeleccionado={clienteSeleccionado}
@@ -344,7 +344,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Right Column: Files */}
-          <div className="lg:col-span-2">
+          <div className="md:col-span-2">
             <FilesSection
               clienteSeleccionado={clienteSeleccionado}
               subidaActual={subidaActual}
