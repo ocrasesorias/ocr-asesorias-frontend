@@ -1177,7 +1177,7 @@ export default function ValidarUploadPage() {
     return Number.isFinite(n) ? n : null
   }
 
-  const handleValidar = async (factura: FacturaData) => {
+  const handleValidar = (factura: FacturaData) => {
     const invoiceId = factura.archivo?.invoiceId
     if (invoiceId) {
       const st = invoiceStatus[invoiceId]
@@ -1186,104 +1186,13 @@ export default function ValidarUploadPage() {
         return
       }
     }
-    if (invoiceId) {
-      try {
-        const baseSum = factura.lineas
-          .map((l) => toNumber(l.base))
-          .filter((n): n is number => n !== null)
-          .reduce((a, b) => a + b, 0)
 
-        const vatSum = factura.lineas
-          .map((l) => toNumber(l.cuotaIva))
-          .filter((n): n is number => n !== null)
-          .reduce((a, b) => a + b, 0)
-
-        const total = toNumber(factura.total) ?? baseSum + vatSum
-        const vatRatesUsed = new Set<number>()
-        for (const l of factura.lineas || []) {
-          const baseN = toNumber(l.base)
-          const vatN = toNumber(l.cuotaIva)
-          if (baseN === null && vatN === null) continue
-          const raw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
-          const n = Number(raw)
-          if (Number.isFinite(n)) vatRatesUsed.add(n)
-        }
-        // Solo guardamos un único tipo si la factura tiene 1 IVA; si hay varios, dejamos null.
-        const vatRate = vatRatesUsed.size === 1 ? [...vatRatesUsed][0] : null
-
-        // Build IVA lines array for persistence
-        const ivaLines = factura.lineas
-          .map((l) => {
-            const base = toNumber(l.base)
-            const cuotaIva = toNumber(l.cuotaIva)
-            if (base === null && cuotaIva === null) return null
-            const pctRaw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
-            const porcentajeIva = Number.isFinite(Number(pctRaw)) ? Number(pctRaw) : null
-            const recPctRaw = String(l.porcentajeRecargo || '').replace('%', '').trim().replace(',', '.')
-            const porcentajeRecargo = Number.isFinite(Number(recPctRaw)) && Number(recPctRaw) !== 0 ? Number(recPctRaw) : null
-            const cuotaRecargo = toNumber(l.cuotaRecargo)
-            return {
-              base,
-              porcentaje_iva: porcentajeIva,
-              cuota_iva: cuotaIva,
-              porcentaje_recargo: porcentajeRecargo,
-              cuota_recargo: porcentajeRecargo ? cuotaRecargo : null,
-              tipo_exencion: l.tipoExencion || null,
-            }
-          })
-          .filter(Boolean)
-
-        // Parse retención
-        const retPctStr = String(factura.retencion.porcentaje || '').replace('%', '').trim()
-        const retPct = Number.isFinite(Number(retPctStr)) && Number(retPctStr) > 0 ? Number(retPctStr) : null
-        const retImporte = factura.retencion.aplica ? toNumber(factura.retencion.cantidad) : null
-
-        await fetch(`/api/invoices/${invoiceId}/fields`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            supplier_name:
-              (uppercasePref ? String(factura.proveedor.nombre || '').toLocaleUpperCase('es-ES') : factura.proveedor.nombre) ||
-              null,
-            supplier_tax_id: factura.proveedor.cif || null,
-            supplier_address: factura.proveedor.direccion || null,
-            supplier_postal_code: factura.proveedor.codigoPostal || null,
-            supplier_city: factura.proveedor.poblacion || null,
-            supplier_province: factura.proveedor.provincia || null,
-            invoice_number: factura.factura.numero || null,
-            invoice_date: toISODate(factura.factura.fecha) || null,
-            base_amount: baseSum || null,
-            vat_amount: vatSum || null,
-            total_amount: total || null,
-            vat_rate: Number.isFinite(vatRate as number) ? (vatRate as number) : null,
-            subcuenta_gasto: factura.subcuentaGasto?.trim() || null,
-            retencion_porcentaje: retPct,
-            retencion_importe: retImporte,
-            retencion_tipo: factura.retencion.aplica && factura.retencion.tipo ? factura.retencion.tipo : null,
-            inversion_sujeto_pasivo: Boolean(factura.inversion_sujeto_pasivo),
-            iva_lines: ivaLines.length > 0 ? ivaLines : null,
-          }),
-        })
-      } catch {
-        // noop
-      }
-    }
-
+    // 1) Actualizar estado local inmediatamente (síncrono)
     setFacturas((prev) => {
       const nuevas = [...prev]
       nuevas[facturaActual] = factura
       return nuevas
     })
-
-    // Re-check duplicates after saving fields (this invoice + others that are ready)
-    if (invoiceId) {
-      checkDuplicates(invoiceId)
-      for (const inv of invoiceRows) {
-        if (inv.id !== invoiceId && invoiceStatus[inv.id] === 'ready') {
-          checkDuplicates(inv.id)
-        }
-      }
-    }
 
     // Marcar como validada y persistir (sesión)
     if (invoiceId) {
@@ -1311,34 +1220,126 @@ export default function ValidarUploadPage() {
     if (nextAllValidated) {
       showSuccess('Factura validada. Has completado todas.')
       setIsFinishedModalOpen(true)
-      return
-    }
+    } else {
+      showSuccess('Factura validada')
 
-    showSuccess('Factura validada')
+      const ids = invoiceRows.map((i) => i.id)
 
-    const ids = invoiceRows.map((i) => i.id)
-    // Regla: NUNCA navegamos a una factura que aún se esté procesando (datos vacíos).
-    // Pero como estamos en modo "toda la subida lista", ya todas deberían estar listas.
+      // 1) Siguiente pendiente (hacia adelante)
+      let navigated = false
+      for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
+        const id = ids[idx]
+        const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
+        if (!isVal) {
+          setFacturaActual(idx)
+          navigated = true
+          break
+        }
+      }
 
-    // 1) Siguiente pendiente (hacia adelante)
-    for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
-      const id = ids[idx]
-      const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
-      if (!isVal) {
-        setFacturaActual(idx)
-        return
+      // 2) Primera pendiente (desde el inicio)
+      if (!navigated) {
+        for (let idx = 0; idx < ids.length; idx += 1) {
+          const id = ids[idx]
+          const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
+          if (!isVal) {
+            const pendingCount = Math.max(0, totalCount - nextValidatedCount)
+            showInfo(`Te faltan ${pendingCount} por validar. Volvemos a la primera pendiente.`)
+            setFacturaActual(idx)
+            break
+          }
+        }
       }
     }
 
-    // 2) Primera pendiente (desde el inicio)
-    for (let idx = 0; idx < ids.length; idx += 1) {
-      const id = ids[idx]
-      const isVal = id === invoiceId ? true : Boolean(validatedByInvoiceId[id])
-      if (!isVal) {
-        const pendingCount = Math.max(0, totalCount - nextValidatedCount)
-        showInfo(`Te faltan ${pendingCount} por validar. Volvemos a la primera pendiente.`)
-        setFacturaActual(idx)
-        return
+    // 2) Persistir en BD en segundo plano (no bloquea la UI)
+    if (invoiceId) {
+      void (async () => {
+        try {
+          const baseSum = factura.lineas
+            .map((l) => toNumber(l.base))
+            .filter((n): n is number => n !== null)
+            .reduce((a, b) => a + b, 0)
+
+          const vatSum = factura.lineas
+            .map((l) => toNumber(l.cuotaIva))
+            .filter((n): n is number => n !== null)
+            .reduce((a, b) => a + b, 0)
+
+          const total = toNumber(factura.total) ?? baseSum + vatSum
+          const vatRatesUsed = new Set<number>()
+          for (const l of factura.lineas || []) {
+            const baseN = toNumber(l.base)
+            const vatN = toNumber(l.cuotaIva)
+            if (baseN === null && vatN === null) continue
+            const raw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
+            const n = Number(raw)
+            if (Number.isFinite(n)) vatRatesUsed.add(n)
+          }
+          const vatRate = vatRatesUsed.size === 1 ? [...vatRatesUsed][0] : null
+
+          const ivaLines = factura.lineas
+            .map((l) => {
+              const base = toNumber(l.base)
+              const cuotaIva = toNumber(l.cuotaIva)
+              if (base === null && cuotaIva === null) return null
+              const pctRaw = String(l.porcentajeIva || '').replace('%', '').trim().replace(',', '.')
+              const porcentajeIva = Number.isFinite(Number(pctRaw)) ? Number(pctRaw) : null
+              const recPctRaw = String(l.porcentajeRecargo || '').replace('%', '').trim().replace(',', '.')
+              const porcentajeRecargo = Number.isFinite(Number(recPctRaw)) && Number(recPctRaw) !== 0 ? Number(recPctRaw) : null
+              const cuotaRecargo = toNumber(l.cuotaRecargo)
+              return {
+                base,
+                porcentaje_iva: porcentajeIva,
+                cuota_iva: cuotaIva,
+                porcentaje_recargo: porcentajeRecargo,
+                cuota_recargo: porcentajeRecargo ? cuotaRecargo : null,
+                tipo_exencion: l.tipoExencion || null,
+              }
+            })
+            .filter(Boolean)
+
+          const retPctStr = String(factura.retencion.porcentaje || '').replace('%', '').trim()
+          const retPct = Number.isFinite(Number(retPctStr)) && Number(retPctStr) > 0 ? Number(retPctStr) : null
+          const retImporte = factura.retencion.aplica ? toNumber(factura.retencion.cantidad) : null
+
+          await fetch(`/api/invoices/${invoiceId}/fields`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              supplier_name:
+                (uppercasePref ? String(factura.proveedor.nombre || '').toLocaleUpperCase('es-ES') : factura.proveedor.nombre) ||
+                null,
+              supplier_tax_id: factura.proveedor.cif || null,
+              supplier_address: factura.proveedor.direccion || null,
+              supplier_postal_code: factura.proveedor.codigoPostal || null,
+              supplier_city: factura.proveedor.poblacion || null,
+              supplier_province: factura.proveedor.provincia || null,
+              invoice_number: factura.factura.numero || null,
+              invoice_date: toISODate(factura.factura.fecha) || null,
+              base_amount: baseSum || null,
+              vat_amount: vatSum || null,
+              total_amount: total || null,
+              vat_rate: Number.isFinite(vatRate as number) ? (vatRate as number) : null,
+              subcuenta_gasto: factura.subcuentaGasto?.trim() || null,
+              retencion_porcentaje: retPct,
+              retencion_importe: retImporte,
+              retencion_tipo: factura.retencion.aplica && factura.retencion.tipo ? factura.retencion.tipo : null,
+              inversion_sujeto_pasivo: Boolean(factura.inversion_sujeto_pasivo),
+              iva_lines: ivaLines.length > 0 ? ivaLines : null,
+            }),
+          })
+        } catch {
+          // noop
+        }
+      })()
+
+      // Re-check duplicates after saving fields (this invoice + others that are ready)
+      checkDuplicates(invoiceId)
+      for (const inv of invoiceRows) {
+        if (inv.id !== invoiceId && invoiceStatus[inv.id] === 'ready') {
+          checkDuplicates(inv.id)
+        }
       }
     }
   }

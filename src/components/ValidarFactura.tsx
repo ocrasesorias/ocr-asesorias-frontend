@@ -497,9 +497,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     // al validar/poner "para después" siempre se pase a la siguiente factura.
     if (!isLast && !canGoNext) return
     // CIF/NIF: solo advertencia, no bloquea el envío
+    // handleValidar (onValidar) ya maneja la navegación a la siguiente factura internamente.
     onValidar(factura);
-    // En la última factura no intentamos avanzar (evita error de "siguiente bloque").
-    if (!isLast && canGoNext) onSiguiente();
   };
 
   // El formulario manejará automáticamente el Enter en los campos
