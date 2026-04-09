@@ -60,6 +60,8 @@ interface ValidarFacturaProps {
   onAnterior?: () => void
   onSiguiente: () => void;
   onParaDespues?: () => void
+  /** Eliminar definitivamente la factura (BD + storage). Si no se pasa, no se muestra el botón. */
+  onEliminar?: () => void
   isLast?: boolean
   canGoNext?: boolean
   disableValidar?: boolean
@@ -78,6 +80,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   onValidar,
   onSiguiente,
   onParaDespues,
+  onEliminar,
   isLast = false,
   canGoNext = true,
   disableValidar = false,
@@ -1457,6 +1460,23 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {onEliminar && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={onEliminar}
+                        disabled={disableValidar}
+                        className="p-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground-secondary hover:text-red-600 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                        aria-label="Eliminar factura"
+                        title="Eliminar factura"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                      <div className="h-8 w-px bg-[var(--l-card-border,#e5e7eb)] mx-1" aria-hidden="true" />
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     size="md"

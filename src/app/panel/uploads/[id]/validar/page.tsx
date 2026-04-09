@@ -1,14 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/Button'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ValidarFactura } from '@/components/ValidarFactura'
 import { FacturaData } from '@/types/factura'
+import { ArchivoSubido } from '@/types/dashboard'
 import { useToast } from '@/contexts/ToastContext'
 import { formatMiles } from '@/utils/formatNumber'
 import { createClient } from '@/lib/supabase/client'
+
+const DeleteInvoiceModal = dynamic(
+  () => import('@/app/panel/components/modals/DeleteInvoiceModal').then((m) => m.DeleteInvoiceModal),
+  { ssr: false }
+)
 
 type UploadInvoiceRow = {
   id: string
@@ -472,6 +479,8 @@ export default function ValidarUploadPage() {
 
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [facturaParaEliminar, setFacturaParaEliminar] = useState<ArchivoSubido | null>(null)
+  const [isDeletingInvoice, setIsDeletingInvoice] = useState(false)
   const [uppercasePref, setUppercasePref] = useState(true)
   const [workingQuarter, setWorkingQuarter] = useState<string>('')
   /** IDs de facturas cuyo preview devolvió distinto de 200 (para mostrar "No se pudo cargar" en vez de "Cargando...") */
@@ -1411,6 +1420,121 @@ export default function ValidarUploadPage() {
     setIsFinishedModalOpen(true)
   }
 
+  const handleEliminarClick = () => {
+    const current = facturas[facturaActual]
+    const invoiceId = current?.archivo?.invoiceId
+    if (!invoiceId) {
+      showError('No se puede eliminar esta factura')
+      return
+    }
+    setFacturaParaEliminar({
+      id: invoiceId,
+      invoiceId,
+      nombre: current?.archivo?.nombre || 'Factura',
+      tamaño: 0,
+      tipo: current?.archivo?.tipo === 'pdf' ? 'application/pdf' : 'image/*',
+      url: current?.archivo?.url || '',
+      bucket: current?.archivo?.bucket,
+      storagePath: current?.archivo?.storagePath,
+      fechaSubida: new Date().toISOString(),
+      estado: 'procesado',
+    })
+  }
+
+  const handleCloseDeleteModal = () => {
+    if (isDeletingInvoice) return
+    setFacturaParaEliminar(null)
+  }
+
+  const handleConfirmEliminar = async () => {
+    const target = facturaParaEliminar
+    if (!target || !target.invoiceId) {
+      setFacturaParaEliminar(null)
+      return
+    }
+    const invoiceId = target.invoiceId
+
+    setIsDeletingInvoice(true)
+    try {
+      const resp = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE' })
+      const data = await resp.json().catch(() => null)
+      if (!resp.ok) throw new Error((data && data.error) || 'Error eliminando la factura')
+
+      // Calcular índice de la factura actual a eliminar dentro del array (puede haber cambiado)
+      const removedIdx = facturas.findIndex((f) => f.archivo?.invoiceId === invoiceId)
+
+      // 1) Limpiar state local: facturas, invoiceRows y mapas por id
+      setFacturas((prev) => prev.filter((f) => f.archivo?.invoiceId !== invoiceId))
+      setInvoiceRows((prev) => prev.filter((r) => r.id !== invoiceId))
+
+      setInvoiceStatus((prev) => {
+        if (!(invoiceId in prev)) return prev
+        const next = { ...prev }
+        delete next[invoiceId]
+        return next
+      })
+      setValidatedByInvoiceId((prev) => {
+        if (!prev[invoiceId]) return prev
+        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+        persistIdSet(`upload:${uploadId}:validatedIds`, next)
+        return next
+      })
+      setDeferredByInvoiceId((prev) => {
+        if (!prev[invoiceId]) return prev
+        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+        persistIdSet(`upload:${uploadId}:deferredIds`, next)
+        return next
+      })
+      setVisitedByInvoiceId((prev) => {
+        if (!prev[invoiceId]) return prev
+        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+        return next
+      })
+      setDuplicatesByInvoiceId((prev) => {
+        if (!(invoiceId in prev)) return prev
+        const next = { ...prev }
+        delete next[invoiceId]
+        return next
+      })
+      setPreviewFailedIds((prev) => {
+        if (!prev[invoiceId]) return prev
+        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+        return next
+      })
+      setFacturaRevisions((prev) => {
+        if (!(invoiceId in prev)) return prev
+        const next = { ...prev }
+        delete next[invoiceId]
+        return next
+      })
+      if (startedRef.current[invoiceId]) {
+        delete startedRef.current[invoiceId]
+      }
+
+      // 2) Ajustar el índice actual para mantenernos en una factura válida
+      setFacturaActual((prev) => {
+        const newLen = facturas.length - 1
+        if (newLen <= 0) return 0
+        if (removedIdx === -1) return Math.min(prev, newLen - 1)
+        if (prev > removedIdx) return prev - 1
+        if (prev === removedIdx) return Math.min(prev, newLen - 1)
+        return prev
+      })
+
+      showSuccess('Factura eliminada')
+      setFacturaParaEliminar(null)
+
+      // 3) Si era la última factura de la subida, volver al panel
+      if (facturas.length - 1 <= 0) {
+        router.push('/panel')
+      }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Error eliminando la factura')
+    } finally {
+      setIsDeletingInvoice(false)
+    }
+  }
+
   const jumpToIndex = (idx: number) => {
     if (idx < 0 || idx >= invoiceRows.length) return
     if (viewMode === 'pending' && validatedByInvoiceId[invoiceRows[idx].id]) {
@@ -1724,6 +1848,14 @@ export default function ValidarUploadPage() {
         </div>
       </header>
 
+      <DeleteInvoiceModal
+        isOpen={Boolean(facturaParaEliminar)}
+        factura={facturaParaEliminar}
+        isDeleting={isDeletingInvoice}
+        onConfirm={handleConfirmEliminar}
+        onClose={handleCloseDeleteModal}
+      />
+
       {isFinishedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !isExporting && setIsFinishedModalOpen(false)} />
@@ -1807,6 +1939,7 @@ export default function ValidarUploadPage() {
                 onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
                 onSiguiente={handleSiguiente}
                 onParaDespues={handleParaDespues}
+                onEliminar={handleEliminarClick}
                 isLast={isLast}
                 canGoNext={canGoNext}
                 disableValidar={disableValidar}
