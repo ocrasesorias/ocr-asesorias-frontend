@@ -764,42 +764,9 @@ export default function ValidarUploadPage() {
           setPreviewFailedIds((prev) => (prev[invoiceId] ? prev : { ...prev, [invoiceId]: true }))
         }
 
-        setInvoiceRows(invoices)
-        const mapped = invoices.map((inv) =>
-          toFacturaData(inv, '', {
-            clientTaxId: client?.tax_id,
-            defaultSubcuenta,
-            actividad: (client as { activity_description?: string | null })?.activity_description ?? '',
-          })
-        )
-        setFacturas(mapped)
-
-        if (invoices.length > 0) {
-          const inv0 = invoices[0]
-          const r0 = await fetch(`/api/invoices/${inv0.id}/preview?expires=${exp}`)
-          const j0 = await r0.json().catch(() => null)
-          const url0 = r0.status === 200 && r0.ok ? (j0?.signedUrl as string) || '' : ''
-          if (url0) applyPreview(inv0.id, url0)
-          else markPreviewFailed(inv0.id)
-          setIsLoading(false)
-
-          // Resto de previews en segundo plano, en orden
-          ;(async () => {
-            for (let i = 1; i < invoices.length; i++) {
-              const inv = invoices[i]
-              if (!inv?.id) continue
-              const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
-              const j = await r.json().catch(() => null)
-              const url = r.status === 200 && r.ok ? (j?.signedUrl as string) || '' : ''
-              if (url) applyPreview(inv.id, url)
-              else markPreviewFailed(inv.id)
-            }
-          })()
-        } else {
-          setIsLoading(false)
-        }
-
-        // Restaurar estado de sesión (validada / para después / visitada)
+        // Restaurar estado de sesión (validada / para después / visitada) ANTES de setInvoiceRows
+        // para que el efecto de posicionamiento inicial vea los datos correctos y no pare en el
+        // índice 0 por falta de datos (race condition con el fetch de preview).
         const validatedSet = restoreIdSet(`upload:${uploadId}:validatedIds`)
         const deferredSet = restoreIdSet(`upload:${uploadId}:deferredIds`)
         const visitedSet = restoreIdSet(`upload:${uploadId}:visitedIds`)
@@ -814,9 +781,6 @@ export default function ValidarUploadPage() {
           if (deferredSet.has(inv.id)) dRec[inv.id] = true
           if (visitedSet.has(inv.id)) visRec[inv.id] = true
         }
-        setValidatedByInvoiceId(vRec)
-        setDeferredByInvoiceId(dRec)
-        setVisitedByInvoiceId(visRec)
 
         // Estado inicial por factura: si ya tiene fields/extraction, la consideramos lista.
         const initialStatus: Record<string, 'idle' | 'processing' | 'ready' | 'error'> = {}
@@ -856,6 +820,13 @@ export default function ValidarUploadPage() {
                       ? 'ready'
                       : 'idle'
         }
+
+        // Batch síncrono: todas las actualizaciones de estado van juntas antes del primer await,
+        // para que el efecto de posicionamiento inicial corra con invoiceRows + validatedByInvoiceId
+        // ya poblados y elija correctamente la primera pendiente.
+        setValidatedByInvoiceId(vRec)
+        setDeferredByInvoiceId(dRec)
+        setVisitedByInvoiceId(visRec)
         // Functional update: nunca degradar un estado 'processing' o 'ready' que ya exista
         // (protege contra re-ejecuciones del efecto que machacarían extracciones en vuelo)
         setInvoiceStatus((prev) => {
@@ -868,6 +839,40 @@ export default function ValidarUploadPage() {
           return next
         })
         startedRef.current = {}
+        setInvoiceRows(invoices)
+        const mapped = invoices.map((inv) =>
+          toFacturaData(inv, '', {
+            clientTaxId: client?.tax_id,
+            defaultSubcuenta,
+            actividad: (client as { activity_description?: string | null })?.activity_description ?? '',
+          })
+        )
+        setFacturas(mapped)
+
+        if (invoices.length > 0) {
+          const inv0 = invoices[0]
+          const r0 = await fetch(`/api/invoices/${inv0.id}/preview?expires=${exp}`)
+          const j0 = await r0.json().catch(() => null)
+          const url0 = r0.status === 200 && r0.ok ? (j0?.signedUrl as string) || '' : ''
+          if (url0) applyPreview(inv0.id, url0)
+          else markPreviewFailed(inv0.id)
+          setIsLoading(false)
+
+          // Resto de previews en segundo plano, en orden
+          ;(async () => {
+            for (let i = 1; i < invoices.length; i++) {
+              const inv = invoices[i]
+              if (!inv?.id) continue
+              const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
+              const j = await r.json().catch(() => null)
+              const url = r.status === 200 && r.ok ? (j?.signedUrl as string) || '' : ''
+              if (url) applyPreview(inv.id, url)
+              else markPreviewFailed(inv.id)
+            }
+          })()
+        } else {
+          setIsLoading(false)
+        }
 
         // Check duplicates for invoices that already have fields
         for (const inv of invoices) {
