@@ -821,9 +821,21 @@ export default function ValidarUploadPage() {
                       : 'idle'
         }
 
+        // Calcular posición inicial SINCRÓNICAMENTE aquí (no dejamos que un efecto la calcule,
+        // porque los efectos pueden correr entre re-renders con estado aún no poblado).
+        // Prioridad: ?invoice=X > primera pendiente (modo pending) > índice 0.
+        const invoiceParam = searchParams.get('invoice')
+        let initialIdx = 0
+        if (invoiceParam) {
+          const byParam = invoices.findIndex((r) => r.id === invoiceParam)
+          if (byParam >= 0) initialIdx = byParam
+        } else if (viewMode === 'pending') {
+          const firstPending = invoices.findIndex((inv) => !vRec[inv.id])
+          initialIdx = firstPending >= 0 ? firstPending : 0
+        }
+
         // Batch síncrono: todas las actualizaciones de estado van juntas antes del primer await,
-        // para que el efecto de posicionamiento inicial corra con invoiceRows + validatedByInvoiceId
-        // ya poblados y elija correctamente la primera pendiente.
+        // para que el primer render ya vea invoiceRows + validatedByInvoiceId + facturaActual coherentes.
         setValidatedByInvoiceId(vRec)
         setDeferredByInvoiceId(dRec)
         setVisitedByInvoiceId(visRec)
@@ -839,6 +851,8 @@ export default function ValidarUploadPage() {
           return next
         })
         startedRef.current = {}
+        setFacturaActual(initialIdx)
+        setHasInitializedPosition(true)
         setInvoiceRows(invoices)
         const mapped = invoices.map((inv) =>
           toFacturaData(inv, '', {
@@ -889,7 +903,7 @@ export default function ValidarUploadPage() {
     }
 
     run()
-  }, [router, uploadId, showError, searchParams])
+  }, [router, uploadId, showError, searchParams, viewMode])
 
   // Marcar como "visitada" la factura actual (para colorear barra)
   useEffect(() => {
