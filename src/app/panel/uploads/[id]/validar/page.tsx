@@ -864,18 +864,45 @@ export default function ValidarUploadPage() {
         setFacturas(mapped)
 
         if (invoices.length > 0) {
-          const inv0 = invoices[0]
-          const r0 = await fetch(`/api/invoices/${inv0.id}/preview?expires=${exp}`)
-          const j0 = await r0.json().catch(() => null)
-          const url0 = r0.status === 200 && r0.ok ? (j0?.signedUrl as string) || '' : ''
-          if (url0) applyPreview(inv0.id, url0)
-          else markPreviewFailed(inv0.id)
+          // 1) Primer preview bloqueante: SIEMPRE el de la factura en la que abrimos la pantalla
+          //    (initialIdx), no la invoices[0]. Así evitamos que el usuario vea "cargando" en una
+          //    factura muy adelantada (p. ej. la 13 de 14) mientras el background itera 0..12.
+          const invCurrent = invoices[initialIdx]
+          if (invCurrent?.id) {
+            const r = await fetch(`/api/invoices/${invCurrent.id}/preview?expires=${exp}`)
+            const j = await r.json().catch(() => null)
+            const url = r.status === 200 && r.ok ? (j?.signedUrl as string) || '' : ''
+            if (url) applyPreview(invCurrent.id, url)
+            else markPreviewFailed(invCurrent.id)
+          }
           setIsLoading(false)
 
-          // Resto de previews en segundo plano, en orden
+          // 2) Resto de previews en segundo plano, priorizando por cercanía al índice actual.
+          //    Orden: initialIdx+1, initialIdx+2, ..., wrap-around hasta initialIdx-1.
+          //    En modo 'pending' saltamos las validadas (no son accesibles).
           ;(async () => {
-            for (let i = 1; i < invoices.length; i++) {
-              const inv = invoices[i]
+            const n = invoices.length
+            const order: number[] = []
+            // Primero: pendientes (no validadas) en orden wrap-around desde la actual
+            for (let k = 1; k < n; k++) {
+              const idx = (initialIdx + k) % n
+              const inv = invoices[idx]
+              if (!inv?.id) continue
+              if (vRec[inv.id]) continue
+              order.push(idx)
+            }
+            // Después (solo en modo 'all'): las validadas, también wrap-around
+            if (viewMode === 'all') {
+              for (let k = 1; k < n; k++) {
+                const idx = (initialIdx + k) % n
+                const inv = invoices[idx]
+                if (!inv?.id) continue
+                if (!vRec[inv.id]) continue
+                order.push(idx)
+              }
+            }
+            for (const idx of order) {
+              const inv = invoices[idx]
               if (!inv?.id) continue
               const r = await fetch(`/api/invoices/${inv.id}/preview?expires=${exp}`)
               const j = await r.json().catch(() => null)
