@@ -1850,10 +1850,7 @@ export default function ValidarUploadPage() {
               - transparente: no visitada */}
           <div className="h-2 w-full border border-[var(--l-card-border,#e5e7eb)] bg-transparent overflow-hidden">
             <div className="h-full w-full flex">
-              {(viewMode === 'pending'
-                ? invoiceRows.map((inv, allIdx) => ({ inv, allIdx })).filter(({ inv }) => !validatedByInvoiceId[inv.id])
-                : invoiceRows.map((inv, allIdx) => ({ inv, allIdx }))
-              ).map(({ inv, allIdx }, visibleIdx, arr) => {
+              {invoiceRows.map((inv, allIdx, arr) => {
                 const isValidated = Boolean(validatedByInvoiceId[inv.id])
                 const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated
                 const isVisited = Boolean(visitedByInvoiceId[inv.id])
@@ -1876,7 +1873,7 @@ export default function ValidarUploadPage() {
                     className={[
                       'h-full flex-1 transition-colors',
                       bgClass,
-                      visibleIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
+                      allIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
                       isCurrent ? 'ring-1 ring-primary ring-inset' : '',
                       hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
                       invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'

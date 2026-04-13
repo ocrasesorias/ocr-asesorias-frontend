@@ -1466,7 +1466,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="button"
                         onClick={onEliminar}
                         disabled={disableValidar}
-                        className="p-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground-secondary hover:text-red-600 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
+                        className="p-3 rounded-none border border-red-300 text-red-600 hover:text-red-700 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
                         aria-label="Eliminar factura"
                         title="Eliminar factura"
                       >
