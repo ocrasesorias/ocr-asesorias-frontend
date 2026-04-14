@@ -276,15 +276,28 @@ export default function BienvenidaPage() {
                       </div>
                     </button>
 
-                    <div className="text-left w-full border border-[var(--l-card-border,#e5e7eb)] rounded-none p-4 opacity-60">
+                    <button
+                      type="button"
+                      onClick={() => setAccountingProgram('contasol')}
+                      disabled={isLoading}
+                      className={`text-left w-full border rounded-none p-4 transition-all ${
+                        accountingProgram === 'contasol'
+                          ? 'border-primary ring-2 ring-primary/20 bg-primary/10'
+                          : 'border-[var(--l-card-border,#e5e7eb)] hover:border-primary hover:bg-[var(--l-bg,#f9fafb)]'
+                      }`}
+                    >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-foreground">ContaSol</p>
-                          <p className="text-xs text-foreground-secondary mt-1">Próximamente</p>
+                          <p className="text-xs text-foreground-secondary mt-1">Disponible</p>
                         </div>
-                        <div className="h-4 w-4 rounded-none border border-gray-300 bg-gray-100" />
+                        <div
+                          className={`h-4 w-4 rounded-none border ${
+                            accountingProgram === 'contasol' ? 'bg-primary border-primary' : 'border-gray-300'
+                          }`}
+                        />
                       </div>
-                    </div>
+                    </button>
                   </div>
                 </div>
 
