@@ -677,7 +677,6 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null)
     const invoiceIds: string[] = Array.isArray(body?.invoice_ids) ? body.invoice_ids : []
     const tipo: 'gasto' | 'ingreso' = body?.tipo === 'ingreso' ? 'ingreso' : 'gasto'
-    const program: 'monitor' | 'contasol' = body?.program === 'contasol' ? 'contasol' : 'monitor'
 
     if (invoiceIds.length === 0) {
       return NextResponse.json({ error: 'invoice_ids es requerido' }, { status: 400 })
@@ -724,21 +723,32 @@ export async function POST(request: Request) {
       )
     }
 
-    // Uppercase preference
+    // Org preferences — fuente de verdad: tabla organizations
     let uppercaseNamesAddresses = true
+    let program: 'monitor' | 'contasol' = 'monitor'
     if (usedOrgIds.length === 1) {
       try {
         const { data: orgPref } = await db
           .from('organizations')
-          .select('uppercase_names_addresses')
+          .select('uppercase_names_addresses, accounting_program')
           .eq('id', usedOrgIds[0])
           .maybeSingle()
-        const v = (orgPref as Record<string, unknown> | null)?.uppercase_names_addresses
-        if (typeof v === 'boolean') uppercaseNamesAddresses = v
-      } catch (err) { console.error('Error cargando preferencia uppercase:', err) }
+        const prefObj = (orgPref as Record<string, unknown> | null) || {}
+        if (typeof prefObj.uppercase_names_addresses === 'boolean') {
+          uppercaseNamesAddresses = prefObj.uppercase_names_addresses
+        }
+        if (prefObj.accounting_program === 'contasol') program = 'contasol'
+      } catch (err) { console.error('Error cargando preferencias de organización:', err) }
     }
-    if (body && typeof body === 'object' && typeof (body as Record<string, unknown>).uppercase_names_addresses === 'boolean') {
-      uppercaseNamesAddresses = (body as Record<string, unknown>).uppercase_names_addresses as boolean
+    // Override manual desde body (sólo útil para tests/debug, no se expone en UI)
+    if (body && typeof body === 'object') {
+      const b = body as Record<string, unknown>
+      if (typeof b.uppercase_names_addresses === 'boolean') {
+        uppercaseNamesAddresses = b.uppercase_names_addresses
+      }
+      if (b.program === 'contasol' || b.program === 'monitor') {
+        program = b.program
+      }
     }
 
     // Build workbook

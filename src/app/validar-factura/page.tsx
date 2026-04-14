@@ -166,15 +166,12 @@ export default function ValidarFacturaPage() {
       return;
     }
 
-    let program = 'monitor';
-    try { program = sessionStorage.getItem('onboarding:accountingProgram') || 'monitor'; } catch { /* noop */ }
-
     setIsExporting(true);
     try {
       const resp = await fetch('/api/exports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice_ids: invoiceIds, program }),
+        body: JSON.stringify({ invoice_ids: invoiceIds }),
       });
       const data = await resp.json();
 

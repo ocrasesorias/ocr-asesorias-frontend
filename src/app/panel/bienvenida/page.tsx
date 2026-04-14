@@ -117,12 +117,21 @@ export default function BienvenidaPage() {
         return;
       }
 
-      showSuccess('¡Organización creada! Tienes 25 facturas gratis para empezar.');
-      try {
-        sessionStorage.setItem('onboarding:accountingProgram', accountingProgram);
-      } catch {
-        // noop
+      // create_organization RPC returns uuid; persist accounting program on the new org.
+      const newOrgId: string | null = typeof data?.organization === 'string' ? data.organization : null;
+      if (newOrgId) {
+        try {
+          await fetch(`/api/organizations/${encodeURIComponent(newOrgId)}/preferences`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accounting_program: accountingProgram }),
+          });
+        } catch (err) {
+          console.warn('No se pudo guardar accounting_program tras crear la org:', err);
+        }
       }
+
+      showSuccess('¡Organización creada! Tienes 25 facturas gratis para empezar.');
       setStep('choose-plan');
     } catch (error) {
       console.error('Error al crear organización:', error);

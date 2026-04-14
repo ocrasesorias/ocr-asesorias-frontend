@@ -1645,7 +1645,6 @@ export default function ValidarUploadPage() {
       return
     }
 
-    const program = sessionStorage.getItem('onboarding:accountingProgram') || 'monitor'
     setIsExporting(true)
     try {
       const resp = await fetch('/api/exports', {
@@ -1653,7 +1652,6 @@ export default function ValidarUploadPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoice_ids: validatedInvoiceIds,
-          program,
           tipo: tipoFactura,
         }),
       })

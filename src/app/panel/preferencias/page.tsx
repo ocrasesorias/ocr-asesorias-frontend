@@ -20,6 +20,7 @@ import { Switch } from '@heroui/react';
    const [orgName, setOrgName] = useState<string>('');
    const [uppercaseNamesAddresses, setUppercaseNamesAddresses] = useState(true);
    const [workingQuarter, setWorkingQuarter] = useState<string>('');
+   const [accountingProgram, setAccountingProgram] = useState<'monitor' | 'contasol'>('monitor');
    const [canEdit, setCanEdit] = useState(true);
  
    useEffect(() => {
@@ -68,6 +69,8 @@ import { Switch } from '@heroui/react';
            setUppercaseNamesAddresses(typeof v === 'boolean' ? v : true);
            const wq = prefJson?.working_quarter;
            setWorkingQuarter(typeof wq === 'string' && /^Q[1-4]$/.test(wq) ? wq : '');
+           const ap = prefJson?.accounting_program;
+           setAccountingProgram(ap === 'contasol' ? 'contasol' : 'monitor');
          }
        } catch (err) {
          console.error('Error cargando preferencias:', err);
@@ -90,6 +93,7 @@ import { Switch } from '@heroui/react';
          body: JSON.stringify({
            uppercase_names_addresses: uppercaseNamesAddresses,
            working_quarter: workingQuarter || null,
+           accounting_program: accountingProgram,
          }),
        });
        const data = await resp.json().catch(() => null);
@@ -183,6 +187,34 @@ import { Switch } from '@heroui/react';
                 wrapper: uppercaseNamesAddresses ? '' : 'bg-slate-300',
               }}
             />
+           </div>
+
+           <div className="mt-8 pt-6 border-t border-[var(--l-card-border,#e5e7eb)]">
+             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+               <div className="min-w-0">
+                 <h2 className="text-lg font-semibold text-foreground">
+                   Programa contable
+                 </h2>
+                 <p className="text-sm text-foreground-secondary mt-2">
+                   Formato de Excel generado al exportar facturas validadas. Monitor Informática (miConversor → miConta) o ContaSol (IVS.xlsx / IVR.xlsx).
+                 </p>
+                 {!canEdit && (
+                   <p className="text-sm text-amber-600 mt-2">
+                     Solo el propietario puede modificar esta preferencia.
+                   </p>
+                 )}
+               </div>
+               <select
+                 value={accountingProgram}
+                 onChange={(e) => setAccountingProgram(e.target.value === 'contasol' ? 'contasol' : 'monitor')}
+                 disabled={!canEdit}
+                 className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[180px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
+                 aria-label="Programa contable"
+               >
+                 <option value="monitor">Monitor Informática</option>
+                 <option value="contasol">ContaSol</option>
+               </select>
+             </div>
            </div>
 
            <div className="mt-8 pt-6 border-t border-[var(--l-card-border,#e5e7eb)]">
