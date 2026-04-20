@@ -122,6 +122,348 @@ function subcuentaIvaVentas(pctIva: number | null): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// a3CON / a3ECO / a3ASESOR|con helpers
+// Spec oficial: "Enlace contable de entrada. Descripción de registros"
+// (Wolters Kluwer España, rev. 2023). Fichero SUENLACE.DAT — ASCII ancho fijo,
+// 512 bytes por registro + CRLF. Cada factura se compone de:
+//   - 1 registro tipo '1' (factura) o '2' (rectificativa)  → cabecera
+//   - N registros tipo '9' (uno por tipo de IVA presente)  → detalle IVA
+//   - [opcional] registro tipo '4' (ampliación SII: ISP, intracom, 347, rectif.)
+// Todos los offsets internos usan indexado 0-based; las "posiciones" del PDF
+// oficial son 1-based, así que pos 1 → offset 0, pos 69 → offset 68, etc.
+// ---------------------------------------------------------------------------
+
+const A3_RECORD_LEN = 512
+const A3_EOL = '\r\n'
+
+/** Normaliza texto a ASCII puro (sin acentos) y pad-derecha al largo fijo. */
+function a3Text(text: string | null | undefined, len: number): string {
+  if (!text) return ' '.repeat(len)
+  const normalized = String(text)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, '?')
+    .trim()
+  if (normalized.length >= len) return normalized.slice(0, len)
+  return normalized.padEnd(len, ' ')
+}
+
+/** Fecha AAAAMMDD (8 chars). Acepta ISO o dd/mm/yyyy. Devuelve 8 espacios si no se puede parsear. */
+function a3Date(value: unknown): string {
+  const s = value == null ? '' : String(value).trim()
+  if (!s) return ' '.repeat(8)
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m1) return `${m1[3]}${m1[2].padStart(2, '0')}${m1[1].padStart(2, '0')}`
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m2) return `${m2[1]}${m2[2]}${m2[3]}`
+  return ' '.repeat(8)
+}
+
+/** Importe: signo + 10 enteros + '.' + 2 decimales = 14 chars (ej: +0000001000.00). */
+function a3Importe(value: number | null | undefined): string {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  const sign = n < 0 ? '-' : '+'
+  const absRounded = Math.round(Math.abs(n) * 100) / 100
+  const integerPart = Math.floor(absRounded)
+  const decimalPart = Math.round((absRounded - integerPart) * 100)
+  return sign + String(integerPart).padStart(10, '0') + '.' + String(decimalPart).padStart(2, '0')
+}
+
+/** Porcentaje xx.xx (5 chars). */
+function a3Pct(value: number | null | undefined): string {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  const absRounded = Math.round(Math.abs(n) * 100) / 100
+  const integerPart = Math.floor(absRounded)
+  const decimalPart = Math.round((absRounded - integerPart) * 100)
+  return String(integerPart).padStart(2, '0') + '.' + String(decimalPart).padStart(2, '0')
+}
+
+/** Cuenta contable: solo dígitos, pad con '0' a la derecha hasta 12 chars. */
+function a3Cuenta(cuenta: string | null | undefined): string {
+  const digits = String(cuenta || '').replace(/\D/g, '')
+  if (!digits) return ' '.repeat(12)
+  return digits.padEnd(12, '0').slice(0, 12)
+}
+
+/** Construye un registro de 512 chars a partir de pares (offset0based, value). */
+function a3Record(segments: { offset: number; value: string }[]): string {
+  const buf = Array<string>(A3_RECORD_LEN).fill(' ')
+  for (const { offset, value } of segments) {
+    if (offset < 0 || offset >= A3_RECORD_LEN) continue
+    for (let i = 0; i < value.length && offset + i < A3_RECORD_LEN; i++) {
+      buf[offset + i] = value[i] ?? ' '
+    }
+  }
+  return buf.join('') + A3_EOL
+}
+
+/** Subtipo de operación para factura EMITIDA (tipo=1) en pos 100-101 del registro '9'. */
+function a3SubtipoEmitida(opts: { isIntracom: boolean; isISP: boolean; tipoExencion?: string | null }): string {
+  if (opts.isIntracom) return '03' // Entregas intracomunitarias
+  if (opts.isISP) return '08'       // ISP con derecho a deducción
+  if (opts.tipoExencion === 'exento_art20') return '02'
+  return '01'                       // Operaciones interiores sujetas a IVA
+}
+
+/** Subtipo de operación para factura RECIBIDA (tipo=2). */
+function a3SubtipoRecibida(opts: { isIntracom: boolean; isISP: boolean; tipoExencion?: string | null }): string {
+  if (opts.isISP) return '04'       // Inversión del Sujeto Pasivo
+  if (opts.isIntracom) return '03'  // Adquisiciones intracomunitarias de bienes
+  return '01'                       // Interiores con IVA deducible
+}
+
+/** Cuenta IVA soportado según tipo (compras). */
+function a3CuentaIvaCompras(pctIva: number | null): string {
+  if (pctIva === 21) return '472000000021'
+  if (pctIva === 10) return '472000000010'
+  if (pctIva === 4) return '472000000004'
+  if (pctIva === 5) return '472000000005'
+  return '472000000000'
+}
+
+/** Cuenta IVA repercutido según tipo (ventas). */
+function a3CuentaIvaVentas(pctIva: number | null): string {
+  if (pctIva === 21) return '477000000021'
+  if (pctIva === 10) return '477000000010'
+  if (pctIva === 4) return '477000000004'
+  if (pctIva === 5) return '477000000005'
+  return '477000000000'
+}
+
+/** Cuenta proveedor/cliente por defecto cuando no hay subcuenta específica. */
+const A3_CUENTA_PROVEEDOR_DEFAULT = '400000000000'
+const A3_CUENTA_CLIENTE_DEFAULT = '430000000000'
+const A3_CUENTA_COMPRA_DEFAULT = '600000000000'
+const A3_CUENTA_VENTA_DEFAULT = '700000000000'
+const A3_CUENTA_RETENCION_DEFAULT = '473000000000'
+const A3_EMPRESA_DEFAULT = '00001'
+
+type A3ExportContext = {
+  codEmpresa: string
+}
+
+/** Genera registros SUENLACE.DAT para COMPRAS (facturas recibidas). */
+function buildA3SuenlaceCompras(
+  invoices: InvoiceWithFieldsRow[],
+  ctx: A3ExportContext,
+): string {
+  let output = ''
+  const codEmpresa = ctx.codEmpresa
+
+  for (const inv of invoices) {
+    const f = getFields(inv)
+    if (!f) continue
+
+    const ivaLines = getIvaLines(f)
+    if (ivaLines.length === 0) continue
+
+    const fechaAsiento = a3Date(f.invoice_date)
+    const fechaFactura = fechaAsiento
+    if (fechaAsiento.trim() === '') continue // sin fecha no se puede importar
+
+    const totalAmount = toNum(f.total_amount) ?? 0
+    const isRectificativa = totalAmount < 0 || (toNum(f.base_amount) ?? 0) < 0
+    const isISP = Boolean(f.inversion_sujeto_pasivo)
+    const isIntracom = ivaLines.some((l) => l.tipo_exencion === 'intracomunitaria')
+
+    const nombreProveedor = f.supplier_name || ''
+    const nif = f.supplier_tax_id || ''
+    const cp = f.supplier_postal_code || ''
+    const numFactura = f.invoice_number || ''
+
+    // Cuenta proveedor (400xxx). Sin subcuenta específica usamos default.
+    // Cuenta del gasto (6xxx): prioriza subcuenta_gasto del usuario, si no 600 default.
+    const cuentaProveedor = A3_CUENTA_PROVEEDOR_DEFAULT
+    const cuentaCompra = (f.subcuenta_gasto || '').trim() || A3_CUENTA_COMPRA_DEFAULT
+
+    // Importe de cabecera: en rectificativas va POSITIVO si disminuye la original
+    // (es el caso cuando total_amount es negativo en el documento), NEGATIVO si aumenta.
+    // Por convención KontaScan, un total negativo representa abono → positivo en a3.
+    const importeCab = isRectificativa ? Math.abs(totalAmount) : totalAmount
+
+    // ==================== REGISTRO '1' o '2' (cabecera factura) ====================
+    output += a3Record([
+      { offset: 0, value: '5' },                                           // pos 1: formato
+      { offset: 1, value: codEmpresa },                                    // pos 2-6: empresa
+      { offset: 6, value: fechaAsiento },                                  // pos 7-14: fecha apunte
+      { offset: 14, value: isRectificativa ? '2' : '1' },                  // pos 15: tipo registro
+      { offset: 15, value: a3Cuenta(cuentaProveedor) },                    // pos 16-27: cuenta proveedor
+      { offset: 27, value: a3Text(nombreProveedor, 30) },                  // pos 28-57: descripción cuenta
+      { offset: 57, value: '2' },                                          // pos 58: tipo factura (2=Compras)
+      { offset: 58, value: a3Text(numFactura, 10) },                       // pos 59-68: nº factura
+      { offset: 68, value: 'I' },                                          // pos 69: línea apunte
+      { offset: 69, value: a3Text(nombreProveedor, 30) },                  // pos 70-99: descripción apunte
+      { offset: 99, value: a3Importe(importeCab) },                        // pos 100-113: importe total
+      { offset: 175, value: a3Text(nif, 14) },                             // pos 176-189: NIF
+      { offset: 189, value: nif.trim() ? a3Text(nombreProveedor, 40) : ' '.repeat(40) }, // pos 190-229: nombre
+      { offset: 229, value: nif.trim() ? a3Text(cp, 5) : ' '.repeat(5) }, // pos 230-234: CP
+      { offset: 236, value: fechaFactura },                                // pos 237-244: fecha operación
+      { offset: 244, value: fechaFactura },                                // pos 245-252: fecha factura
+      { offset: 252, value: a3Text(numFactura, 60) },                      // pos 253-312: nº factura SII
+      { offset: 508, value: 'E' },                                         // pos 509: moneda (Euro)
+      { offset: 509, value: 'N' },                                         // pos 510: generado
+    ])
+
+    // ==================== REGISTROS '9' (detalle IVA por línea) ====================
+    const retPct0 = toNum(f.retencion_porcentaje) || 0
+    const retImp0 = round2(toNum(f.retencion_importe)) || 0
+    const hasRetencion = retPct0 > 0 || retImp0 > 0
+
+    for (let i = 0; i < ivaLines.length; i++) {
+      const line = ivaLines[i]
+      const isLast = i === ivaLines.length - 1
+      const base = Math.abs(round2(toNum(line.base)) || 0)
+      const pctIva = toNum(line.porcentaje_iva) || 0
+      const cuotaIva = Math.abs(round2(toNum(line.cuota_iva)) || 0)
+      const pctRecargo = toNum(line.porcentaje_recargo) || 0
+      const cuotaRecargo = Math.abs(round2(toNum(line.cuota_recargo)) || 0)
+      const retPct = i === 0 ? retPct0 : 0
+      const retImp = i === 0 ? Math.abs(retImp0) : 0
+
+      const subtipo = a3SubtipoRecibida({ isIntracom, isISP, tipoExencion: line.tipo_exencion })
+      const sujeta = pctIva > 0 || pctRecargo > 0 || hasRetencion ? 'S' : 'N'
+
+      output += a3Record([
+        { offset: 0, value: '5' },                                          // formato
+        { offset: 1, value: codEmpresa },                                   // empresa
+        { offset: 6, value: fechaAsiento },                                 // fecha
+        { offset: 14, value: '9' },                                         // tipo registro
+        { offset: 15, value: a3Cuenta(cuentaCompra) },                      // pos 16-27: cuenta compra
+        { offset: 27, value: a3Text('COMPRAS', 30) },                       // descripción
+        { offset: 57, value: isRectificativa ? 'A' : 'C' },                 // pos 58: tipo importe
+        { offset: 58, value: a3Text(numFactura, 10) },                      // nº factura
+        { offset: 68, value: isLast ? 'U' : 'M' },                          // pos 69: línea apunte
+        { offset: 69, value: a3Text('COMPRAS', 30) },                       // descripción apunte
+        { offset: 99, value: subtipo },                                     // pos 100-101: subtipo
+        { offset: 101, value: a3Importe(base) },                            // pos 102-115: base
+        { offset: 115, value: a3Pct(pctIva) },                              // pos 116-120: % IVA
+        { offset: 120, value: a3Importe(cuotaIva) },                        // pos 121-134: cuota IVA
+        { offset: 134, value: a3Pct(pctRecargo) },                          // pos 135-139: % recargo
+        { offset: 139, value: a3Importe(cuotaRecargo) },                    // pos 140-153: cuota recargo
+        { offset: 153, value: a3Pct(retPct) },                              // pos 154-158: % retención
+        { offset: 158, value: a3Importe(retImp) },                          // pos 159-172: cuota retención
+        { offset: 174, value: sujeta },                                     // pos 175: sujeta IVA
+        { offset: 175, value: 'N' },                                        // pos 176: afecta 415 (IGIC)
+        { offset: 191, value: pctIva > 0 ? a3Cuenta(a3CuentaIvaCompras(pctIva)) : ' '.repeat(12) }, // pos 192-203
+        { offset: 215, value: hasRetencion ? a3Cuenta(A3_CUENTA_RETENCION_DEFAULT) : ' '.repeat(12) }, // pos 216-227: cuenta retención
+        { offset: 508, value: 'E' },                                        // moneda
+        { offset: 509, value: 'N' },                                        // generado
+      ])
+    }
+  }
+
+  return output
+}
+
+/** Genera registros SUENLACE.DAT para VENTAS (facturas emitidas). */
+function buildA3SuenlaceVentas(
+  invoices: InvoiceWithFieldsRow[],
+  ctx: A3ExportContext,
+): string {
+  let output = ''
+  const codEmpresa = ctx.codEmpresa
+
+  for (const inv of invoices) {
+    const f = getFields(inv)
+    if (!f) continue
+
+    const ivaLines = getIvaLines(f)
+    if (ivaLines.length === 0) continue
+
+    const fechaAsiento = a3Date(f.invoice_date)
+    const fechaFactura = fechaAsiento
+    if (fechaAsiento.trim() === '') continue
+
+    const totalAmount = toNum(f.total_amount) ?? 0
+    const isRectificativa = totalAmount < 0 || (toNum(f.base_amount) ?? 0) < 0
+    const isISP = Boolean(f.inversion_sujeto_pasivo)
+    const isIntracom = ivaLines.some((l) => l.tipo_exencion === 'intracomunitaria')
+
+    const nombreCliente = f.supplier_name || ''
+    const nif = f.supplier_tax_id || ''
+    const cp = f.supplier_postal_code || ''
+    const numFactura = f.invoice_number || ''
+
+    const cuentaCliente = A3_CUENTA_CLIENTE_DEFAULT
+    const cuentaVenta = A3_CUENTA_VENTA_DEFAULT
+
+    const importeCab = isRectificativa ? Math.abs(totalAmount) : totalAmount
+
+    // ==================== REGISTRO '1' o '2' (cabecera factura) ====================
+    output += a3Record([
+      { offset: 0, value: '5' },
+      { offset: 1, value: codEmpresa },
+      { offset: 6, value: fechaAsiento },
+      { offset: 14, value: isRectificativa ? '2' : '1' },
+      { offset: 15, value: a3Cuenta(cuentaCliente) },
+      { offset: 27, value: a3Text(nombreCliente, 30) },
+      { offset: 57, value: '1' },                                          // pos 58: tipo factura (1=Ventas)
+      { offset: 58, value: a3Text(numFactura, 10) },
+      { offset: 68, value: 'I' },
+      { offset: 69, value: a3Text(nombreCliente, 30) },
+      { offset: 99, value: a3Importe(importeCab) },
+      { offset: 175, value: a3Text(nif, 14) },
+      { offset: 189, value: nif.trim() ? a3Text(nombreCliente, 40) : ' '.repeat(40) },
+      { offset: 229, value: nif.trim() ? a3Text(cp, 5) : ' '.repeat(5) },
+      { offset: 236, value: fechaFactura },
+      { offset: 244, value: fechaFactura },
+      { offset: 252, value: a3Text(numFactura, 60) },
+      { offset: 508, value: 'E' },
+      { offset: 509, value: 'N' },
+    ])
+
+    // ==================== REGISTROS '9' ====================
+    const retPct0 = toNum(f.retencion_porcentaje) || 0
+    const retImp0 = round2(toNum(f.retencion_importe)) || 0
+    const hasRetencion = retPct0 > 0 || retImp0 > 0
+
+    for (let i = 0; i < ivaLines.length; i++) {
+      const line = ivaLines[i]
+      const isLast = i === ivaLines.length - 1
+      const base = Math.abs(round2(toNum(line.base)) || 0)
+      const pctIva = toNum(line.porcentaje_iva) || 0
+      const cuotaIva = Math.abs(round2(toNum(line.cuota_iva)) || 0)
+      const pctRecargo = toNum(line.porcentaje_recargo) || 0
+      const cuotaRecargo = Math.abs(round2(toNum(line.cuota_recargo)) || 0)
+      const retPct = i === 0 ? retPct0 : 0
+      const retImp = i === 0 ? Math.abs(retImp0) : 0
+
+      const subtipo = a3SubtipoEmitida({ isIntracom, isISP, tipoExencion: line.tipo_exencion })
+      const sujeta = pctIva > 0 || pctRecargo > 0 || hasRetencion ? 'S' : 'N'
+
+      output += a3Record([
+        { offset: 0, value: '5' },
+        { offset: 1, value: codEmpresa },
+        { offset: 6, value: fechaAsiento },
+        { offset: 14, value: '9' },
+        { offset: 15, value: a3Cuenta(cuentaVenta) },
+        { offset: 27, value: a3Text('VENTAS', 30) },
+        { offset: 57, value: isRectificativa ? 'A' : 'C' },
+        { offset: 58, value: a3Text(numFactura, 10) },
+        { offset: 68, value: isLast ? 'U' : 'M' },
+        { offset: 69, value: a3Text('VENTAS', 30) },
+        { offset: 99, value: subtipo },
+        { offset: 101, value: a3Importe(base) },
+        { offset: 115, value: a3Pct(pctIva) },
+        { offset: 120, value: a3Importe(cuotaIva) },
+        { offset: 134, value: a3Pct(pctRecargo) },
+        { offset: 139, value: a3Importe(cuotaRecargo) },
+        { offset: 153, value: a3Pct(retPct) },
+        { offset: 158, value: a3Importe(retImp) },
+        { offset: 174, value: sujeta },
+        { offset: 175, value: 'N' },
+        { offset: 227, value: pctIva > 0 ? a3Cuenta(a3CuentaIvaVentas(pctIva)) : ' '.repeat(12) }, // pos 228-239: IVA repercutido
+        { offset: 215, value: hasRetencion ? a3Cuenta(A3_CUENTA_RETENCION_DEFAULT) : ' '.repeat(12) },
+        { offset: 508, value: 'E' },
+        { offset: 509, value: 'N' },
+      ])
+    }
+  }
+
+  return output
+}
+
+// ---------------------------------------------------------------------------
 // ContaSol helpers
 // Spec oficial: "ContaSOL 2011 — Instrucciones para la importación de datos
 // desde OpenOffice.org Calc o Microsoft Office Excel" (Software del Sol).
@@ -725,7 +1067,7 @@ export async function POST(request: Request) {
 
     // Org preferences — fuente de verdad: tabla organizations
     let uppercaseNamesAddresses = true
-    let program: 'monitor' | 'contasol' = 'monitor'
+    let program: 'monitor' | 'contasol' | 'a3' = 'monitor'
     if (usedOrgIds.length === 1) {
       try {
         const { data: orgPref } = await db
@@ -738,6 +1080,7 @@ export async function POST(request: Request) {
           uppercaseNamesAddresses = prefObj.uppercase_names_addresses
         }
         if (prefObj.accounting_program === 'contasol') program = 'contasol'
+        else if (prefObj.accounting_program === 'a3') program = 'a3'
       } catch (err) { console.error('Error cargando preferencias de organización:', err) }
     }
     // Override manual desde body (sólo útil para tests/debug, no se expone en UI)
@@ -746,13 +1089,56 @@ export async function POST(request: Request) {
       if (typeof b.uppercase_names_addresses === 'boolean') {
         uppercaseNamesAddresses = b.uppercase_names_addresses
       }
-      if (b.program === 'contasol' || b.program === 'monitor') {
+      if (b.program === 'contasol' || b.program === 'monitor' || b.program === 'a3') {
         program = b.program
       }
     }
 
-    // Build workbook
     const isCompras = tipo === 'gasto'
+    const bucket = 'exports'
+    const exportId = crypto.randomUUID()
+    const ts = new Date().toISOString().replace(/[:.]/g, '-')
+
+    // Rama a3: genera fichero SUENLACE.DAT (ASCII ancho fijo) en lugar de XLSX
+    if (program === 'a3') {
+      const codEmpresa = A3_EMPRESA_DEFAULT
+      const suenlace = isCompras
+        ? buildA3SuenlaceCompras(invoiceRows, { codEmpresa })
+        : buildA3SuenlaceVentas(invoiceRows, { codEmpresa })
+
+      if (!suenlace) {
+        return NextResponse.json(
+          { error: 'No se pudo generar el fichero SUENLACE.DAT (sin registros válidos)' },
+          { status: 400 }
+        )
+      }
+
+      const buffer = Buffer.from(suenlace, 'ascii')
+      // a3 espera literalmente "SUENLACE.DAT". El exportId único en la ruta evita colisiones.
+      const filename = 'SUENLACE.DAT'
+      const storagePath = `org/${orgIds[0]}/export/${exportId}/${filename}`
+
+      const upload = await db.storage.from(bucket).upload(storagePath, buffer, {
+        contentType: 'text/plain; charset=us-ascii',
+        upsert: false,
+      })
+      if (upload.error) {
+        return NextResponse.json(
+          { error: upload.error.message || 'Error guardando export' },
+          { status: 500 }
+        )
+      }
+
+      const { data: signed } = await db.storage.from(bucket).createSignedUrl(storagePath, 3600)
+      return NextResponse.json({
+        success: true,
+        bucket,
+        storagePath,
+        signedUrl: signed?.signedUrl || null,
+      }, { status: 201 })
+    }
+
+    // Rama por defecto: construye workbook Excel (Monitor o ContaSol)
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Hoja1')
 
@@ -767,10 +1153,6 @@ export async function POST(request: Request) {
     // Generate XLSX buffer
     const buffer = Buffer.from(await wb.xlsx.writeBuffer() as ArrayBuffer)
 
-    // Upload to Supabase Storage
-    const bucket = 'exports'
-    const exportId = crypto.randomUUID()
-    const ts = new Date().toISOString().replace(/[:.]/g, '-')
     // ContaSol exige literalmente IVS.xlsx / IVR.xlsx al importar.
     // El exportId único en la ruta evita colisiones sin necesidad de timestamp.
     const filename = program === 'contasol'

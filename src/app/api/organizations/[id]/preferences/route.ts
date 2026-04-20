@@ -32,7 +32,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const orgObj = typeof org === 'object' ? (org as Record<string, unknown>) : null
     const uppercase_names_addresses = typeof orgObj?.uppercase_names_addresses === 'boolean' ? orgObj.uppercase_names_addresses : true
     const working_quarter = typeof orgObj?.working_quarter === 'string' && /^Q[1-4]$/.test(orgObj.working_quarter) ? orgObj.working_quarter : null
-    const accounting_program = orgObj?.accounting_program === 'contasol' ? 'contasol' : 'monitor'
+    const accounting_program =
+      orgObj?.accounting_program === 'contasol'
+        ? 'contasol'
+        : orgObj?.accounting_program === 'a3'
+          ? 'a3'
+          : 'monitor'
 
     return NextResponse.json({ success: true, org_id: orgId, uppercase_names_addresses, working_quarter, accounting_program }, { status: 200 })
   } catch (error) {
@@ -68,10 +73,10 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const accounting_program_raw = typeof bodyObj?.accounting_program === 'string' ? bodyObj.accounting_program.trim().toLowerCase() : undefined
     const accounting_program = accounting_program_raw === undefined
       ? undefined
-      : (accounting_program_raw === 'contasol' || accounting_program_raw === 'monitor' ? accounting_program_raw : null)
+      : (accounting_program_raw === 'contasol' || accounting_program_raw === 'monitor' || accounting_program_raw === 'a3' ? accounting_program_raw : null)
 
     if (accounting_program === null) {
-      return NextResponse.json({ error: 'accounting_program debe ser "monitor" o "contasol"' }, { status: 400 })
+      return NextResponse.json({ error: 'accounting_program debe ser "monitor", "contasol" o "a3"' }, { status: 400 })
     }
 
     if (uppercase_names_addresses === undefined && working_quarter === undefined && accounting_program === undefined) {
@@ -105,7 +110,12 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         uppercase_names_addresses:
           typeof updatedObj?.uppercase_names_addresses === 'boolean' ? updatedObj.uppercase_names_addresses : null,
         working_quarter: typeof updatedObj?.working_quarter === 'string' ? updatedObj.working_quarter : null,
-        accounting_program: updatedObj?.accounting_program === 'contasol' ? 'contasol' : 'monitor',
+        accounting_program:
+          updatedObj?.accounting_program === 'contasol'
+            ? 'contasol'
+            : updatedObj?.accounting_program === 'a3'
+              ? 'a3'
+              : 'monitor',
       },
       { status: 200 }
     )

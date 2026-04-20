@@ -20,7 +20,7 @@ import { Switch } from '@heroui/react';
    const [orgName, setOrgName] = useState<string>('');
    const [uppercaseNamesAddresses, setUppercaseNamesAddresses] = useState(true);
    const [workingQuarter, setWorkingQuarter] = useState<string>('');
-   const [accountingProgram, setAccountingProgram] = useState<'monitor' | 'contasol'>('monitor');
+   const [accountingProgram, setAccountingProgram] = useState<'monitor' | 'contasol' | 'a3'>('monitor');
    const [canEdit, setCanEdit] = useState(true);
  
    useEffect(() => {
@@ -70,7 +70,7 @@ import { Switch } from '@heroui/react';
            const wq = prefJson?.working_quarter;
            setWorkingQuarter(typeof wq === 'string' && /^Q[1-4]$/.test(wq) ? wq : '');
            const ap = prefJson?.accounting_program;
-           setAccountingProgram(ap === 'contasol' ? 'contasol' : 'monitor');
+           setAccountingProgram(ap === 'contasol' ? 'contasol' : ap === 'a3' ? 'a3' : 'monitor');
          }
        } catch (err) {
          console.error('Error cargando preferencias:', err);
@@ -196,7 +196,7 @@ import { Switch } from '@heroui/react';
                    Programa contable
                  </h2>
                  <p className="text-sm text-foreground-secondary mt-2">
-                   Formato de Excel generado al exportar facturas validadas. Monitor Informática (miConversor → miConta) o ContaSol (IVS.xlsx / IVR.xlsx).
+                   Formato generado al exportar facturas validadas: Monitor Informática (miConversor → miConta), ContaSol (IVS.xlsx / IVR.xlsx) o a3CON / a3ECO / a3ASESOR (SUENLACE.DAT).
                  </p>
                  {!canEdit && (
                    <p className="text-sm text-amber-600 mt-2">
@@ -206,13 +206,17 @@ import { Switch } from '@heroui/react';
                </div>
                <select
                  value={accountingProgram}
-                 onChange={(e) => setAccountingProgram(e.target.value === 'contasol' ? 'contasol' : 'monitor')}
+                 onChange={(e) => {
+                   const v = e.target.value
+                   setAccountingProgram(v === 'contasol' ? 'contasol' : v === 'a3' ? 'a3' : 'monitor')
+                 }}
                  disabled={!canEdit}
-                 className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[180px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
+                 className="px-3 py-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none bg-[var(--l-card,#ffffff)] text-foreground text-sm min-w-[240px] disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-primary focus:border-transparent"
                  aria-label="Programa contable"
                >
                  <option value="monitor">Monitor Informática</option>
                  <option value="contasol">ContaSol</option>
+                 <option value="a3">a3CON / a3ECO / a3ASESOR (SUENLACE.DAT)</option>
                </select>
              </div>
            </div>
