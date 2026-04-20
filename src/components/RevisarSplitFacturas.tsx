@@ -555,14 +555,14 @@ function PageLightbox({ state, pageNum, onClose, onPrev, onNext }: PageLightboxP
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/85 p-4"
+      className="fixed inset-0 z-[60] overflow-y-auto bg-black/85 p-4 flex flex-col items-center"
       role="dialog"
       aria-modal="true"
       aria-label={`Página ${pageNum} de ${total}`}
       onMouseDown={onClose}
     >
       <div
-        className="relative w-full max-w-4xl flex flex-col items-center"
+        className="relative w-full max-w-4xl flex flex-col items-center my-auto"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
@@ -599,17 +599,17 @@ function PageLightbox({ state, pageNum, onClose, onPrev, onNext }: PageLightboxP
             ‹
           </button>
 
-          <div className="bg-white w-full max-h-[75vh] overflow-auto flex items-center justify-center">
+          <div className="bg-white w-full max-h-[85vh] overflow-auto">
             {thumb ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={thumb}
                 alt={`Página ${pageNum}`}
-                className="max-w-full h-auto"
+                className="block mx-auto max-w-full h-auto"
                 style={{ imageRendering: 'auto' }}
               />
             ) : (
-              <div className="p-12 text-foreground-secondary text-sm">
+              <div className="p-12 text-foreground-secondary text-sm text-center">
                 Miniatura no disponible para esta página.
               </div>
             )}
