@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SplitDetection } from '@/hooks/useInvoiceProcessing';
 
 interface RevisarSplitFacturasProps {
@@ -23,13 +23,6 @@ const COLORS = [
 ] as const;
 
 const colorFor = (idx: number) => COLORS[idx % COLORS.length];
-
-const METHOD_LABELS: Record<SplitDetection['method'], string> = {
-  single: 'única',
-  heuristic: 'heurística',
-  ai: 'IA',
-  hybrid: 'heurística + IA',
-};
 
 /** Devuelve el índice (0-based) del rango que contiene la página `pageNum` (1-indexed). */
 function rangeIndexForPage(ranges: LocalRange[], pageNum: number): number {
@@ -87,10 +80,14 @@ export function RevisarSplitFacturas({
   const [stateByInvoice, setStateByInvoice] = useState<Record<string, LocalState>>({});
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const loadStartedRef = useRef<Set<string>>(new Set());
 
-  // Inicializar estado al abrir / cuando cambian las detecciones
+  // Inicializa estado y dispara la carga de thumbnails para detecciones nuevas.
+  // Combinado en un solo efecto para evitar la race condition de leer estado stale
+  // antes de que setState se aplique.
   useEffect(() => {
     if (!isOpen) return;
+
     setStateByInvoice((prev) => {
       const next = { ...prev };
       for (const d of detections) {
@@ -100,49 +97,54 @@ export function RevisarSplitFacturas({
       }
       return next;
     });
-  }, [isOpen, detections]);
 
-  // Cargar thumbnails de cada PDF
-  useEffect(() => {
-    if (!isOpen) return;
     const controller = new AbortController();
     let cancelled = false;
     (async () => {
       for (const d of detections) {
-        const current = stateByInvoice[d.originalInvoiceId];
-        if (!current || !current.loading) continue;
+        if (loadStartedRef.current.has(d.originalInvoiceId)) continue;
+        loadStartedRef.current.add(d.originalInvoiceId);
         try {
           const r = await fetch(`/api/invoices/${d.originalInvoiceId}/thumbnails`, { signal: controller.signal });
           const j = await r.json().catch(() => null);
           if (cancelled) return;
           if (!r.ok) {
-            setStateByInvoice((prev) => ({
-              ...prev,
-              [d.originalInvoiceId]: { ...prev[d.originalInvoiceId], loading: false, error: j?.error || `HTTP ${r.status}` },
-            }));
+            setStateByInvoice((prev) => {
+              const cur = prev[d.originalInvoiceId] || initialStateFromDetection(d);
+              return {
+                ...prev,
+                [d.originalInvoiceId]: { ...cur, loading: false, error: j?.error || `HTTP ${r.status}` },
+              };
+            });
             continue;
           }
           const thumbs: string[] = Array.isArray(j?.thumbnails) ? j.thumbnails : [];
           const total: number = Number(j?.total_pages) || thumbs.length;
-          setStateByInvoice((prev) => ({
-            ...prev,
-            [d.originalInvoiceId]: {
-              ...prev[d.originalInvoiceId],
-              loading: false,
-              thumbnails: thumbs,
-              totalPages: total || prev[d.originalInvoiceId].totalPages,
-            },
-          }));
+          setStateByInvoice((prev) => {
+            const cur = prev[d.originalInvoiceId] || initialStateFromDetection(d);
+            return {
+              ...prev,
+              [d.originalInvoiceId]: {
+                ...cur,
+                loading: false,
+                thumbnails: thumbs,
+                totalPages: total || cur.totalPages,
+              },
+            };
+          });
         } catch (e) {
           if (cancelled || (e as Error)?.name === 'AbortError') return;
-          setStateByInvoice((prev) => ({
-            ...prev,
-            [d.originalInvoiceId]: {
-              ...prev[d.originalInvoiceId],
-              loading: false,
-              error: (e as Error)?.message || 'Error cargando miniaturas',
-            },
-          }));
+          setStateByInvoice((prev) => {
+            const cur = prev[d.originalInvoiceId] || initialStateFromDetection(d);
+            return {
+              ...prev,
+              [d.originalInvoiceId]: {
+                ...cur,
+                loading: false,
+                error: (e as Error)?.message || 'Error cargando miniaturas',
+              },
+            };
+          });
         }
       }
     })();
@@ -150,9 +152,15 @@ export function RevisarSplitFacturas({
       cancelled = true;
       controller.abort();
     };
-    // No incluimos stateByInvoice para evitar loop; depende solo del set de detections.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, detections]);
+
+  // Resetea el tracker de cargas iniciadas al cerrar el modal, así la próxima apertura
+  // (con nuevas detecciones) volverá a cargar miniaturas si hace falta.
+  useEffect(() => {
+    if (!isOpen) {
+      loadStartedRef.current.clear();
+    }
+  }, [isOpen]);
 
   const totalNuevasFacturas = useMemo(
     () => detections.reduce((acc, d) => acc + d.created_invoice_ids.length, 0),
@@ -275,8 +283,7 @@ export function RevisarSplitFacturas({
                       {d.filename ?? 'Documento sin nombre'}
                     </p>
                     <p className="text-xs text-foreground-secondary mt-0.5">
-                      {st.totalPages} página{st.totalPages !== 1 ? 's' : ''} ·{' '}
-                      detección {METHOD_LABELS[d.method]}
+                      {st.totalPages} página{st.totalPages !== 1 ? 's' : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
