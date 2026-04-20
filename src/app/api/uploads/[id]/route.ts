@@ -47,6 +47,10 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           created_at,
           status,
           error_message,
+          page_start,
+          page_end,
+          total_pages,
+          split_group_id,
           invoice_fields (
             supplier_name,
             supplier_tax_id,

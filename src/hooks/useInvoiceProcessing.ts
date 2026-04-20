@@ -7,6 +7,20 @@ import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
  *  Valor bajo para no saturar la RAM del backend (512MB en Render). */
 const MAX_EXTRACT_CONCURRENCY = 3;
 
+export type SplitDetection = {
+  uploadId: string
+  originalInvoiceId: string
+  filename: string | null
+  method: 'single' | 'heuristic' | 'ai' | 'hybrid'
+  ranges: Array<{ page_start: number; page_end: number; confidence: number; signals: string[] }>
+  needs_review: boolean
+  ai_cost_estimate: number
+  total_pages: number
+  created_invoice_ids: string[]
+  split_group_id: string | null
+  error?: string
+}
+
 /**
  * Hook para gestionar el procesamiento de facturas (upload, OCR/IA, validación)
  */
@@ -28,6 +42,10 @@ export function useInvoiceProcessing() {
 
   // Estado de mensajes dinámicos
   const [statusMessageTick, setStatusMessageTick] = useState(0);
+
+  // Detecciones de splits pendientes de mostrar al usuario (uploads multi-factura)
+  const [pendingSplitDetections, setPendingSplitDetections] = useState<SplitDetection[]>([]);
+  const [isDetectingSplits, setIsDetectingSplits] = useState(false);
 
   // Cálculos derivados
   const hasUploadingFiles = archivosSubidos.some((a) => a.estado === 'procesando' || a.estado === 'pendiente');
@@ -412,18 +430,55 @@ export function useInvoiceProcessing() {
       .map(r => r.value as string);
     const successCount = successfulInvoiceIds.length;
 
+    // Detección de PDFs multi-factura: ANTES de extraer, preguntamos al backend si
+    // alguno de los PDFs subidos contiene varias facturas para crear las invoices
+    // adicionales. Las nuevas IDs se añaden a la cola de extracción.
+    const splitInvoiceIds: string[] = [];
+    if (successfulInvoiceIds.length > 0 && realUploadId) {
+      setIsDetectingSplits(true);
+      try {
+        const detectResp = await fetch(`/api/uploads/${realUploadId}/detect`, { method: 'POST' });
+        const detectJson = await detectResp.json().catch(() => null);
+        if (detectResp.ok && Array.isArray(detectJson?.detections)) {
+          const detections = detectJson.detections as SplitDetection[];
+          const splits = detections.filter(d => d.created_invoice_ids.length > 0);
+          if (splits.length > 0) {
+            for (const d of splits) {
+              splitInvoiceIds.push(...d.created_invoice_ids);
+            }
+            setPendingSplitDetections(prev => [...prev, ...splits]);
+            const totalNuevas = splitInvoiceIds.length;
+            const pdfsAfectados = splits.length;
+            showSuccess(
+              `Detectadas ${totalNuevas} factura${totalNuevas !== 1 ? 's' : ''} adicional${totalNuevas !== 1 ? 'es' : ''} en ${pdfsAfectados} PDF${pdfsAfectados !== 1 ? 's' : ''} multi-factura.`
+            );
+            // Refrescar la lista para que las nuevas invoices aparezcan en la UI
+            onRefresh();
+          }
+        } else if (!detectResp.ok) {
+          console.warn('Detección de splits falló (continuamos sin splittear):', detectJson?.error);
+        }
+      } catch (e) {
+        console.error('Error detectando splits:', e);
+      } finally {
+        setIsDetectingSplits(false);
+      }
+    }
+
+    const allInvoiceIdsForQueue = [...successfulInvoiceIds, ...splitInvoiceIds];
+
     // Encolar extracción
-    if (successfulInvoiceIds.length > 0) {
+    if (allInvoiceIdsForQueue.length > 0) {
       setExtractStatusByInvoiceId(prev => {
         const next = { ...prev };
-        for (const id of successfulInvoiceIds) {
+        for (const id of allInvoiceIdsForQueue) {
           next[id] = next[id] || 'idle';
         }
         return next;
       });
       setSessionInvoiceIds(prev => {
         const next = [...prev];
-        for (const id of successfulInvoiceIds) {
+        for (const id of allInvoiceIdsForQueue) {
           if (!next.includes(id)) next.push(id);
         }
         return next;
@@ -447,7 +502,7 @@ export function useInvoiceProcessing() {
       setSubidasFacturas(prev => prev.filter(s => s.uploadId !== realUploadId));
       return;
     }
-  }, [archivosSubidos, showError]);
+  }, [archivosSubidos, showError, showSuccess]);
 
   // Eliminar factura
   const handleRemoveFile = useCallback(async (fileId: string) => {
@@ -569,6 +624,11 @@ export function useInvoiceProcessing() {
     setStatusMessageTick(0);
   }, []);
 
+  // Limpia las detecciones pendientes (UI las descarta tras mostrarlas)
+  const dismissSplitDetections = useCallback(() => {
+    setPendingSplitDetections([]);
+  }, []);
+
   return {
     archivosSubidos,
     extractStatusByInvoiceId,
@@ -592,5 +652,8 @@ export function useInvoiceProcessing() {
     resetProcessingState,
     syncProcessingStateForUpload,
     pumpExtractQueue,
+    pendingSplitDetections,
+    isDetectingSplits,
+    dismissSplitDetections,
   };
 }

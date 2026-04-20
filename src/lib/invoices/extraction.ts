@@ -96,7 +96,7 @@ export async function extractInvoiceAndPersist(params: {
 
   const { data: invoice, error: invoiceError } = await supabase
     .from('invoices')
-    .select('id, org_id, bucket, storage_path, original_filename, mime_type, status')
+    .select('id, org_id, bucket, storage_path, original_filename, mime_type, status, page_start, page_end')
     .eq('id', invoiceId)
     .single()
 
@@ -178,6 +178,15 @@ export async function extractInvoiceAndPersist(params: {
   }
   if (tipoNorm === 'GASTO' && proveedoresConocidos && proveedoresConocidos.length > 0) {
     fd.append('proveedores_conocidos', JSON.stringify(proveedoresConocidos))
+  }
+
+  // Si la invoice viene de un PDF multi-factura, indicar al backend qué rango de páginas procesar
+  const invoiceWithRange = invoice as { page_start?: number | null; page_end?: number | null }
+  if (typeof invoiceWithRange.page_start === 'number' && invoiceWithRange.page_start >= 1) {
+    fd.append('page_start', String(invoiceWithRange.page_start))
+  }
+  if (typeof invoiceWithRange.page_end === 'number' && invoiceWithRange.page_end >= 1) {
+    fd.append('page_end', String(invoiceWithRange.page_end))
   }
 
   const headers: Record<string, string> = {}

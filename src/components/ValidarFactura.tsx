@@ -66,6 +66,14 @@ interface ValidarFacturaProps {
   canGoNext?: boolean
   disableValidar?: boolean
   validarText?: string
+  /** Si la factura es parte de un PDF multi-factura, info para mostrar un badge */
+  splitInfo?: {
+    position: number      // 1-indexed
+    total: number
+    pageStart?: number | null
+    pageEnd?: number | null
+    originalFilename?: string | null
+  } | null
 }
 
 export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
@@ -84,7 +92,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   isLast = false,
   canGoNext = true,
   disableValidar = false,
-  validarText
+  validarText,
+  splitInfo = null,
 }) => {
   const [moneyFocusKey, setMoneyFocusKey] = useState<string | null>(null)
   /** Al hacer foco en un campo numérico guardamos el valor; al blur si quedó vacío se restaura. */
@@ -784,6 +793,19 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                   <div className="text-[11px] font-bold uppercase tracking-widest text-foreground-secondary">
                     Empresa - {empresaNombre}
                   </div>
+                  {splitInfo && splitInfo.total > 1 ? (
+                    <Tooltip
+                      content={
+                        splitInfo.originalFilename
+                          ? `Páginas ${splitInfo.pageStart ?? '?'}–${splitInfo.pageEnd ?? '?'} del PDF "${splitInfo.originalFilename}"`
+                          : `Páginas ${splitInfo.pageStart ?? '?'}–${splitInfo.pageEnd ?? '?'}`
+                      }
+                    >
+                      <div className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-none bg-amber-50 text-amber-800 border border-amber-200">
+                        <span>Factura {splitInfo.position} de {splitInfo.total}</span>
+                      </div>
+                    </Tooltip>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-[2fr_2fr_0.9fr] gap-2 items-center">

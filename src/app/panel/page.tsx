@@ -34,6 +34,10 @@ const DeleteInvoiceModal = dynamic(
   () => import('./components/modals/DeleteInvoiceModal').then((m) => m.DeleteInvoiceModal),
   { ssr: false }
 );
+const RevisarSplitFacturas = dynamic(
+  () => import('@/components/RevisarSplitFacturas').then((m) => m.RevisarSplitFacturas),
+  { ssr: false }
+);
 
 export default function DashboardPage() {
   // ============================================================================
@@ -161,6 +165,8 @@ export default function DashboardPage() {
     resetProcessingState,
     syncProcessingStateForUpload,
     pumpExtractQueue,
+    pendingSplitDetections,
+    dismissSplitDetections,
   } = useInvoiceProcessing();
 
   // ============================================================================
@@ -404,6 +410,12 @@ export default function DashboardPage() {
         isDeleting={isDeletingInvoice}
         onConfirm={handleConfirmEliminarFacturaWrapper}
         onClose={() => setIsDeleteInvoiceModalOpen(false)}
+      />
+
+      <RevisarSplitFacturas
+        isOpen={pendingSplitDetections.length > 0}
+        detections={pendingSplitDetections}
+        onClose={dismissSplitDetections}
       />
     </div>
   );

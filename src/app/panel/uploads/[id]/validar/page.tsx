@@ -25,6 +25,10 @@ type UploadInvoiceRow = {
   mime_type: string | null
   status?: string | null
   error_message?: string | null
+  page_start?: number | null
+  page_end?: number | null
+  total_pages?: number | null
+  split_group_id?: string | null
   invoice_extractions?: Array<{
     raw_json: unknown
     created_at: string
@@ -1964,6 +1968,31 @@ export default function ValidarUploadPage() {
 
           const currentDuplicates = currentId ? duplicatesByInvoiceId[currentId] : undefined
 
+          // Calcular splitInfo si la factura actual es parte de un grupo split
+          const currentInvoiceRow = currentId ? invoiceRows.find((r) => r.id === currentId) : null
+          let splitInfo: {
+            position: number
+            total: number
+            pageStart?: number | null
+            pageEnd?: number | null
+            originalFilename?: string | null
+          } | null = null
+          if (currentInvoiceRow?.split_group_id) {
+            const sameGroup = invoiceRows
+              .filter((r) => r.split_group_id === currentInvoiceRow.split_group_id)
+              .sort((a, b) => (a.page_start ?? 0) - (b.page_start ?? 0))
+            const position = sameGroup.findIndex((r) => r.id === currentInvoiceRow.id) + 1
+            if (position > 0 && sameGroup.length > 1) {
+              splitInfo = {
+                position,
+                total: sameGroup.length,
+                pageStart: currentInvoiceRow.page_start ?? null,
+                pageEnd: currentInvoiceRow.page_end ?? null,
+                originalFilename: currentInvoiceRow.original_filename ?? null,
+              }
+            }
+          }
+
           return (
             <ErrorBoundary>
               <ValidarFactura
@@ -1985,6 +2014,7 @@ export default function ValidarUploadPage() {
                 canGoNext={canGoNext}
                 disableValidar={disableValidar}
                 validarText={validarText}
+                splitInfo={splitInfo}
               />
             </ErrorBoundary>
           )
