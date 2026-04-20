@@ -416,6 +416,11 @@ export default function DashboardPage() {
         isOpen={pendingSplitDetections.length > 0}
         detections={pendingSplitDetections}
         onClose={dismissSplitDetections}
+        onApplied={() => {
+          if (clienteSeleccionado) {
+            void loadUploadsForClient(clienteSeleccionado.id);
+          }
+        }}
       />
     </div>
   );
