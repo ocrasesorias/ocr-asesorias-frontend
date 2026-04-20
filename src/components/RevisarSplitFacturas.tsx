@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SplitDetection } from '@/hooks/useInvoiceProcessing';
 
 interface RevisarSplitFacturasProps {
@@ -71,6 +71,8 @@ const initialStateFromDetection = (d: SplitDetection): LocalState => ({
   isDirty: false,
 });
 
+type ViewerState = { invoiceId: string; pageNum: number } | null;
+
 export function RevisarSplitFacturas({
   isOpen,
   detections,
@@ -78,13 +80,12 @@ export function RevisarSplitFacturas({
   onApplied,
 }: RevisarSplitFacturasProps) {
   const [stateByInvoice, setStateByInvoice] = useState<Record<string, LocalState>>({});
-  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<ViewerState>(null);
   const loadStartedRef = useRef<Set<string>>(new Set());
 
   // Inicializa estado y dispara la carga de thumbnails para detecciones nuevas.
-  // Combinado en un solo efecto para evitar la race condition de leer estado stale
-  // antes de que setState se aplique.
   useEffect(() => {
     if (!isOpen) return;
 
@@ -154,17 +155,22 @@ export function RevisarSplitFacturas({
     };
   }, [isOpen, detections]);
 
-  // Resetea el tracker de cargas iniciadas al cerrar el modal, así la próxima apertura
-  // (con nuevas detecciones) volverá a cargar miniaturas si hace falta.
+  // Resetea el tracker al cerrar el modal
   useEffect(() => {
     if (!isOpen) {
       loadStartedRef.current.clear();
+      setViewer(null);
     }
   }, [isOpen]);
 
   const totalNuevasFacturas = useMemo(
     () => detections.reduce((acc, d) => acc + d.created_invoice_ids.length, 0),
     [detections]
+  );
+
+  const dirtyCount = useMemo(
+    () => detections.filter((d) => stateByInvoice[d.originalInvoiceId]?.isDirty).length,
+    [detections, stateByInvoice]
   );
 
   const updateRanges = (invoiceId: string, transform: (ranges: LocalRange[]) => LocalRange[]) => {
@@ -200,44 +206,74 @@ export function RevisarSplitFacturas({
     }));
   };
 
-  const handleApplyChanges = async (invoiceId: string, uploadId: string) => {
-    const cur = stateByInvoice[invoiceId];
-    if (!cur || !cur.isDirty) return;
-    setApplyingId(invoiceId);
+  /** Aplica todos los cambios pendientes en serie. */
+  const handleApplyAll = async () => {
+    if (isApplying || dirtyCount === 0) return;
+    setIsApplying(true);
     setGlobalError(null);
     try {
-      const r = await fetch(`/api/uploads/${uploadId}/splits`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ originalInvoiceId: invoiceId, ranges: cur.ranges }),
-      });
-      const j = await r.json().catch(() => null);
-      if (!r.ok) {
-        setGlobalError(j?.error || `Error aplicando cambios (HTTP ${r.status})`);
-        return;
-      }
-      // Re-disparar extracción para la ancla + nuevas invoices (fire-and-forget)
-      const idsToReExtract: string[] = [
-        j?.anchor_invoice_id,
-        ...(Array.isArray(j?.created_invoice_ids) ? j.created_invoice_ids : []),
-      ].filter((x): x is string => typeof x === 'string' && x.length > 0);
-      for (const id of idsToReExtract) {
-        // No await: queremos que se lancen en paralelo y no bloqueen al usuario
-        fetch(`/api/invoices/${id}/extract`, { method: 'POST' }).catch((err) => {
-          console.error(`Error re-extrayendo invoice ${id}:`, err);
+      for (const d of detections) {
+        const cur = stateByInvoice[d.originalInvoiceId];
+        if (!cur || !cur.isDirty) continue;
+        const r = await fetch(`/api/uploads/${d.uploadId}/splits`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ originalInvoiceId: d.originalInvoiceId, ranges: cur.ranges }),
         });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          setGlobalError(
+            `Error aplicando cambios en "${d.filename || 'PDF'}": ${j?.error || `HTTP ${r.status}`}`
+          );
+          return; // detiene en el primer fallo
+        }
+        // Re-disparar extracción para la ancla + nuevas invoices (fire-and-forget)
+        const idsToReExtract: string[] = [
+          j?.anchor_invoice_id,
+          ...(Array.isArray(j?.created_invoice_ids) ? j.created_invoice_ids : []),
+        ].filter((x): x is string => typeof x === 'string' && x.length > 0);
+        for (const id of idsToReExtract) {
+          fetch(`/api/invoices/${id}/extract`, { method: 'POST' }).catch((err) => {
+            console.error(`Error re-extrayendo invoice ${id}:`, err);
+          });
+        }
+        setStateByInvoice((prev) => ({
+          ...prev,
+          [d.originalInvoiceId]: { ...prev[d.originalInvoiceId], isDirty: false },
+        }));
       }
-      setStateByInvoice((prev) => ({
-        ...prev,
-        [invoiceId]: { ...prev[invoiceId], isDirty: false },
-      }));
       onApplied?.();
+      onClose();
     } catch (e) {
       setGlobalError((e as Error)?.message || 'Error aplicando cambios');
     } finally {
-      setApplyingId(null);
+      setIsApplying(false);
     }
   };
+
+  // Navegación con teclado dentro del lightbox
+  const moveViewer = useCallback(
+    (delta: number) => {
+      if (!viewer) return;
+      const st = stateByInvoice[viewer.invoiceId];
+      if (!st) return;
+      const next = viewer.pageNum + delta;
+      if (next < 1 || next > st.totalPages) return;
+      setViewer({ invoiceId: viewer.invoiceId, pageNum: next });
+    },
+    [viewer, stateByInvoice]
+  );
+
+  useEffect(() => {
+    if (!viewer) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewer(null);
+      else if (e.key === 'ArrowLeft') moveViewer(-1);
+      else if (e.key === 'ArrowRight') moveViewer(1);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [viewer, moveViewer]);
 
   if (!isOpen || detections.length === 0) return null;
 
@@ -259,7 +295,7 @@ export function RevisarSplitFacturas({
         <p className="mt-2 text-sm text-foreground-secondary">
           Hemos detectado que {detections.length === 1 ? 'un PDF contiene' : `${detections.length} PDFs contienen`} varias facturas
           (en total se han creado {totalNuevasFacturas} factura{totalNuevasFacturas !== 1 ? 's' : ''} adicional{totalNuevasFacturas !== 1 ? 'es' : ''}).
-          Si la división no es correcta, puedes ajustarla pulsando entre las páginas.
+          Si la división no es correcta, puedes ajustarla pulsando entre las páginas. Haz clic en una miniatura para verla en grande.
         </p>
 
         {globalError ? (
@@ -286,26 +322,16 @@ export function RevisarSplitFacturas({
                       {st.totalPages} página{st.totalPages !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {st.isDirty ? (
-                      <button
-                        type="button"
-                        className="text-xs px-2 py-1 border border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)] transition-colors"
-                        onClick={() => handleResetToDetected(d.originalInvoiceId)}
-                        disabled={applyingId === d.originalInvoiceId}
-                      >
-                        Restablecer
-                      </button>
-                    ) : null}
+                  {st.isDirty ? (
                     <button
                       type="button"
-                      className="text-xs px-3 py-1 bg-[var(--l-accent,#0f172a)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleApplyChanges(d.originalInvoiceId, d.uploadId)}
-                      disabled={!st.isDirty || applyingId === d.originalInvoiceId || st.loading}
+                      className="shrink-0 text-xs px-2 py-1 border border-[var(--l-card-border,#e5e7eb)] hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50"
+                      onClick={() => handleResetToDetected(d.originalInvoiceId)}
+                      disabled={isApplying}
                     >
-                      {applyingId === d.originalInvoiceId ? 'Aplicando…' : 'Aplicar cambios'}
+                      Restablecer
                     </button>
-                  </div>
+                  ) : null}
                 </div>
 
                 {st.loading ? (
@@ -323,6 +349,7 @@ export function RevisarSplitFacturas({
                     ranges={st.ranges}
                     onSplitAt={(p) => handleSplitAt(d.originalInvoiceId, p)}
                     onMergeWithPrevious={(idx) => handleMergeWithPrevious(d.originalInvoiceId, idx)}
+                    onPageClick={(p) => setViewer({ invoiceId: d.originalInvoiceId, pageNum: p })}
                   />
                 )}
 
@@ -349,14 +376,37 @@ export function RevisarSplitFacturas({
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors"
+            className="px-5 py-3 rounded-none border border-[var(--l-card-border,#e5e7eb)] text-foreground hover:bg-[var(--l-bg,#f9fafb)] transition-colors disabled:opacity-50"
             onClick={onClose}
-            disabled={Boolean(applyingId)}
+            disabled={isApplying}
           >
             Cerrar
           </button>
+          <button
+            type="button"
+            className="px-5 py-3 rounded-none bg-[var(--l-accent,#0f172a)] text-white hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--l-accent,#0f172a)] disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleApplyAll}
+            disabled={dirtyCount === 0 || isApplying}
+          >
+            {isApplying
+              ? 'Aplicando…'
+              : dirtyCount > 0
+                ? `Aplicar cambios (${dirtyCount})`
+                : 'Aplicar cambios'}
+          </button>
         </div>
       </div>
+
+      {/* Lightbox de página individual */}
+      {viewer ? (
+        <PageLightbox
+          state={stateByInvoice[viewer.invoiceId]}
+          pageNum={viewer.pageNum}
+          onClose={() => setViewer(null)}
+          onPrev={() => moveViewer(-1)}
+          onNext={() => moveViewer(1)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -371,10 +421,10 @@ interface PageGridProps {
   ranges: LocalRange[];
   onSplitAt: (pageNum: number) => void;
   onMergeWithPrevious: (factIdx: number) => void;
+  onPageClick: (pageNum: number) => void;
 }
 
-function PageGrid({ thumbnails, totalPages, ranges, onSplitAt, onMergeWithPrevious }: PageGridProps) {
-  // Si no llegan thumbnails (degradado), render de fallback con cuadritos numerados
+function PageGrid({ thumbnails, totalPages, ranges, onSplitAt, onMergeWithPrevious, onPageClick }: PageGridProps) {
   const hasThumbs = thumbnails.length > 0;
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
@@ -393,26 +443,24 @@ function PageGrid({ thumbnails, totalPages, ranges, onSplitAt, onMergeWithPrevio
       {pages.map((p, idx) => {
         const factIdx = factIdxByPage[p] ?? 0;
         const c = colorFor(factIdx);
-        const nextFactIdx = idx + 1 < pages.length ? factIdxByPage[pages[idx + 1]] : factIdx;
-        const isBoundaryAfter = nextFactIdx !== factIdx; // hay corte entre p y p+1
         const isStartOfFact = ranges[factIdx]?.page_start === p;
 
         return (
           <div key={p} className="flex items-stretch">
-            {/* Separador a la IZQUIERDA: existe entre páginas (no antes de la primera) */}
             {idx > 0 && (
               <PageSeparator
                 isBoundary={factIdxByPage[pages[idx - 1]] !== factIdx}
                 onSplit={() => onSplitAt(p)}
                 onMerge={() => onMergeWithPrevious(factIdx)}
-                canSplit={!isStartOfFact || idx > 0}  // no permitir dividir donde ya hay corte
+                canSplit={!isStartOfFact || idx > 0}
               />
             )}
 
-            {/* Miniatura de la página */}
-            <div
-              className={`flex flex-col items-center p-1.5 border-2 ${c.bg} ${c.border}`}
-              title={`Página ${p} — Factura ${factIdx + 1}`}
+            <button
+              type="button"
+              className={`flex flex-col items-center p-1.5 border-2 ${c.bg} ${c.border} hover:brightness-95 hover:shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`}
+              title={`Página ${p} — Factura ${factIdx + 1} (clic para ampliar)`}
+              onClick={() => onPageClick(p)}
             >
               {hasThumbs && thumbnails[p - 1] ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -429,11 +477,7 @@ function PageGrid({ thumbnails, totalPages, ranges, onSplitAt, onMergeWithPrevio
               <span className="text-[10px] mt-1 text-foreground-secondary">
                 Pág. {p}
               </span>
-            </div>
-
-            {/* La marca de "fin de factura" se ve en el siguiente separador (isBoundary=true) */}
-            {/* No renderizamos nada extra a la derecha aquí */}
-            {isBoundaryAfter && idx === pages.length - 1 ? null : null}
+            </button>
           </div>
         );
       })}
@@ -481,5 +525,112 @@ function PageSeparator({ isBoundary, onSplit, onMerge, canSplit }: PageSeparator
         Dividir
       </span>
     </button>
+  );
+}
+
+// =====================================================
+// PageLightbox: vista grande de una página con navegación
+// =====================================================
+
+interface PageLightboxProps {
+  state: LocalState | undefined;
+  pageNum: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}
+
+function PageLightbox({ state, pageNum, onClose, onPrev, onNext }: PageLightboxProps) {
+  if (!state) return null;
+  const total = state.totalPages;
+  const thumb = state.thumbnails[pageNum - 1] || null;
+  const factIdx = (() => {
+    for (let i = 0; i < state.ranges.length; i++) {
+      const r = state.ranges[i];
+      if (pageNum >= r.page_start && pageNum <= r.page_end) return i;
+    }
+    return -1;
+  })();
+  const c = factIdx >= 0 ? colorFor(factIdx) : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Página ${pageNum} de ${total}`}
+      onMouseDown={onClose}
+    >
+      <div
+        className="relative w-full max-w-4xl flex flex-col items-center"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* Cabecera */}
+        <div className="w-full flex items-center justify-between mb-3 text-white">
+          <div className="text-sm">
+            <span className="font-semibold">Página {pageNum}</span>
+            <span className="opacity-70"> de {total}</span>
+            {factIdx >= 0 ? (
+              <span className={`ml-3 inline-flex items-center px-2 py-0.5 text-[11px] border ${c?.chip}`}>
+                Factura {factIdx + 1}
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="text-white/80 hover:text-white text-xl leading-none p-2"
+            onClick={onClose}
+            aria-label="Cerrar vista grande"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Imagen + flechas */}
+        <div className="relative w-full flex items-center justify-center">
+          <button
+            type="button"
+            className="absolute left-0 -translate-x-2 sm:-translate-x-12 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-white/15 hover:bg-white/30 text-white text-2xl rounded-none disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={onPrev}
+            disabled={pageNum <= 1}
+            aria-label="Página anterior"
+            title="Página anterior (←)"
+          >
+            ‹
+          </button>
+
+          <div className="bg-white w-full max-h-[75vh] overflow-auto flex items-center justify-center">
+            {thumb ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={thumb}
+                alt={`Página ${pageNum}`}
+                className="max-w-full h-auto"
+                style={{ imageRendering: 'auto' }}
+              />
+            ) : (
+              <div className="p-12 text-foreground-secondary text-sm">
+                Miniatura no disponible para esta página.
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="absolute right-0 translate-x-2 sm:translate-x-12 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center bg-white/15 hover:bg-white/30 text-white text-2xl rounded-none disabled:opacity-30 disabled:cursor-not-allowed"
+            onClick={onNext}
+            disabled={pageNum >= total}
+            aria-label="Página siguiente"
+            title="Página siguiente (→)"
+          >
+            ›
+          </button>
+        </div>
+
+        <p className="text-white/60 text-xs mt-3">
+          Usa las flechas ← → del teclado para navegar entre páginas. Esc para cerrar.
+        </p>
+      </div>
+    </div>
   );
 }
