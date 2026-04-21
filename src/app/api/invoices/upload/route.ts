@@ -4,14 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const runtime = 'nodejs'
 
-function sanitizeFilename(name: string) {
-  return name
-    .normalize('NFKD')
-    .replace(/[^\w.\- ]+/g, '')
-    .trim()
-    .replace(/\s+/g, '_')
-}
-
 function inferMimeType(filename: string): string | null {
   const lower = (filename || '').toLowerCase()
   if (lower.endsWith('.pdf')) return 'application/pdf'
@@ -23,74 +15,42 @@ function inferMimeType(filename: string): string | null {
   return null
 }
 
-function parseNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const n = Number(value.replace(',', '.'))
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
-
-function parseDateToISO(value: unknown): string | null {
-  if (!value || typeof value !== 'string') return null
-  // Python extractor devuelve normalmente dd/mm/yyyy
-  const m = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
-  if (m) {
-    const [, dd, mm, yyyy] = m
-    const d = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`)
-    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10)
-  }
-  // fallback: intentar Date.parse
-  const t = Date.parse(value)
-  if (!Number.isNaN(t)) return new Date(t).toISOString().slice(0, 10)
-  return null
-}
-
 export async function POST(request: Request) {
   try {
     const { data: auth, response: authError } = await requireAuth()
     if (authError) return authError
     const { supabase, user, orgId } = auth
 
-    const form = await request.formData()
-    const file = form.get('file')
-    const clientId = form.get('client_id')
-    const uploadId = form.get('upload_id')
-    const runExtraction = form.get('run_extraction')
-    const tipo = form.get('tipo')
+    const body = await request.json().catch(() => null)
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'Falta el archivo (file)' }, { status: 400 })
-    }
-    if (typeof clientId !== 'string' || !clientId.trim()) {
-      return NextResponse.json({ error: 'Falta client_id' }, { status: 400 })
-    }
-    if (typeof uploadId !== 'string' || !uploadId.trim()) {
-      return NextResponse.json({ error: 'Falta upload_id' }, { status: 400 })
+    const clientId = typeof body?.client_id === 'string' ? body.client_id.trim() : ''
+    const uploadId = typeof body?.upload_id === 'string' ? body.upload_id.trim() : ''
+    const storagePath = typeof body?.storage_path === 'string' ? body.storage_path.trim() : ''
+    const bucket =
+      typeof body?.bucket === 'string' && body.bucket.trim() ? body.bucket.trim() : 'invoices'
+    const originalFilename =
+      typeof body?.original_filename === 'string' && body.original_filename.trim()
+        ? body.original_filename
+        : 'factura'
+    const mimeType = typeof body?.mime_type === 'string' && body.mime_type.trim() ? body.mime_type : null
+    const fileSizeBytes =
+      typeof body?.file_size_bytes === 'number' && Number.isFinite(body.file_size_bytes)
+        ? body.file_size_bytes
+        : null
+
+    if (!clientId) return NextResponse.json({ error: 'Falta client_id' }, { status: 400 })
+    if (!uploadId) return NextResponse.json({ error: 'Falta upload_id' }, { status: 400 })
+    if (!storagePath) return NextResponse.json({ error: 'Falta storage_path' }, { status: 400 })
+
+    // Validación defensiva: el path debe pertenecer a esta org + upload.
+    const expectedPrefix = `org/${orgId}/upload/${uploadId}/`
+    if (!storagePath.startsWith(expectedPrefix)) {
+      return NextResponse.json({ error: 'storage_path inválido' }, { status: 400 })
     }
 
     const invoiceId = crypto.randomUUID()
-    const originalFilename = file.name || 'factura'
-    const safeName = sanitizeFilename(originalFilename) || 'factura'
-    const bucket = 'invoices'
-    const storagePath = `org/${orgId}/upload/${uploadId}/${safeName}`
-    const contentType = file.type || inferMimeType(originalFilename) || 'application/octet-stream'
+    const contentType = mimeType || inferMimeType(originalFilename) || 'application/octet-stream'
 
-    // Subir primero a Storage; si falla no dejamos registros huérfanos.
-    const uploadRes = await supabase.storage.from(bucket).upload(storagePath, file, {
-      contentType,
-      upsert: false,
-    })
-
-    if (uploadRes.error) {
-      return NextResponse.json(
-        { error: uploadRes.error.message || 'Error subiendo el archivo' },
-        { status: 500 }
-      )
-    }
-
-    // Insert en invoices
     const { data: invoiceRow, error: insertError } = await supabase
       .from('invoices')
       .insert({
@@ -101,8 +61,8 @@ export async function POST(request: Request) {
         bucket,
         storage_path: storagePath,
         original_filename: originalFilename,
-        mime_type: contentType || null,
-        file_size_bytes: file.size ?? null,
+        mime_type: contentType,
+        file_size_bytes: fileSizeBytes,
         uploaded_by: user.id,
         status: 'uploaded',
         error_message: null,
@@ -111,15 +71,19 @@ export async function POST(request: Request) {
       .single()
 
     if (insertError || !invoiceRow) {
-      // best-effort cleanup
-      await supabase.storage.from(bucket).remove([storagePath])
+      // Best-effort cleanup del fichero ya subido a Storage.
+      try {
+        await supabase.storage.from(bucket).remove([storagePath])
+      } catch (err) {
+        console.error('Error limpiando fichero huérfano en Storage:', err)
+      }
       return NextResponse.json(
         { error: insertError?.message || 'Error creando el registro de factura' },
         { status: 500 }
       )
     }
 
-    // Consumir 1 crédito en el ledger (allow_negative=true para pay-as-you-go por ahora)
+    // Consumir 1 crédito en el ledger.
     try {
       await supabase.rpc('consume_credit', {
         p_org_id: orgId,
@@ -135,7 +99,6 @@ export async function POST(request: Request) {
           { status: 402 }
         )
       }
-      // Fallback: increment_org_invoices_consumed si la migración ledger aún no está
       try {
         await supabase.rpc('increment_org_invoices_consumed', { p_org_id: orgId })
       } catch (err) {
@@ -143,10 +106,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // URL firmada para previsualización (válida 1h)
-    const expiresIn = 60 * 60 * 24 * 7 // 7 días (como en el panel)
+    const expiresIn = 60 * 60 * 24 * 7
     let previewUrl: string | null = null
-
     const signed = await supabase.storage.from(bucket).createSignedUrl(storagePath, expiresIn)
     if (!signed.error) {
       previewUrl = signed.data?.signedUrl ?? null
@@ -158,142 +119,13 @@ export async function POST(request: Request) {
       }
     }
 
-    let extraction: unknown = null
-    let extractedFields: Record<string, unknown> | null = null
-
-    const shouldExtract =
-      (typeof runExtraction === 'string' ? runExtraction : '').toLowerCase() === 'true' ||
-      runExtraction === '1'
-
-    const extractorUrl = process.env.INVOICE_EXTRACTOR_API_URL
-
-    if (shouldExtract && extractorUrl) {
-      try {
-        // Estado: processing
-        await supabase
-          .from('invoices')
-          .update({ status: 'processing', error_message: null })
-          .eq('id', invoiceId)
-
-        const fd = new FormData()
-        fd.append('file', file)
-        const tipoNorm = typeof tipo === 'string' ? tipo.trim().toUpperCase() : ''
-        if (tipoNorm === 'INGRESO' || tipoNorm === 'GASTO') fd.append('tipo', tipoNorm)
-
-        // Si es GASTO, enviar CIF, nombre y dirección del cliente para guardrails
-        if (tipoNorm === 'GASTO' && clientId) {
-          const { data: clientRow } = await supabase
-            .from('clients')
-            .select('tax_id, name, address')
-            .eq('id', clientId)
-            .eq('org_id', orgId)
-            .single()
-          const row = clientRow as { tax_id?: string; name?: string; address?: string } | null
-          if (typeof row?.tax_id === 'string' && row.tax_id.trim()) fd.append('cif_empresa', row.tax_id.trim())
-          if (typeof row?.name === 'string' && row.name.trim()) fd.append('nombre_empresa', row.name.trim())
-          if (typeof row?.address === 'string' && row.address.trim()) fd.append('direccion_empresa', row.address.trim())
-        }
-
-        const resp = await fetch(`${extractorUrl.replace(/\/$/, '')}/api/upload`, {
-          method: 'POST',
-          body: fd,
-        })
-
-        const json = await resp.json().catch(() => null)
-
-        if (!resp.ok || !json?.success) {
-          const msg = json?.detail || json?.error || 'Error en extracción'
-          await supabase
-            .from('invoices')
-            .update({ status: 'error', error_message: String(msg) })
-            .eq('id', invoiceId)
-        } else {
-          const factura = json?.factura ?? json
-          extraction = factura
-
-          await supabase.from('invoice_extractions').insert({
-            invoice_id: invoiceId,
-            raw_json: factura,
-            model: 'regex-v1',
-            confidence: null,
-          })
-
-          // Mapear a invoice_fields (mínimo). En GASTO preferir proveedor/proveedor_nif (emisor)
-          const invoice_number =
-            typeof factura?.numero_factura === 'string' ? factura.numero_factura : null
-          const invoice_date = parseDateToISO(factura?.fecha)
-          const base_amount = parseNumber(factura?.importe_base)
-          const vat_amount = parseNumber(factura?.iva)
-          const total_amount = parseNumber(factura?.total)
-          const vat_rate = parseNumber(factura?.porcentaje_iva)
-          const supplier_name =
-            tipoNorm === 'GASTO' && typeof factura?.proveedor === 'string' && factura.proveedor
-              ? factura.proveedor
-              : typeof factura?.cliente === 'string'
-                ? factura.cliente
-                : null
-          const supplier_tax_id =
-            tipoNorm === 'GASTO' && typeof factura?.proveedor_nif === 'string' && factura.proveedor_nif
-              ? factura.proveedor_nif
-              : typeof factura?.cliente_nif === 'string'
-                ? factura.cliente_nif
-                : typeof factura?.nif_cliente === 'string'
-                  ? factura.nif_cliente
-                  : typeof factura?.nif === 'string'
-                    ? factura.nif
-                    : null
-
-          extractedFields = {
-            supplier_name,
-            supplier_tax_id,
-            invoice_number,
-            invoice_date,
-            base_amount,
-            vat_amount,
-            total_amount,
-            vat_rate,
-          }
-
-          await supabase.from('invoice_fields').upsert(
-            {
-              invoice_id: invoiceId,
-              supplier_name,
-              supplier_tax_id,
-              invoice_number,
-              invoice_date,
-              base_amount,
-              vat_amount,
-              total_amount,
-              vat_rate,
-              updated_by: user.id,
-            },
-            { onConflict: 'invoice_id' }
-          )
-
-          // Estado: needs_review (pendiente de validación)
-          await supabase
-            .from('invoices')
-            .update({ status: 'needs_review', error_message: null })
-            .eq('id', invoiceId)
-        }
-      } catch (e) {
-        await supabase
-          .from('invoices')
-          .update({
-            status: 'error',
-            error_message: `Error extracción: ${e instanceof Error ? e.message : 'unknown'}`,
-          })
-          .eq('id', invoiceId)
-      }
-    }
-
     return NextResponse.json(
       {
         success: true,
         invoice: invoiceRow,
         previewUrl,
-        extraction,
-        extractedFields,
+        extraction: null,
+        extractedFields: null,
       },
       { status: 201 }
     )
@@ -302,5 +134,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
-
-

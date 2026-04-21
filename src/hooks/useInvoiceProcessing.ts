@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/contexts/ToastContext';
+import { createClient } from '@/lib/supabase/client';
 import { ArchivoSubido, SubidaFacturas } from '@/types/dashboard';
 
 /** Máximo de extracts en paralelo (frontend); al completar uno se lanza el siguiente.
@@ -335,17 +336,49 @@ export function useInvoiceProcessing() {
 
     // Subir archivos en paralelo (todas a la vez)
     let creditsExhausted = false;
+    const supabaseClient = createClient();
     const uploadOne = async (file: File, index: number): Promise<string | null> => {
       const placeholderId = placeholders[index].id;
       if (creditsExhausted) return null;
       try {
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('client_id', clienteId);
-        fd.append('upload_id', realUploadId!);
-        fd.append('tipo', String(subidaActual.tipo).toUpperCase());
+        // 1) Pedir signed upload URL al servidor (JSON pequeño, no atraviesa el límite 4.5MB de Vercel).
+        const urlResp = await fetch('/api/invoices/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            upload_id: realUploadId,
+            original_filename: file.name,
+          }),
+        });
+        const urlData = await urlResp.json().catch(() => null);
+        if (!urlResp.ok || !urlData?.success) {
+          throw new Error(urlData?.error || 'No se pudo preparar la subida');
+        }
 
-        const resp = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+        // 2) Subir el fichero directamente a Supabase Storage (sin pasar por Vercel).
+        const { error: storageErr } = await supabaseClient.storage
+          .from(urlData.bucket)
+          .uploadToSignedUrl(urlData.storage_path, urlData.token, file, {
+            contentType: file.type || undefined,
+          });
+        if (storageErr) {
+          throw new Error(storageErr.message || 'Error subiendo el archivo');
+        }
+
+        // 3) Registrar la factura en BD (JSON con metadata, sin el fichero).
+        const resp = await fetch('/api/invoices/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            client_id: clienteId,
+            upload_id: realUploadId,
+            bucket: urlData.bucket,
+            storage_path: urlData.storage_path,
+            original_filename: file.name,
+            mime_type: file.type || null,
+            file_size_bytes: file.size,
+          }),
+        });
         const data = await resp.json();
 
         if (resp.status === 402) {
