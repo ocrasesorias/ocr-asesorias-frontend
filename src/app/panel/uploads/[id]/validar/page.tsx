@@ -478,8 +478,9 @@ export default function ValidarUploadPage() {
   const [tipoFactura, setTipoFactura] = useState<'gasto' | 'ingreso'>('gasto')
   const [hasInitializedPosition, setHasInitializedPosition] = useState(false)
 
-  const viewParam = (searchParams.get('view') || '').toLowerCase()
-  const viewMode: 'pending' | 'all' = viewParam === 'all' ? 'all' : 'pending'
+  // Si todas las facturas están validadas, el usuario puede forzar "modo revisión"
+  // desde la pantalla "No hay pendientes" para entrar a ver/editar lo ya validado.
+  const [reviewAll, setReviewAll] = useState(false)
 
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -652,11 +653,10 @@ export default function ValidarUploadPage() {
     }
   }, [invoiceRows, searchParams])
 
-  // Al entrar en una subida del historial (o al cambiar a "Solo pendientes"), por defecto vamos a la primera pendiente accesible.
+  // Al entrar en una subida del historial, por defecto vamos a la primera pendiente accesible.
   useEffect(() => {
     if (hasInitializedPosition) return
     if (invoiceRows.length === 0) return
-    if (viewMode !== 'pending') return
 
     const ids = invoiceRows.map((i) => i.id)
     for (let idx = 0; idx < ids.length; idx += 1) {
@@ -668,12 +668,7 @@ export default function ValidarUploadPage() {
         return
       }
     }
-  }, [invoiceRows, validatedByInvoiceId, viewMode, hasInitializedPosition])
-
-  // Resetear flag cuando el usuario cambia viewMode (permite reposicionamiento en ese caso).
-  useEffect(() => {
-    setHasInitializedPosition(false)
-  }, [viewMode])
+  }, [invoiceRows, validatedByInvoiceId, hasInitializedPosition])
 
   useEffect(() => {
     // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
@@ -833,7 +828,7 @@ export default function ValidarUploadPage() {
         if (invoiceParam) {
           const byParam = invoices.findIndex((r) => r.id === invoiceParam)
           if (byParam >= 0) initialIdx = byParam
-        } else if (viewMode === 'pending') {
+        } else {
           const firstPending = invoices.findIndex((inv) => !vRec[inv.id])
           initialIdx = firstPending >= 0 ? firstPending : 0
         }
@@ -882,12 +877,11 @@ export default function ValidarUploadPage() {
           setIsLoading(false)
 
           // 2) Resto de previews en segundo plano, priorizando por cercanía al índice actual.
-          //    Orden: initialIdx+1, initialIdx+2, ..., wrap-around hasta initialIdx-1.
-          //    En modo 'pending' saltamos las validadas (no son accesibles).
+          //    Orden: primero pendientes (más probables de validarse), luego validadas
+          //    (accesibles desde la barra superior de rectángulos).
           ;(async () => {
             const n = invoices.length
             const order: number[] = []
-            // Primero: pendientes (no validadas) en orden wrap-around desde la actual
             for (let k = 1; k < n; k++) {
               const idx = (initialIdx + k) % n
               const inv = invoices[idx]
@@ -895,15 +889,12 @@ export default function ValidarUploadPage() {
               if (vRec[inv.id]) continue
               order.push(idx)
             }
-            // Después (solo en modo 'all'): las validadas, también wrap-around
-            if (viewMode === 'all') {
-              for (let k = 1; k < n; k++) {
-                const idx = (initialIdx + k) % n
-                const inv = invoices[idx]
-                if (!inv?.id) continue
-                if (!vRec[inv.id]) continue
-                order.push(idx)
-              }
+            for (let k = 1; k < n; k++) {
+              const idx = (initialIdx + k) % n
+              const inv = invoices[idx]
+              if (!inv?.id) continue
+              if (!vRec[inv.id]) continue
+              order.push(idx)
             }
             for (const idx of order) {
               const inv = invoices[idx]
@@ -934,7 +925,7 @@ export default function ValidarUploadPage() {
     }
 
     run()
-  }, [router, uploadId, showError, searchParams, viewMode])
+  }, [router, uploadId, showError, searchParams])
 
   // Marcar como "visitada" la factura actual (para colorear barra)
   useEffect(() => {
@@ -1585,55 +1576,40 @@ export default function ValidarUploadPage() {
     }
   }
 
+  // La barra superior de rectángulos permite saltar a cualquier factura, incluidas las ya validadas.
   const jumpToIndex = (idx: number) => {
     if (idx < 0 || idx >= invoiceRows.length) return
-    if (viewMode === 'pending' && validatedByInvoiceId[invoiceRows[idx].id]) {
-      showInfo('Esta factura ya está validada. Cambia a "Ver todas" para revisarla.')
-      return
-    }
     setFacturaActual(idx)
   }
 
+  // Siguiente/Anterior (botones y Enter en el formulario): siempre saltan validadas,
+  // para que el flujo natural sea ir completando las pendientes.
   const handleSiguiente = () => {
     const ids = invoiceRows.map((i) => i.id)
-
-    if (viewMode === 'pending') {
-      const ids = invoiceRows.map((i) => i.id)
-      for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
-        const id = ids[idx]
-        if (!id) continue
-        if (!validatedByInvoiceId[id]) {
-          setFacturaActual(idx)
-          return
-        }
+    for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
+      const id = ids[idx]
+      if (!id) continue
+      if (!validatedByInvoiceId[id]) {
+        setFacturaActual(idx)
+        return
       }
-      setIsFinishedModalOpen(true)
-      return
     }
-
-    const nextIdx = facturaActual + 1
-    if (nextIdx >= ids.length) return
-    setFacturaActual(nextIdx)
+    setIsFinishedModalOpen(true)
   }
 
   const handleAnterior = () => {
-    if (viewMode === 'pending') {
-      const ids = invoiceRows.map((i) => i.id)
-      for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
-        const id = ids[idx]
-        if (!id) continue
-        if (!validatedByInvoiceId[id]) {
-          setFacturaActual(idx)
-          return
-        }
+    const ids = invoiceRows.map((i) => i.id)
+    for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
+      const id = ids[idx]
+      if (!id) continue
+      if (!validatedByInvoiceId[id]) {
+        setFacturaActual(idx)
+        return
       }
-      return
     }
-    if (facturaActual > 0) setFacturaActual(facturaActual - 1)
   }
 
   const hasPrevPending = useMemo(() => {
-    if (viewMode !== 'pending') return facturaActual > 0
     const ids = invoiceRows.map((i) => i.id)
     for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
       const id = ids[idx]
@@ -1641,7 +1617,7 @@ export default function ValidarUploadPage() {
       if (!validatedByInvoiceId[id]) return true
     }
     return false
-  }, [facturaActual, invoiceRows, validatedByInvoiceId, viewMode])
+  }, [facturaActual, invoiceRows, validatedByInvoiceId])
 
   const handleGenerarExport = async () => {
     if (validatedInvoiceIds.length === 0) {
@@ -1701,7 +1677,7 @@ export default function ValidarUploadPage() {
     )
   }
 
-  if (viewMode === 'pending' && pendingInvoiceIds.length === 0) {
+  if (!reviewAll && pendingInvoiceIds.length === 0) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -1709,9 +1685,14 @@ export default function ValidarUploadPage() {
           <p className="text-foreground-secondary mb-6">
             Esta subida ya está completada (todas las facturas están validadas).
           </p>
-          <Button variant="primary" onClick={() => router.back()}>
-            Volver
-          </Button>
+          <div className="flex items-center justify-center gap-3">
+            <Button variant="outline" onClick={() => setReviewAll(true)}>
+              Revisar facturas
+            </Button>
+            <Button variant="primary" onClick={() => router.back()}>
+              Volver
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -1806,7 +1787,7 @@ export default function ValidarUploadPage() {
             <button
               type="button"
               onClick={handleAnterior}
-              disabled={viewMode === 'pending' ? !hasPrevPending : facturaActual === 0}
+              disabled={!hasPrevPending}
               className="inline-flex items-center gap-2 px-6 py-3 text-base font-normal text-foreground hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Volver a la factura anterior"
               title="Anterior"
@@ -1840,9 +1821,7 @@ export default function ValidarUploadPage() {
         <div className="mt-3 -mx-6">
           <div className="px-6 pb-1 flex justify-end">
             <div className="text-[11px] text-foreground-secondary whitespace-nowrap">
-              {viewMode === 'pending'
-                ? `${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''}`
-                : `${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas`}
+              {`${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''} · ${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas`}
             </div>
           </div>
           {/* Barra segmentada clicable:
@@ -1936,15 +1915,11 @@ export default function ValidarUploadPage() {
             if (isLast) return true
             const ids = invoiceRows.map((i) => i.id)
             let nextIdx = -1
-            if (viewMode === 'pending') {
-              for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
-                if (!validatedByInvoiceId[ids[idx]]) {
-                  nextIdx = idx
-                  break
-                }
+            for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
+              if (!validatedByInvoiceId[ids[idx]]) {
+                nextIdx = idx
+                break
               }
-            } else {
-              nextIdx = facturaActual + 1
             }
             if (nextIdx < 0 || nextIdx >= ids.length) return true
             // Bloque de 5 que contiene nextIdx
@@ -2006,7 +1981,7 @@ export default function ValidarUploadPage() {
                 previewFailed={currentId ? Boolean(previewFailedIds[currentId]) : false}
                 duplicateWarning={currentDuplicates && currentDuplicates.length > 0 ? currentDuplicates : null}
                 onValidar={handleValidar}
-                onAnterior={viewMode === 'pending' ? (hasPrevPending ? handleAnterior : undefined) : (facturaActual > 0 ? handleAnterior : undefined)}
+                onAnterior={hasPrevPending ? handleAnterior : undefined}
                 onSiguiente={handleSiguiente}
                 onParaDespues={handleParaDespues}
                 onEliminar={handleEliminarClick}

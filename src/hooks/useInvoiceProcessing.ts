@@ -590,7 +590,6 @@ export function useInvoiceProcessing() {
 
   // Ir a validar (invoiceId opcional: abre directamente esa factura)
   const handleValidarFacturas = useCallback((
-    view: 'pending' | 'all',
     subidaActual: SubidaFacturas | null,
     invoiceId?: string
   ) => {
@@ -619,7 +618,7 @@ export function useInvoiceProcessing() {
       // noop
     }
 
-    const base = `/panel/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}&view=${encodeURIComponent(view)}`;
+    const base = `/panel/uploads/${subidaActual.uploadId}/validar?tipo=${encodeURIComponent(subidaActual.tipo)}`;
     const url = invoiceId ? `${base}&invoice=${encodeURIComponent(invoiceId)}` : base;
     router.push(url);
   }, [archivosSubidos, router, showError, hasUploadingFiles, canValidate, readyCount, errorCount]);

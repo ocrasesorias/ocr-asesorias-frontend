@@ -35,7 +35,7 @@ interface FilesSectionProps {
   onCancelarTipoSubida: () => void;
   onFilesSelected: (files: File[]) => void;
   onRemoveFile: (fileId: string) => void;
-  onValidarFacturas: (view: 'pending' | 'all') => void;
+  onValidarFacturas: () => void;
   onValidarFactura?: (invoiceId: string) => void;
   onDeseleccionarSubida: () => void;
 }
@@ -188,7 +188,6 @@ export function FilesSection({
               isAllReady={isAllReady}
               readyCount={readyCount}
               totalFiles={archivosSubidos.length}
-              isNewUpload={!isFromHistory}
               onValidate={onValidarFacturas}
             />
           </div>

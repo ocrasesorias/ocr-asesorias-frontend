@@ -240,12 +240,12 @@ export default function DashboardPage() {
     void handleConfirmEliminarSubida(refreshInvoiceCounter);
   };
 
-  const handleValidarFacturasWrapper = (view: 'pending' | 'all') => {
-    handleValidarFacturas(view, subidaActual);
+  const handleValidarFacturasWrapper = () => {
+    handleValidarFacturas(subidaActual);
   };
 
   const handleValidarFacturaConcreto = (invoiceId: string) => {
-    handleValidarFacturas('all', subidaActual, invoiceId);
+    handleValidarFacturas(subidaActual, invoiceId);
   };
 
   // ============================================================================
