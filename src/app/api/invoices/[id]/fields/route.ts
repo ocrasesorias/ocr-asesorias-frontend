@@ -14,10 +14,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (authError) return authError
     const { supabase, user, orgId } = auth
 
-    // Comprobar que la factura pertenece a la organización
+    // Comprobar que la factura pertenece a la organización (incluimos el tipo del upload
+    // para validar la coherencia de la subcuenta contable más abajo).
     const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select('id, org_id, client_id')
+      .select('id, org_id, client_id, uploads(tipo)')
       .eq('id', invoiceId)
       .single()
 
@@ -57,6 +58,28 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const payload: Record<string, unknown> = { invoice_id: invoiceId, updated_by: user.id }
     for (const [k, v] of Object.entries(body as Record<string, unknown>)) {
       if (allowed.has(k)) payload[k] = v
+    }
+
+    // Guardrail de coherencia subcuenta ↔ tipo de factura.
+    // INGRESO (ventas) → cuenta 7xx; GASTO (compras) → cuenta 6xx. Si llega incoherente
+    // desde el cliente (IA, tocamiento manual vía API, etc.), se corrige antes de guardar.
+    const uploadRaw = (invoice as { uploads?: unknown }).uploads
+    const uploadObj = Array.isArray(uploadRaw) ? uploadRaw[0] : uploadRaw
+    const uploadTipoRaw = (uploadObj && typeof uploadObj === 'object')
+      ? String((uploadObj as { tipo?: unknown }).tipo || '').toLowerCase()
+      : ''
+    if (uploadTipoRaw === 'ingreso' || uploadTipoRaw === 'gasto') {
+      const sub = typeof payload.subcuenta_gasto === 'string' ? (payload.subcuenta_gasto as string).trim() : ''
+      if (sub) {
+        const primer = sub.charAt(0)
+        if (uploadTipoRaw === 'ingreso' && primer !== '7') {
+          console.warn(`subcuenta '${sub}' incoherente para INGRESO (${invoiceId}) → forzada a '700'`)
+          payload.subcuenta_gasto = '700'
+        } else if (uploadTipoRaw === 'gasto' && primer !== '6') {
+          console.warn(`subcuenta '${sub}' incoherente para GASTO (${invoiceId}) → forzada a '600'`)
+          payload.subcuenta_gasto = '600'
+        }
+      }
     }
 
     const { data, error } = await supabase

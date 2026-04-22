@@ -353,6 +353,22 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     return () => { cancelled = true }
   }, [tipo, clientId])
 
+  // Guardrail: la subcuenta actual debe ser coherente con el tipo de factura
+  // (7xx en INGRESO, 6xx en GASTO). Si no, la forzamos a un default correcto al montar
+  // para que no se guarde una cuenta incompatible al validar.
+  useEffect(() => {
+    const actual = String(factura.subcuentaGasto || '').trim()
+    if (!actual) return
+    const primer = actual.charAt(0)
+    const esIngreso = tipo === 'ingreso'
+    const coherente = (esIngreso && primer === '7') || (!esIngreso && primer === '6')
+    if (coherente) return
+    const nueva = esIngreso ? '700' : '600'
+    setFactura(prev => ({ ...prev, subcuentaGasto: nueva }))
+    // Intencionadamente sólo al montar / cambiar tipo: ajustamos el valor inicial, no el del usuario.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo])
+
   // Foco inicial en el nombre del proveedor/cliente. Los datos de arriba (empresa)
   // suelen estar fijos (cliente de la gestoría) y no se editan; el primer dato relevante
   // de cada factura es la contraparte.

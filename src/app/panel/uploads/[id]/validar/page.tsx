@@ -1380,7 +1380,16 @@ export default function ValidarUploadPage() {
               vat_amount: vatSum || null,
               total_amount: total || null,
               vat_rate: Number.isFinite(vatRate as number) ? (vatRate as number) : null,
-              subcuenta_gasto: factura.subcuentaGasto?.trim() || null,
+              subcuenta_gasto: (() => {
+                // Guardrail final antes de enviar al servidor: la subcuenta debe ser coherente con el tipo.
+                // INGRESO → 7xx; GASTO → 6xx. Si no, se fuerza al default.
+                const raw = String(factura.subcuentaGasto || '').trim()
+                if (!raw) return null
+                const primer = raw.charAt(0)
+                if (tipoFactura === 'ingreso' && primer !== '7') return '700'
+                if (tipoFactura === 'gasto' && primer !== '6') return '600'
+                return raw
+              })(),
               retencion_porcentaje: retPct,
               retencion_importe: retImporte,
               retencion_tipo: factura.retencion.aplica && factura.retencion.tipo ? factura.retencion.tipo : null,
