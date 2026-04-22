@@ -86,6 +86,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   previewFailed = false,
   duplicateWarning = null,
   onValidar,
+  onAnterior,
   onSiguiente,
   onParaDespues,
   onEliminar,
@@ -518,8 +519,6 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     onValidar(factura);
   };
 
-  // El formulario manejará automáticamente el Enter en los campos
-  // Solo necesitamos prevenir el submit en textareas
 
   const trimestres = ['Q1', 'Q2', 'Q3', 'Q4'];
   const porcentajesRetencion = ['7%', '15%', '19%'];
@@ -604,6 +603,94 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     }
   })()
 
+  const canValidar = !(disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || (!isLast && !canGoNext))
+  const canAvanzar = !(disableValidar || (!isLast && !canGoNext))
+
+  // Atajos de teclado en la pantalla de validar factura.
+  // Enter=siguiente campo, Shift+Enter=anterior, Ctrl+Enter=validar, Ctrl+←/→=navegación, Ctrl+Shift+Supr=eliminar.
+  const getFocusableFields = (): HTMLElement[] => {
+    const form = formRef.current
+    if (!form) return []
+    const nodes = form.querySelectorAll<HTMLElement>(
+      'input:not([disabled]):not([type="hidden"]):not([aria-hidden="true"]), select:not([disabled]), textarea:not([disabled])'
+    )
+    return Array.from(nodes).filter(el => {
+      if (el.getAttribute('tabindex') === '-1') return false
+      return el.offsetParent !== null
+    })
+  }
+
+  const focusSibling = (direction: 1 | -1) => {
+    const fields = getFocusableFields()
+    if (fields.length === 0) return
+    const active = document.activeElement as HTMLElement | null
+    const idx = active ? fields.indexOf(active) : -1
+    if (idx === -1) {
+      fields[direction === 1 ? 0 : fields.length - 1]?.focus()
+      return
+    }
+    // Forzamos blur para que los campos con formato euro/fecha reformateen.
+    active?.blur()
+    const next = fields[(idx + direction + fields.length) % fields.length]
+    next?.focus()
+    if (next instanceof HTMLInputElement || next instanceof HTMLTextAreaElement) {
+      try { next.select() } catch { /* noop */ }
+    }
+  }
+
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.defaultPrevented) return
+
+    const target = e.target as HTMLElement
+    const isTextarea = target instanceof HTMLTextAreaElement
+    const isButton = target instanceof HTMLButtonElement
+    const isSubmitButton = isButton && (target as HTMLButtonElement).type === 'submit'
+
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault()
+      if (!canValidar) return
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      formRef.current?.requestSubmit()
+      return
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+      if (isTextarea) return
+      if (isButton && !isSubmitButton) return
+      e.preventDefault()
+      focusSibling(1)
+      return
+    }
+
+    if (e.key === 'Enter' && e.shiftKey) {
+      if (isTextarea) return
+      e.preventDefault()
+      focusSibling(-1)
+      return
+    }
+
+    if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+      if (!onAnterior) return
+      e.preventDefault()
+      onAnterior()
+      return
+    }
+
+    if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+      if (!canAvanzar) return
+      e.preventDefault()
+      ;(onParaDespues ? onParaDespues() : onSiguiente())
+      return
+    }
+
+    if (e.key === 'Delete' && e.ctrlKey && e.shiftKey) {
+      if (!onEliminar || disableValidar) return
+      e.preventDefault()
+      onEliminar()
+      return
+    }
+  }
+
   const inferRetencionTipo = (porcentaje: string): FacturaData['retencion']['tipo'] => {
     const p = String(porcentaje || '').replace('%', '').trim()
     const n = Number(p.replace(',', '.'))
@@ -660,6 +747,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       <form
         ref={formRef}
         onSubmit={handleSubmit}
+        onKeyDown={handleFormKeyDown}
         className="grid grid-cols-2 gap-1 min-h-0 h-full"
       >
         {/* Columna izquierda: Imagen/PDF de la factura */}
@@ -951,28 +1039,22 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                             handleChange('proveedor.nombre', e.target.value)
                             if (tipo === 'gasto' && allSuppliers.length > 0) {
                               const q = e.target.value.trim().toLowerCase()
-                              if (q.length > 0) {
-                                const filtered = allSuppliers.filter(s =>
-                                  s.name.toLowerCase().includes(q)
-                                )
-                                setFilteredSuppliers(filtered)
-                                setShowSuggestions(filtered.length > 0)
-                                setHighlightedIdx(-1)
-                              } else {
-                                setShowSuggestions(false)
-                              }
+                              const filtered = q.length > 0
+                                ? allSuppliers.filter(s => s.name.toLowerCase().includes(q))
+                                : allSuppliers
+                              setFilteredSuppliers(filtered)
+                              setShowSuggestions(filtered.length > 0)
+                              setHighlightedIdx(-1)
                             }
                           }}
                           onFocus={() => {
                             if (tipo === 'gasto' && allSuppliers.length > 0) {
                               const q = (factura.proveedor.nombre || '').trim().toLowerCase()
-                              if (q.length > 0) {
-                                const filtered = allSuppliers.filter(s =>
-                                  s.name.toLowerCase().includes(q)
-                                )
-                                setFilteredSuppliers(filtered)
-                                setShowSuggestions(filtered.length > 0)
-                              }
+                              const filtered = q.length > 0
+                                ? allSuppliers.filter(s => s.name.toLowerCase().includes(q))
+                                : allSuppliers
+                              setFilteredSuppliers(filtered)
+                              setShowSuggestions(filtered.length > 0)
                             }
                           }}
                           onBlur={() => {
@@ -1566,8 +1648,8 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         onClick={onEliminar}
                         disabled={disableValidar}
                         className="p-3 rounded-none border border-red-300 text-red-600 hover:text-red-700 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
-                        aria-label="Eliminar factura"
-                        title="Eliminar factura"
+                        aria-label="Eliminar factura (Ctrl+Shift+Supr)"
+                        title="Eliminar factura (Ctrl+Shift+Supr)"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1583,6 +1665,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     onClick={() => (onParaDespues ? onParaDespues() : onSiguiente())}
                     disabled={Boolean(disableValidar || (!isLast && !canGoNext))}
                     className="group px-5 py-3 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
+                    title="Para después (Ctrl+→)"
                   >
                     <span className="inline-block transition-transform duration-200 group-hover:-translate-x-0.5">
                       PARA DESPUÉS
@@ -1608,6 +1691,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     type="submit"
                     disabled={disableValidar || ivaVerification.hasErrors || totalVerification.hasErrors || (!isLast && !canGoNext)}
                     className="px-5 py-3 text-sm font-bold whitespace-nowrap inline-flex items-center justify-center gap-2"
+                    title="Validar factura (Ctrl+Enter)"
                   >
                     <AnimateIcon animateOnHover className="inline-flex items-center justify-center gap-2 w-full">
                       {validarText || (disableValidar ? 'PROCESANDO…' : ivaVerification.hasErrors ? 'REVISA IVA' : totalVerification.hasErrors ? 'REVISA TOTAL' : 'VALIDAR')}
@@ -1618,8 +1702,6 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
               </div>
             </div>
 
-            {/* Botón oculto para permitir submit con Enter desde cualquier campo */}
-            <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
           </Card>
         </div>
       </form>

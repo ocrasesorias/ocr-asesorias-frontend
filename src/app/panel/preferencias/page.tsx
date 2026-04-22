@@ -262,6 +262,43 @@ import { Switch } from '@heroui/react';
              </Button>
            </div>
          </div>
+
+         <div className="mt-6 bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-6">
+           <div className="mb-4">
+             <h2 className="text-lg font-semibold text-foreground">Atajos de teclado</h2>
+             <p className="text-sm text-foreground-secondary mt-2">
+               Acciones disponibles en la pantalla de validar factura para agilizar el flujo. De momento son fijos; próximamente podrás personalizarlos.
+             </p>
+           </div>
+           <ul className="divide-y divide-[var(--l-card-border,#e5e7eb)]">
+             {[
+               { keys: ['Enter'], desc: 'Mover el foco al siguiente campo' },
+               { keys: ['Shift', 'Enter'], desc: 'Mover el foco al campo anterior' },
+               { keys: ['Ctrl', 'Enter'], desc: 'Validar la factura' },
+               { keys: ['Ctrl', '←'], desc: 'Ir a la factura anterior' },
+               { keys: ['Ctrl', '→'], desc: 'Pasar esta factura para después (siguiente)' },
+               { keys: ['Ctrl', 'Shift', 'Supr'], desc: 'Eliminar la factura actual' },
+               { keys: ['Esc'], desc: 'Cerrar sugerencias de autocompletar' },
+             ].map((row) => (
+               <li key={row.desc} className="py-3 flex items-center justify-between gap-4">
+                 <span className="text-sm text-foreground">{row.desc}</span>
+                 <span className="flex items-center gap-1 shrink-0">
+                   {row.keys.map((k, i) => (
+                     <span key={i} className="flex items-center gap-1">
+                       {i > 0 && <span className="text-foreground-secondary text-xs">+</span>}
+                       <kbd className="px-2 py-0.5 text-xs font-mono font-semibold bg-[var(--l-bg,#f1f5f9)] border border-[var(--l-card-border,#e5e7eb)] rounded-none text-foreground">
+                         {k}
+                       </kbd>
+                     </span>
+                   ))}
+                 </span>
+               </li>
+             ))}
+           </ul>
+           <p className="text-xs text-foreground-secondary mt-4">
+             En macOS, usa <kbd className="px-1.5 py-0.5 text-[11px] font-mono bg-[var(--l-bg,#f1f5f9)] border border-[var(--l-card-border,#e5e7eb)] rounded-none">⌘</kbd> en lugar de <kbd className="px-1.5 py-0.5 text-[11px] font-mono bg-[var(--l-bg,#f1f5f9)] border border-[var(--l-card-border,#e5e7eb)] rounded-none">Ctrl</kbd>.
+           </p>
+         </div>
        </main>
      </div>
    );
