@@ -1045,6 +1045,7 @@ export async function POST(request: Request) {
       `)
       .in('org_id', orgIds)
       .in('id', invoiceIds)
+      .eq('is_discarded', false)
 
     if (error) {
       return NextResponse.json({ error: error.message || 'Error cargando facturas' }, { status: 500 })

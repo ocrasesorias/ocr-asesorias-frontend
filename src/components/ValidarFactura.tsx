@@ -60,8 +60,10 @@ interface ValidarFacturaProps {
   onAnterior?: () => void
   onSiguiente: () => void;
   onParaDespues?: () => void
-  /** Eliminar definitivamente la factura (BD + storage). Si no se pasa, no se muestra el botón. */
+  /** Descartar/recuperar la factura (toggle reversible). Si no se pasa, no se muestra el botón. */
   onEliminar?: () => void
+  /** Si true, la factura está actualmente descartada → el botón muestra icono de "recuperar". */
+  isDiscarded?: boolean
   isLast?: boolean
   canGoNext?: boolean
   disableValidar?: boolean
@@ -90,6 +92,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   onSiguiente,
   onParaDespues,
   onEliminar,
+  isDiscarded = false,
   isLast = false,
   canGoNext = true,
   disableValidar = false,
@@ -684,14 +687,15 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
       return
     }
 
-    if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey)) {
+    // Ignorar si Shift está pulsado: Ctrl+Shift+←/→ es selección por palabras (nativo del navegador).
+    if (e.key === 'ArrowLeft' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       if (!onAnterior) return
       e.preventDefault()
       onAnterior()
       return
     }
 
-    if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey)) {
+    if (e.key === 'ArrowRight' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       if (!canAvanzar) return
       e.preventDefault()
       ;(onParaDespues ? onParaDespues() : onSiguiente())
@@ -1669,13 +1673,23 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                         type="button"
                         onClick={onEliminar}
                         disabled={disableValidar}
-                        className="p-3 rounded-none border border-red-300 text-red-600 hover:text-red-700 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center"
-                        aria-label="Eliminar factura (Ctrl+Shift+Supr)"
-                        title="Eliminar factura (Ctrl+Shift+Supr)"
+                        className={
+                          isDiscarded
+                            ? 'p-3 rounded-none border border-red-500 bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center'
+                            : 'p-3 rounded-none border border-red-300 text-red-600 hover:text-red-700 hover:border-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center'
+                        }
+                        aria-label={isDiscarded ? 'Recuperar factura (Ctrl+Shift+Supr)' : 'Descartar factura (Ctrl+Shift+Supr)'}
+                        title={isDiscarded ? 'Recuperar factura (Ctrl+Shift+Supr)' : 'Descartar factura (Ctrl+Shift+Supr)'}
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        {isDiscarded ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v1M3 10l4-4m-4 4l4 4" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
                       </button>
                       <div className="h-8 w-px bg-[var(--l-card-border,#e5e7eb)] mx-1" aria-hidden="true" />
                     </>

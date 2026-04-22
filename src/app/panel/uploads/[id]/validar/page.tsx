@@ -1,21 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/Button'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ValidarFactura } from '@/components/ValidarFactura'
 import { FacturaData } from '@/types/factura'
-import { ArchivoSubido } from '@/types/dashboard'
 import { useToast } from '@/contexts/ToastContext'
 import { formatMiles } from '@/utils/formatNumber'
 import { createClient } from '@/lib/supabase/client'
 
-const DeleteInvoiceModal = dynamic(
-  () => import('@/app/panel/components/modals/DeleteInvoiceModal').then((m) => m.DeleteInvoiceModal),
-  { ssr: false }
-)
 
 type UploadInvoiceRow = {
   id: string
@@ -25,6 +19,7 @@ type UploadInvoiceRow = {
   mime_type: string | null
   status?: string | null
   error_message?: string | null
+  is_discarded?: boolean | null
   page_start?: number | null
   page_end?: number | null
   total_pages?: number | null
@@ -471,6 +466,7 @@ export default function ValidarUploadPage() {
   const [validatedByInvoiceId, setValidatedByInvoiceId] = useState<Record<string, true>>({})
   const [deferredByInvoiceId, setDeferredByInvoiceId] = useState<Record<string, true>>({})
   const [visitedByInvoiceId, setVisitedByInvoiceId] = useState<Record<string, true>>({})
+  const [discardedByInvoiceId, setDiscardedByInvoiceId] = useState<Record<string, true>>({})
   const startedRef = useRef<Record<string, true>>({})
   const hasRunRef = useRef(false)
   const [clienteNombre, setClienteNombre] = useState<string>('')
@@ -484,8 +480,6 @@ export default function ValidarUploadPage() {
 
   const [isFinishedModalOpen, setIsFinishedModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [facturaParaEliminar, setFacturaParaEliminar] = useState<ArchivoSubido | null>(null)
-  const [isDeletingInvoice, setIsDeletingInvoice] = useState(false)
   const [uppercasePref, setUppercasePref] = useState(true)
   const [workingQuarter, setWorkingQuarter] = useState<string>('')
   /** IDs de facturas cuyo preview devolvió distinto de 200 (para mostrar "No se pudo cargar" en vez de "Cargando...") */
@@ -520,9 +514,21 @@ export default function ValidarUploadPage() {
     return { total, validated, percent }
   }, [invoiceRows, validatedByInvoiceId])
 
+  // Descartadas también se consideran "resueltas" para navegación y lista de pendientes.
+  const isResolved = useCallback(
+    (id: string) => Boolean(validatedByInvoiceId[id] || discardedByInvoiceId[id]),
+    [validatedByInvoiceId, discardedByInvoiceId]
+  )
+
   const pendingInvoiceIds = useMemo(() => {
-    return invoiceRows.map((i) => i.id).filter((id) => !validatedByInvoiceId[id])
-  }, [invoiceRows, validatedByInvoiceId])
+    return invoiceRows.map((i) => i.id).filter((id) => !isResolved(id))
+  }, [invoiceRows, isResolved])
+
+  const discardedStats = useMemo(() => {
+    let count = 0
+    for (const inv of invoiceRows) if (discardedByInvoiceId[inv.id]) count += 1
+    return count
+  }, [invoiceRows, discardedByInvoiceId])
 
   const isAllDone = useMemo(() => {
     if (invoiceRows.length === 0) return false
@@ -662,13 +668,13 @@ export default function ValidarUploadPage() {
     for (let idx = 0; idx < ids.length; idx += 1) {
       const id = ids[idx]
       if (!id) continue
-      if (!validatedByInvoiceId[id]) {
+      if (!isResolved(id)) {
         setFacturaActual(idx)
         setHasInitializedPosition(true)
         return
       }
     }
-  }, [invoiceRows, validatedByInvoiceId, hasInitializedPosition])
+  }, [invoiceRows, isResolved, hasInitializedPosition])
 
   useEffect(() => {
     // En esta pantalla: toasts arriba centrados y sin apilar (máx 1).
@@ -773,12 +779,14 @@ export default function ValidarUploadPage() {
         const vRec: Record<string, true> = {}
         const dRec: Record<string, true> = {}
         const visRec: Record<string, true> = {}
+        const discRec: Record<string, true> = {}
         for (const inv of invoices) {
           if (validatedSet.has(inv.id)) vRec[inv.id] = true
           // Fuente de verdad: si está validada en BD, marcamos como validada aquí.
           if (typeof inv.status === 'string' && inv.status === 'ready') vRec[inv.id] = true
           if (deferredSet.has(inv.id)) dRec[inv.id] = true
           if (visitedSet.has(inv.id)) visRec[inv.id] = true
+          if (inv.is_discarded === true) discRec[inv.id] = true
         }
 
         // Estado inicial por factura: si ya tiene fields/extraction, la consideramos lista.
@@ -829,7 +837,7 @@ export default function ValidarUploadPage() {
           const byParam = invoices.findIndex((r) => r.id === invoiceParam)
           if (byParam >= 0) initialIdx = byParam
         } else {
-          const firstPending = invoices.findIndex((inv) => !vRec[inv.id])
+          const firstPending = invoices.findIndex((inv) => !vRec[inv.id] && !discRec[inv.id])
           initialIdx = firstPending >= 0 ? firstPending : 0
         }
 
@@ -838,6 +846,7 @@ export default function ValidarUploadPage() {
         setValidatedByInvoiceId(vRec)
         setDeferredByInvoiceId(dRec)
         setVisitedByInvoiceId(visRec)
+        setDiscardedByInvoiceId(discRec)
         // Functional update: nunca degradar un estado 'processing' o 'ready' que ya exista
         // (protege contra re-ejecuciones del efecto que machacarían extracciones en vuelo)
         setInvoiceStatus((prev) => {
@@ -1167,8 +1176,8 @@ export default function ValidarUploadPage() {
 
   const validatedInvoiceIds = useMemo(() => {
     const ordered = invoiceRows.map((i) => i.id)
-    return ordered.filter((id) => Boolean(validatedByInvoiceId[id]))
-  }, [invoiceRows, validatedByInvoiceId])
+    return ordered.filter((id) => Boolean(validatedByInvoiceId[id]) && !discardedByInvoiceId[id])
+  }, [invoiceRows, validatedByInvoiceId, discardedByInvoiceId])
 
   const toISODate = (value: string) => {
     const v = (value || '').trim()
@@ -1461,118 +1470,54 @@ export default function ValidarUploadPage() {
     setIsFinishedModalOpen(true)
   }
 
-  const handleEliminarClick = () => {
+  // Descartar/Recuperar factura (toggle reversible, sin borrado definitivo).
+  // Las descartadas se marcan en rojo en la barra y no se incluyen en la exportación.
+  const handleToggleDescartar = async () => {
     const current = facturas[facturaActual]
     const invoiceId = current?.archivo?.invoiceId
     if (!invoiceId) {
-      showError('No se puede eliminar esta factura')
+      showError('No se puede modificar esta factura')
       return
     }
-    setFacturaParaEliminar({
-      id: invoiceId,
-      invoiceId,
-      nombre: current?.archivo?.nombre || 'Factura',
-      tamaño: 0,
-      tipo: current?.archivo?.tipo === 'pdf' ? 'application/pdf' : 'image/*',
-      url: current?.archivo?.url || '',
-      bucket: current?.archivo?.bucket,
-      storagePath: current?.archivo?.storagePath,
-      fechaSubida: new Date().toISOString(),
-      estado: 'procesado',
-    })
-  }
-
-  const handleCloseDeleteModal = () => {
-    if (isDeletingInvoice) return
-    setFacturaParaEliminar(null)
-  }
-
-  const handleConfirmEliminar = async () => {
-    const target = facturaParaEliminar
-    if (!target || !target.invoiceId) {
-      setFacturaParaEliminar(null)
-      return
-    }
-    const invoiceId = target.invoiceId
-
-    setIsDeletingInvoice(true)
+    const isCurrentlyDiscarded = Boolean(discardedByInvoiceId[invoiceId])
+    const next = !isCurrentlyDiscarded
     try {
-      const resp = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE' })
+      const resp = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discarded: next }),
+      })
       const data = await resp.json().catch(() => null)
-      if (!resp.ok) throw new Error((data && data.error) || 'Error eliminando la factura')
+      if (!resp.ok) throw new Error((data && data.error) || 'Error al actualizar la factura')
 
-      // Calcular índice de la factura actual a eliminar dentro del array (puede haber cambiado)
-      const removedIdx = facturas.findIndex((f) => f.archivo?.invoiceId === invoiceId)
-
-      // 1) Limpiar state local: facturas, invoiceRows y mapas por id
-      setFacturas((prev) => prev.filter((f) => f.archivo?.invoiceId !== invoiceId))
-      setInvoiceRows((prev) => prev.filter((r) => r.id !== invoiceId))
-
-      setInvoiceStatus((prev) => {
-        if (!(invoiceId in prev)) return prev
-        const next = { ...prev }
-        delete next[invoiceId]
-        return next
-      })
-      setValidatedByInvoiceId((prev) => {
-        if (!prev[invoiceId]) return prev
-        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
-        persistIdSet(`upload:${uploadId}:validatedIds`, next)
-        return next
-      })
-      setDeferredByInvoiceId((prev) => {
-        if (!prev[invoiceId]) return prev
-        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
-        persistIdSet(`upload:${uploadId}:deferredIds`, next)
-        return next
-      })
-      setVisitedByInvoiceId((prev) => {
-        if (!prev[invoiceId]) return prev
-        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
-        return next
-      })
-      setDuplicatesByInvoiceId((prev) => {
-        if (!(invoiceId in prev)) return prev
-        const next = { ...prev }
-        delete next[invoiceId]
-        return next
-      })
-      setPreviewFailedIds((prev) => {
-        if (!prev[invoiceId]) return prev
-        const next = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
-        return next
-      })
-      setFacturaRevisions((prev) => {
-        if (!(invoiceId in prev)) return prev
-        const next = { ...prev }
-        delete next[invoiceId]
-        return next
-      })
-      if (startedRef.current[invoiceId]) {
-        delete startedRef.current[invoiceId]
-      }
-
-      // 2) Ajustar el índice actual para mantenernos en una factura válida
-      setFacturaActual((prev) => {
-        const newLen = facturas.length - 1
-        if (newLen <= 0) return 0
-        if (removedIdx === -1) return Math.min(prev, newLen - 1)
-        if (prev > removedIdx) return prev - 1
-        if (prev === removedIdx) return Math.min(prev, newLen - 1)
-        return prev
-      })
-
-      showSuccess('Factura eliminada')
-      setFacturaParaEliminar(null)
-
-      // 3) Si era la última factura de la subida, volver al panel
-      if (facturas.length - 1 <= 0) {
-        router.push('/panel')
+      if (next) {
+        // Al descartar: marcar descartada y quitar de validadas/diferidas si lo estaba.
+        setDiscardedByInvoiceId((prev) => ({ ...prev, [invoiceId]: true }))
+        setValidatedByInvoiceId((prev) => {
+          if (!prev[invoiceId]) return prev
+          const nxt = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+          persistIdSet(`upload:${uploadId}:validatedIds`, nxt)
+          return nxt
+        })
+        setDeferredByInvoiceId((prev) => {
+          if (!prev[invoiceId]) return prev
+          const nxt = Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+          persistIdSet(`upload:${uploadId}:deferredIds`, nxt)
+          return nxt
+        })
+        showSuccess('Factura descartada')
+        // Avanzar a la siguiente pendiente (comportamiento equivalente al validar).
+        handleSiguiente()
+      } else {
+        // Al recuperar: queda como pendiente (no se restaura el estado validated previo).
+        setDiscardedByInvoiceId((prev) => {
+          if (!prev[invoiceId]) return prev
+          return Object.fromEntries(Object.entries(prev).filter(([k]) => k !== invoiceId)) as Record<string, true>
+        })
+        showSuccess('Factura recuperada')
       }
     } catch (e) {
-      showError(e instanceof Error ? e.message : 'Error eliminando la factura')
-    } finally {
-      setIsDeletingInvoice(false)
+      showError(e instanceof Error ? e.message : 'Error al actualizar la factura')
     }
   }
 
@@ -1582,14 +1527,14 @@ export default function ValidarUploadPage() {
     setFacturaActual(idx)
   }
 
-  // Siguiente/Anterior (botones y Enter en el formulario): siempre saltan validadas,
+  // Siguiente/Anterior (botones y Enter en el formulario): saltan validadas Y descartadas,
   // para que el flujo natural sea ir completando las pendientes.
   const handleSiguiente = () => {
     const ids = invoiceRows.map((i) => i.id)
     for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
       const id = ids[idx]
       if (!id) continue
-      if (!validatedByInvoiceId[id]) {
+      if (!isResolved(id)) {
         setFacturaActual(idx)
         return
       }
@@ -1602,7 +1547,7 @@ export default function ValidarUploadPage() {
     for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
       const id = ids[idx]
       if (!id) continue
-      if (!validatedByInvoiceId[id]) {
+      if (!isResolved(id)) {
         setFacturaActual(idx)
         return
       }
@@ -1614,10 +1559,10 @@ export default function ValidarUploadPage() {
     for (let idx = facturaActual - 1; idx >= 0; idx -= 1) {
       const id = ids[idx]
       if (!id) continue
-      if (!validatedByInvoiceId[id]) return true
+      if (!isResolved(id)) return true
     }
     return false
-  }, [facturaActual, invoiceRows, validatedByInvoiceId])
+  }, [facturaActual, invoiceRows, isResolved])
 
   const handleGenerarExport = async () => {
     if (validatedInvoiceIds.length === 0) {
@@ -1811,7 +1756,7 @@ export default function ValidarUploadPage() {
                 disabled={validatedInvoiceIds.length === 0}
                 className="inline-flex items-center px-6 py-3 bg-primary text-white text-base font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Finalizar
+                Exportar
               </button>
             </span>
           </div>
@@ -1821,7 +1766,7 @@ export default function ValidarUploadPage() {
         <div className="mt-3 -mx-6">
           <div className="px-6 pb-1 flex justify-end">
             <div className="text-[11px] text-foreground-secondary whitespace-nowrap">
-              {`${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''} · ${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas`}
+              {`${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''} · ${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas${discardedStats > 0 ? ` · ${formatMiles(discardedStats, 0)} descartada${discardedStats !== 1 ? 's' : ''}` : ''}`}
             </div>
           </div>
           {/* Barra segmentada clicable:
@@ -1832,19 +1777,32 @@ export default function ValidarUploadPage() {
           <div className="h-2 w-full border border-[var(--l-card-border,#e5e7eb)] bg-transparent overflow-hidden">
             <div className="h-full w-full flex">
               {invoiceRows.map((inv, allIdx, arr) => {
-                const isValidated = Boolean(validatedByInvoiceId[inv.id])
-                const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated
+                const isDiscarded = Boolean(discardedByInvoiceId[inv.id])
+                const isValidated = Boolean(validatedByInvoiceId[inv.id]) && !isDiscarded
+                const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated && !isDiscarded
                 const isVisited = Boolean(visitedByInvoiceId[inv.id])
                 const isCurrent = allIdx === facturaActual
                 const hasDuplicates = (duplicatesByInvoiceId[inv.id]?.length ?? 0) > 0
 
-                const bgClass = isValidated
-                  ? 'bg-secondary'
-                  : isDeferred
-                    ? 'bg-warning'
-                    : isVisited
-                      ? 'bg-[var(--l-card-border,#e2e8f0)]'
-                      : 'bg-transparent'
+                const bgClass = isDiscarded
+                  ? 'bg-red-500'
+                  : isValidated
+                    ? 'bg-secondary'
+                    : isDeferred
+                      ? 'bg-warning'
+                      : isVisited
+                        ? 'bg-[var(--l-card-border,#e2e8f0)]'
+                        : 'bg-transparent'
+
+                const stateLabel = isDiscarded
+                  ? ' · descartada'
+                  : isValidated
+                    ? ' · validada'
+                    : isDeferred
+                      ? ' · para después'
+                      : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
+                        ? ' · procesando…'
+                        : ''
 
                 return (
                   <button
@@ -1861,7 +1819,7 @@ export default function ValidarUploadPage() {
                         ? 'cursor-not-allowed opacity-60'
                         : 'cursor-pointer',
                     ].join(' ')}
-                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${isValidated ? ' · validada' : isDeferred ? ' · para después' : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error' ? ' · procesando…' : ''}${hasDuplicates ? ' · posible duplicada' : ''}`}
+                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${stateLabel}${hasDuplicates ? ' · posible duplicada' : ''}`}
                     aria-label={`Ir a factura ${allIdx + 1}`}
                     disabled={invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'}
                   />
@@ -1872,13 +1830,6 @@ export default function ValidarUploadPage() {
         </div>
       </header>
 
-      <DeleteInvoiceModal
-        isOpen={Boolean(facturaParaEliminar)}
-        factura={facturaParaEliminar}
-        isDeleting={isDeletingInvoice}
-        onConfirm={handleConfirmEliminar}
-        onClose={handleCloseDeleteModal}
-      />
 
       {isFinishedModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -1888,6 +1839,9 @@ export default function ValidarUploadPage() {
             <p className="text-sm text-foreground-secondary mb-6">
               Se generará el Excel con las facturas marcadas como validadas.
               <span className="font-medium">{' '}{formatMiles(validatedStats.validated, 0)}</span>/{formatMiles(validatedStats.total, 0)} validadas.
+              {discardedStats > 0 && (
+                <span>{' '}({formatMiles(discardedStats, 0)} descartada{discardedStats !== 1 ? 's' : ''} excluida{discardedStats !== 1 ? 's' : ''}).</span>
+              )}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
               <Button variant="outline" onClick={() => setIsFinishedModalOpen(false)} disabled={isExporting}>
@@ -1916,7 +1870,7 @@ export default function ValidarUploadPage() {
             const ids = invoiceRows.map((i) => i.id)
             let nextIdx = -1
             for (let idx = facturaActual + 1; idx < ids.length; idx += 1) {
-              if (!validatedByInvoiceId[ids[idx]]) {
+              if (!isResolved(ids[idx])) {
                 nextIdx = idx
                 break
               }
@@ -1984,7 +1938,8 @@ export default function ValidarUploadPage() {
                 onAnterior={hasPrevPending ? handleAnterior : undefined}
                 onSiguiente={handleSiguiente}
                 onParaDespues={handleParaDespues}
-                onEliminar={handleEliminarClick}
+                onEliminar={handleToggleDescartar}
+                isDiscarded={currentId ? Boolean(discardedByInvoiceId[currentId]) : false}
                 isLast={isLast}
                 canGoNext={canGoNext}
                 disableValidar={disableValidar}

@@ -277,7 +277,7 @@ import { Switch } from '@heroui/react';
                { keys: ['Ctrl', 'Enter'], desc: 'Validar la factura' },
                { keys: ['Ctrl', '←'], desc: 'Ir a la factura anterior' },
                { keys: ['Ctrl', '→'], desc: 'Pasar esta factura para después (siguiente)' },
-               { keys: ['Ctrl', 'Shift', 'Supr'], desc: 'Eliminar la factura actual' },
+               { keys: ['Ctrl', 'Shift', 'Supr'], desc: 'Descartar / recuperar la factura actual' },
                { keys: ['Esc'], desc: 'Cerrar sugerencias de autocompletar' },
              ].map((row) => (
                <li key={row.desc} className="py-3 flex items-center justify-between gap-4">

@@ -47,6 +47,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
           created_at,
           status,
           error_message,
+          is_discarded,
           page_start,
           page_end,
           total_pages,
