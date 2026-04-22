@@ -106,6 +106,11 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([])
   const [highlightedIdx, setHighlightedIdx] = useState(-1)
   const suggestionsRef = useRef<HTMLUListElement>(null)
+  // Autocomplete por CIF (mismo set de proveedores, filtrado por tax_id)
+  const [showCifSuggestions, setShowCifSuggestions] = useState(false)
+  const [filteredSuppliersByCif, setFilteredSuppliersByCif] = useState<Supplier[]>([])
+  const [highlightedCifIdx, setHighlightedCifIdx] = useState(-1)
+  const cifSuggestionsRef = useRef<HTMLUListElement>(null)
 
   const parseEuroNumber = (value: string): number | null => {
     const raw = String(value || '')
@@ -1021,12 +1026,84 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                           <input
                             type="text"
                             value={factura.proveedor.cif}
-                            onChange={(e) => handleChange('proveedor.cif', e.target.value)}
+                            onChange={(e) => {
+                              handleChange('proveedor.cif', e.target.value)
+                              if (tipo === 'gasto' && allSuppliers.length > 0) {
+                                const q = e.target.value.trim().toLowerCase()
+                                if (q.length > 0) {
+                                  const filtered = allSuppliers.filter(s =>
+                                    (s.tax_id || '').toLowerCase().includes(q)
+                                  )
+                                  setFilteredSuppliersByCif(filtered)
+                                  setShowCifSuggestions(filtered.length > 0)
+                                  setHighlightedCifIdx(-1)
+                                } else {
+                                  // Sin texto: mostrar todos los proveedores como un desplegable
+                                  setFilteredSuppliersByCif(allSuppliers)
+                                  setShowCifSuggestions(allSuppliers.length > 0)
+                                  setHighlightedCifIdx(-1)
+                                }
+                              }
+                            }}
+                            onFocus={() => {
+                              if (tipo === 'gasto' && allSuppliers.length > 0) {
+                                const q = (factura.proveedor.cif || '').trim().toLowerCase()
+                                const filtered = q.length > 0
+                                  ? allSuppliers.filter(s => (s.tax_id || '').toLowerCase().includes(q))
+                                  : allSuppliers
+                                setFilteredSuppliersByCif(filtered)
+                                setShowCifSuggestions(filtered.length > 0)
+                              }
+                            }}
+                            onBlur={() => {
+                              setTimeout(() => setShowCifSuggestions(false), 150)
+                            }}
+                            onKeyDown={(e) => {
+                              if (!showCifSuggestions || filteredSuppliersByCif.length === 0) return
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault()
+                                setHighlightedCifIdx(i => Math.min(i + 1, filteredSuppliersByCif.length - 1))
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault()
+                                setHighlightedCifIdx(i => Math.max(i - 1, 0))
+                              } else if (e.key === 'Enter' && highlightedCifIdx >= 0) {
+                                e.preventDefault()
+                                handleSelectSupplier(filteredSuppliersByCif[highlightedCifIdx])
+                                setShowCifSuggestions(false)
+                                setHighlightedCifIdx(-1)
+                              } else if (e.key === 'Escape') {
+                                setShowCifSuggestions(false)
+                              }
+                            }}
                             className={`w-full px-2 py-1 text-[13px] border rounded-none focus:ring-1 focus:ring-primary focus:border-transparent font-bold ${cifVerification.proveedorError ? 'warn-border warn-bg-subtle pr-7' : 'border-[var(--l-card-border,#e5e7eb)]'
                               }`}
                             aria-describedby={cifVerification.proveedorError ? 'cif-proveedor-warning' : undefined}
                             title={cifVerification.proveedorError ? `${cifVerification.proveedorError}` : undefined}
+                            autoComplete="off"
                           />
+                          {showCifSuggestions && filteredSuppliersByCif.length > 0 && (
+                            <ul
+                              ref={cifSuggestionsRef}
+                              className="absolute z-50 left-0 top-full mt-0.5 bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)] rounded-none shadow-lg max-h-48 overflow-y-auto min-w-[280px] max-w-[360px]"
+                            >
+                              {filteredSuppliersByCif.map((supplier, idx) => (
+                                <li
+                                  key={supplier.id}
+                                  onMouseDown={() => {
+                                    handleSelectSupplier(supplier)
+                                    setShowCifSuggestions(false)
+                                    setHighlightedCifIdx(-1)
+                                  }}
+                                  className={`px-2 py-1.5 text-[13px] cursor-pointer flex items-center justify-between gap-2 ${
+                                    idx === highlightedCifIdx ? 'bg-primary/10' : 'hover:bg-primary/5'
+                                  }`}
+                                >
+                                  <span className="font-bold shrink-0">{supplier.tax_id}</span>
+                                  <span className="truncate text-foreground-secondary">{supplier.name}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                           {cifVerification.proveedorError && (
                             <Tooltip
                               content={
