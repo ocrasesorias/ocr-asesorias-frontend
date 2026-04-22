@@ -112,6 +112,11 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   const [filteredSuppliersByCif, setFilteredSuppliersByCif] = useState<Supplier[]>([])
   const [highlightedCifIdx, setHighlightedCifIdx] = useState(-1)
   const cifSuggestionsRef = useRef<HTMLUListElement>(null)
+  // Auto-focus al primer campo editable (nombre del proveedor) al montar,
+  // para que los atajos Ctrl+←/→ funcionen desde el inicio sin que el usuario tenga que clicar.
+  // El flag evita que el onFocus programático despliegue el dropdown (sería invasivo al entrar).
+  const nombreInputRef = useRef<HTMLInputElement>(null)
+  const skipAutoOpenNombreRef = useRef(true)
 
   const parseEuroNumber = (value: string): number | null => {
     const raw = String(value || '')
@@ -344,6 +349,16 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     fetchSuppliers()
     return () => { cancelled = true }
   }, [tipo, clientId])
+
+  // Foco inicial en el nombre del proveedor/cliente. Los datos de arriba (empresa)
+  // suelen estar fijos (cliente de la gestoría) y no se editan; el primer dato relevante
+  // de cada factura es la contraparte.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      nombreInputRef.current?.focus()
+    }, 60)
+    return () => clearTimeout(t)
+  }, [])
 
   const handleSelectSupplier = (supplier: Supplier) => {
     setFactura(prev => {
@@ -1033,6 +1048,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     <FieldRow label="NOMBRE" widthClass="w-16">
                       <div className="relative">
                         <input
+                          ref={nombreInputRef}
                           type="text"
                           value={factura.proveedor.nombre}
                           onChange={(e) => {
@@ -1048,6 +1064,12 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                             }
                           }}
                           onFocus={() => {
+                            // En el foco inicial automático no desplegamos el dropdown
+                            // (sería invasivo nada más entrar en la factura).
+                            if (skipAutoOpenNombreRef.current) {
+                              skipAutoOpenNombreRef.current = false
+                              return
+                            }
                             if (tipo === 'gasto' && allSuppliers.length > 0) {
                               const q = (factura.proveedor.nombre || '').trim().toLowerCase()
                               const filtered = q.length > 0
