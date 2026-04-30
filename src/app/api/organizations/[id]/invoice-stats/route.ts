@@ -35,7 +35,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const { data: org, error } = await db
       .from('organizations')
-      .select('credits_balance')
+      .select('credits_balance, is_unlimited')
       .eq('id', orgId)
       .maybeSingle()
 
@@ -46,10 +46,17 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       )
     }
 
+    const orgRow = org as { credits_balance?: number; is_unlimited?: boolean } | null
+
+    if (orgRow?.is_unlimited) {
+      return NextResponse.json(
+        { success: true, unlimited: true, credits_balance: null },
+        { status: 200 }
+      )
+    }
+
     const creditsBalance =
-      typeof (org as { credits_balance?: number } | null)?.credits_balance === 'number'
-        ? (org as { credits_balance: number }).credits_balance
-        : 0
+      typeof orgRow?.credits_balance === 'number' ? orgRow.credits_balance : 0
 
     return NextResponse.json(
       { success: true, unlimited: false, credits_balance: creditsBalance },
