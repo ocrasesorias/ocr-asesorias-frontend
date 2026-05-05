@@ -227,6 +227,22 @@ export default function AdminSuggestionsPage() {
           </div>
         </div>
 
+        {/* Tabs admin */}
+        <div className="mb-6 flex gap-1 border-b border-[var(--l-card-border,#e5e7eb)]">
+          <Link
+            href="/panel/admin/usuarios"
+            className="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-foreground-secondary hover:text-foreground hover:bg-primary/5"
+          >
+            Usuarios
+          </Link>
+          <Link
+            href="/panel/admin/suggestions"
+            className="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary -mb-px"
+          >
+            Sugerencias
+          </Link>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <div className="bg-[var(--l-card,#ffffff)] rounded-none shadow-sm border border-[var(--l-card-border,#e5e7eb)] p-4 flex items-center gap-4">

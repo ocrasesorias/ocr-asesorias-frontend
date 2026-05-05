@@ -97,7 +97,7 @@ export function DashboardHeader({
       ),
     },
     {
-      href: '/panel/admin/suggestions',
+      href: '/panel/admin/usuarios',
       label: 'Admin',
       icon: (
         <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5">
