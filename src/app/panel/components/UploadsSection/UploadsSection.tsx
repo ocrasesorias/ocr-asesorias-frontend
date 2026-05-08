@@ -192,11 +192,7 @@ export function UploadsSection({
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
               <span className="truncate">
-                {isBulkExporting
-                  ? 'Exportando…'
-                  : selectedIds.size > 0
-                    ? `Exportar ${selectedIds.size}`
-                    : 'Exportar'}
+                {isBulkExporting ? 'Exportando…' : 'Exportar'}
               </span>
             </button>
             <button
@@ -212,9 +208,7 @@ export function UploadsSection({
                 <path d="M10 11v6M14 11v6" />
                 <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
               </svg>
-              <span className="truncate">
-                {selectedIds.size > 0 ? `Eliminar ${selectedIds.size}` : 'Eliminar'}
-              </span>
+              <span className="truncate">Eliminar</span>
             </button>
           </div>
         </div>
