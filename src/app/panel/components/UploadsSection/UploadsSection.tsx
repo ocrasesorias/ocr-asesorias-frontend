@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { SubidaFacturas } from '@/types/dashboard';
+import { useToast } from '@/contexts/ToastContext';
 import { UploadItem } from './UploadItem';
 
 interface UploadsSectionProps {
@@ -31,11 +32,13 @@ export function UploadsSection({
   onDeleteSubida,
   onBulkDelete,
 }: UploadsSectionProps) {
+  const { showError, showSuccess } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkExporting, setIsBulkExporting] = useState(false);
 
   // Only uploads that exist in DB can be deleted
   const deletableSubidas = useMemo(
@@ -44,6 +47,61 @@ export function UploadsSection({
   );
 
   const allSelected = deletableSubidas.length > 0 && deletableSubidas.every(s => selectedIds.has(s.uploadId!));
+
+  // Subidas seleccionadas (con uploadId en DB)
+  const selectedSubidas = useMemo(
+    () => deletableSubidas.filter(s => selectedIds.has(s.uploadId!)),
+    [deletableSubidas, selectedIds]
+  );
+
+  // Tipo común: si todas comparten el mismo tipo, devuelve 'gasto' o 'ingreso'; si no, null
+  const commonTipo: 'gasto' | 'ingreso' | null = useMemo(() => {
+    if (selectedSubidas.length === 0) return null;
+    const first = selectedSubidas[0].tipo;
+    return selectedSubidas.every(s => s.tipo === first) ? first : null;
+  }, [selectedSubidas]);
+
+  // Solo se exportan facturas ya validadas (dbStatus === 'ready') — preserva orden por subida
+  const exportableInvoiceIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const s of selectedSubidas) {
+      for (const a of s.archivos) {
+        if (a.invoiceId && a.dbStatus === 'ready') ids.push(a.invoiceId);
+      }
+    }
+    return ids;
+  }, [selectedSubidas]);
+
+  const exportDisabledReason: string | null = (() => {
+    if (selectedSubidas.length === 0) return 'Selecciona al menos una subida';
+    if (commonTipo === null) return 'Solo se pueden exportar gastos o ingresos juntos, no mezclados';
+    if (exportableInvoiceIds.length === 0) return 'Las subidas seleccionadas no tienen facturas validadas';
+    return null;
+  })();
+
+  const handleBulkExport = async () => {
+    if (exportDisabledReason || !commonTipo || exportableInvoiceIds.length === 0) return;
+    setIsBulkExporting(true);
+    try {
+      const resp = await fetch('/api/exports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_ids: exportableInvoiceIds, tipo: commonTipo }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || 'Error generando export');
+      showSuccess(
+        `Export generado: ${exportableInvoiceIds.length} factura${exportableInvoiceIds.length !== 1 ? 's' : ''} de ${selectedSubidas.length} subida${selectedSubidas.length !== 1 ? 's' : ''}`
+      );
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+    } catch (e) {
+      showError(e instanceof Error ? e.message : 'Error generando export');
+    } finally {
+      setIsBulkExporting(false);
+    }
+  };
 
   const toggleSelect = (uploadId: string) => {
     setSelectedIds(prev => {
@@ -123,18 +181,31 @@ export function UploadsSection({
               </label>
               <div className="flex-1" />
               {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setIsBulkDeleteModalOpen(true)}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors"
-                >
-                  Eliminar {selectedIds.size}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleBulkExport}
+                    disabled={!!exportDisabledReason || isBulkExporting}
+                    title={exportDisabledReason || `Exportar ${exportableInvoiceIds.length} factura${exportableInvoiceIds.length !== 1 ? 's' : ''} (${commonTipo === 'gasto' ? 'gastos' : 'ingresos'})`}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isBulkExporting ? 'Exportando…' : `Exportar ${selectedIds.size}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsBulkDeleteModalOpen(true)}
+                    disabled={isBulkExporting}
+                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Eliminar {selectedIds.size}
+                  </button>
+                </>
               )}
               <button
                 type="button"
                 onClick={exitSelectionMode}
-                className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors"
+                disabled={isBulkExporting}
+                className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
