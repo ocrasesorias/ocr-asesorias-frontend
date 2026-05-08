@@ -97,9 +97,22 @@ export function UploadItem({
               className="w-full text-left"
               type="button"
             >
-              <p className="text-sm font-medium text-foreground truncate">
-                {subida.nombre}
-              </p>
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-none text-[10px] font-semibold uppercase tracking-wide border ${
+                    subida.tipo === 'gasto'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}
+                  aria-label={subida.tipo === 'gasto' ? 'Compra' : 'Venta'}
+                  title={subida.tipo === 'gasto' ? 'Compra (gasto)' : 'Venta (ingreso)'}
+                >
+                  {subida.tipo === 'gasto' ? 'Gasto' : 'Ingreso'}
+                </span>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {subida.nombre}
+                </p>
+              </div>
               <p className="text-xs text-foreground-secondary mt-1">
                 {new Date(subida.fechaCreacion).toLocaleDateString('es-ES')} •{' '}
                 {subida.archivos.length} archivo{subida.archivos.length !== 1 ? 's' : ''}
