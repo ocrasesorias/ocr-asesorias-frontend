@@ -1792,6 +1792,7 @@ export default function ValidarUploadPage() {
                 const isVisited = Boolean(visitedByInvoiceId[inv.id])
                 const isCurrent = allIdx === facturaActual
                 const hasDuplicates = (duplicatesByInvoiceId[inv.id]?.length ?? 0) > 0
+                const isProcessing = invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
 
                 const bgClass = isDiscarded
                   ? 'bg-red-500'
@@ -1809,9 +1810,35 @@ export default function ValidarUploadPage() {
                     ? ' · validada'
                     : isDeferred
                       ? ' · para después'
-                      : invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
+                      : isProcessing
                         ? ' · procesando…'
                         : ''
+
+                // Datos identificativos: prioriza estado en memoria (puede tener ediciones)
+                // y cae a invoice_fields del servidor si aún no está mapeado en facturas.
+                const facturaMem = facturas.find((f) => f.archivo?.invoiceId === inv.id)
+                const fieldsRow = Array.isArray(inv.invoice_fields)
+                  ? inv.invoice_fields[0]
+                  : inv.invoice_fields
+                const nombreContraparte = (facturaMem?.proveedor?.nombre || fieldsRow?.supplier_name || '').trim()
+                const numFactura = (facturaMem?.factura?.numero || fieldsRow?.invoice_number || '').trim()
+                const totalRaw = facturaMem?.total || fieldsRow?.total_amount
+                const totalNum = totalRaw == null || totalRaw === '' ? null : Number(String(totalRaw).replace(',', '.'))
+                const totalFmt = totalNum != null && Number.isFinite(totalNum)
+                  ? `${formatMiles(totalNum, 2)} €`
+                  : ''
+                const labelContraparte = tipoFactura === 'ingreso' ? 'Cliente' : 'Proveedor'
+
+                const tooltipLines = [
+                  `Factura ${allIdx + 1}/${invoiceRows.length}${stateLabel}${hasDuplicates ? ' · posible duplicada' : ''}`,
+                  isProcessing
+                    ? null
+                    : nombreContraparte
+                      ? `${labelContraparte}: ${nombreContraparte}`
+                      : `${labelContraparte}: (sin identificar)`,
+                  numFactura ? `Nº ${numFactura}` : null,
+                  totalFmt ? `Total: ${totalFmt}` : null,
+                ].filter(Boolean) as string[]
 
                 return (
                   <button
@@ -1824,13 +1851,11 @@ export default function ValidarUploadPage() {
                       allIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
                       isCurrent ? 'ring-1 ring-primary ring-inset' : '',
                       hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
-                      invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
-                        ? 'cursor-not-allowed opacity-60'
-                        : 'cursor-pointer',
+                      isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                     ].join(' ')}
-                    title={`Factura ${allIdx + 1}/${invoiceRows.length}${stateLabel}${hasDuplicates ? ' · posible duplicada' : ''}`}
-                    aria-label={`Ir a factura ${allIdx + 1}`}
-                    disabled={invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'}
+                    title={tooltipLines.join('\n')}
+                    aria-label={tooltipLines.join(' — ')}
+                    disabled={isProcessing}
                   />
                 )
               })}
