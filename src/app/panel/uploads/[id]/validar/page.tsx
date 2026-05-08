@@ -486,6 +486,19 @@ export default function ValidarUploadPage() {
   const [previewFailedIds, setPreviewFailedIds] = useState<Record<string, true>>({})
   const [duplicatesByInvoiceId, setDuplicatesByInvoiceId] = useState<Record<string, DuplicateInfo[]>>({})
 
+  /** Tooltip personalizado de la barra segmentada — muestra info de la factura al hover. */
+  const [hoveredSegment, setHoveredSegment] = useState<{
+    idx: number
+    total: number
+    state: 'validada' | 'descartada' | 'para_despues' | 'visitada' | 'pendiente' | 'procesando'
+    isCurrent: boolean
+    hasDuplicates: boolean
+    contraparteLabel: string
+    contraparteName: string
+    invoiceNumber: string
+    totalFormatted: string
+  } | null>(null)
+
   const statusStats = useMemo(() => {
     const total = invoiceRows.length
     let ready = 0
@@ -1778,88 +1791,166 @@ export default function ValidarUploadPage() {
               {`${formatMiles(pendingInvoiceIds.length, 0)} pendiente${pendingInvoiceIds.length !== 1 ? 's' : ''} · ${formatMiles(validatedStats.validated, 0)}/${formatMiles(validatedStats.total, 0)} validadas${discardedStats > 0 ? ` · ${formatMiles(discardedStats, 0)} descartada${discardedStats !== 1 ? 's' : ''}` : ''}`}
             </div>
           </div>
-          {/* Barra segmentada clicable:
+          {/* Barra segmentada clicable con tooltip personalizado:
               - secondary: validada
               - warning: para después
               - neutral: visitada pero no validada
               - transparente: no visitada */}
-          <div className="h-2 w-full border border-[var(--l-card-border,#e5e7eb)] bg-transparent overflow-hidden">
-            <div className="h-full w-full flex">
-              {invoiceRows.map((inv, allIdx, arr) => {
-                const isDiscarded = Boolean(discardedByInvoiceId[inv.id])
-                const isValidated = Boolean(validatedByInvoiceId[inv.id]) && !isDiscarded
-                const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated && !isDiscarded
-                const isVisited = Boolean(visitedByInvoiceId[inv.id])
-                const isCurrent = allIdx === facturaActual
-                const hasDuplicates = (duplicatesByInvoiceId[inv.id]?.length ?? 0) > 0
-                const isProcessing = invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
+          <div className="relative">
+            <div
+              className="h-2 w-full border border-[var(--l-card-border,#e5e7eb)] bg-transparent overflow-hidden"
+              onMouseLeave={() => setHoveredSegment(null)}
+            >
+              <div className="h-full w-full flex">
+                {invoiceRows.map((inv, allIdx, arr) => {
+                  const isDiscarded = Boolean(discardedByInvoiceId[inv.id])
+                  const isValidated = Boolean(validatedByInvoiceId[inv.id]) && !isDiscarded
+                  const isDeferred = Boolean(deferredByInvoiceId[inv.id]) && !isValidated && !isDiscarded
+                  const isVisited = Boolean(visitedByInvoiceId[inv.id])
+                  const isCurrent = allIdx === facturaActual
+                  const hasDuplicates = (duplicatesByInvoiceId[inv.id]?.length ?? 0) > 0
+                  const isProcessing = invoiceStatus[inv.id] !== 'ready' && invoiceStatus[inv.id] !== 'error'
 
-                const bgClass = isDiscarded
-                  ? 'bg-red-500'
-                  : isValidated
-                    ? 'bg-secondary'
-                    : isDeferred
-                      ? 'bg-warning'
-                      : isVisited
-                        ? 'bg-[var(--l-card-border,#e2e8f0)]'
-                        : 'bg-transparent'
+                  const bgClass = isDiscarded
+                    ? 'bg-red-500'
+                    : isValidated
+                      ? 'bg-secondary'
+                      : isDeferred
+                        ? 'bg-warning'
+                        : isVisited
+                          ? 'bg-[var(--l-card-border,#e2e8f0)]'
+                          : 'bg-transparent'
 
-                const stateLabel = isDiscarded
-                  ? ' · descartada'
-                  : isValidated
-                    ? ' · validada'
-                    : isDeferred
-                      ? ' · para después'
-                      : isProcessing
-                        ? ' · procesando…'
-                        : ''
+                  // Datos identificativos: prioriza estado en memoria (puede tener ediciones)
+                  // y cae a invoice_fields del servidor si aún no está mapeado en facturas.
+                  const facturaMem = facturas.find((f) => f.archivo?.invoiceId === inv.id)
+                  const fieldsRow = Array.isArray(inv.invoice_fields)
+                    ? inv.invoice_fields[0]
+                    : inv.invoice_fields
+                  const nombreContraparte = (facturaMem?.proveedor?.nombre || fieldsRow?.supplier_name || '').trim()
+                  const numFactura = (facturaMem?.factura?.numero || fieldsRow?.invoice_number || '').trim()
+                  const totalRaw = facturaMem?.total || fieldsRow?.total_amount
+                  const totalNum = totalRaw == null || totalRaw === '' ? null : Number(String(totalRaw).replace(',', '.'))
+                  const totalFmt = totalNum != null && Number.isFinite(totalNum)
+                    ? `${formatMiles(totalNum, 2)} €`
+                    : ''
+                  const labelContraparte = tipoFactura === 'ingreso' ? 'Cliente' : 'Proveedor'
 
-                // Datos identificativos: prioriza estado en memoria (puede tener ediciones)
-                // y cae a invoice_fields del servidor si aún no está mapeado en facturas.
-                const facturaMem = facturas.find((f) => f.archivo?.invoiceId === inv.id)
-                const fieldsRow = Array.isArray(inv.invoice_fields)
-                  ? inv.invoice_fields[0]
-                  : inv.invoice_fields
-                const nombreContraparte = (facturaMem?.proveedor?.nombre || fieldsRow?.supplier_name || '').trim()
-                const numFactura = (facturaMem?.factura?.numero || fieldsRow?.invoice_number || '').trim()
-                const totalRaw = facturaMem?.total || fieldsRow?.total_amount
-                const totalNum = totalRaw == null || totalRaw === '' ? null : Number(String(totalRaw).replace(',', '.'))
-                const totalFmt = totalNum != null && Number.isFinite(totalNum)
-                  ? `${formatMiles(totalNum, 2)} €`
-                  : ''
-                const labelContraparte = tipoFactura === 'ingreso' ? 'Cliente' : 'Proveedor'
+                  const segmentState: 'validada' | 'descartada' | 'para_despues' | 'visitada' | 'pendiente' | 'procesando' =
+                    isProcessing
+                      ? 'procesando'
+                      : isDiscarded
+                        ? 'descartada'
+                        : isValidated
+                          ? 'validada'
+                          : isDeferred
+                            ? 'para_despues'
+                            : isVisited
+                              ? 'visitada'
+                              : 'pendiente'
 
-                const tooltipLines = [
-                  `Factura ${allIdx + 1}/${invoiceRows.length}${stateLabel}${hasDuplicates ? ' · posible duplicada' : ''}`,
-                  isProcessing
-                    ? null
-                    : nombreContraparte
-                      ? `${labelContraparte}: ${nombreContraparte}`
-                      : `${labelContraparte}: (sin identificar)`,
-                  numFactura ? `Nº ${numFactura}` : null,
-                  totalFmt ? `Total: ${totalFmt}` : null,
-                ].filter(Boolean) as string[]
+                  const handleEnter = () => {
+                    setHoveredSegment({
+                      idx: allIdx,
+                      total: invoiceRows.length,
+                      state: segmentState,
+                      isCurrent,
+                      hasDuplicates,
+                      contraparteLabel: labelContraparte,
+                      contraparteName: nombreContraparte,
+                      invoiceNumber: numFactura,
+                      totalFormatted: totalFmt,
+                    })
+                  }
 
-                return (
-                  <button
-                    key={inv.id}
-                    type="button"
-                    onClick={() => jumpToIndex(allIdx)}
-                    className={[
-                      'h-full flex-1 transition-colors',
-                      bgClass,
-                      allIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
-                      isCurrent ? 'ring-1 ring-primary ring-inset' : '',
-                      hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
-                      isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-                    ].join(' ')}
-                    title={tooltipLines.join('\n')}
-                    aria-label={tooltipLines.join(' — ')}
-                    disabled={isProcessing}
-                  />
-                )
-              })}
+                  return (
+                    <button
+                      key={inv.id}
+                      type="button"
+                      onClick={() => jumpToIndex(allIdx)}
+                      onMouseEnter={handleEnter}
+                      onFocus={handleEnter}
+                      onBlur={() => setHoveredSegment(null)}
+                      className={[
+                        'h-full flex-1 transition-colors',
+                        bgClass,
+                        allIdx === arr.length - 1 ? '' : 'border-r border-[var(--l-card-border,#e5e7eb)]',
+                        isCurrent ? 'ring-1 ring-primary ring-inset' : '',
+                        hasDuplicates ? 'border-b-2 border-b-amber-500' : '',
+                        isProcessing ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                      ].join(' ')}
+                      aria-label={`Factura ${allIdx + 1} de ${invoiceRows.length}${nombreContraparte ? ` — ${labelContraparte}: ${nombreContraparte}` : ''}${numFactura ? ` — Nº ${numFactura}` : ''}${totalFmt ? ` — Total ${totalFmt}` : ''}`}
+                      disabled={isProcessing}
+                    />
+                  )
+                })}
+              </div>
             </div>
+
+            {/* Tooltip personalizado — aparece al pasar el ratón sobre un segmento */}
+            {hoveredSegment && invoiceRows.length > 0 && (() => {
+              const centerPct = ((hoveredSegment.idx + 0.5) / hoveredSegment.total) * 100
+              const stateMeta: Record<typeof hoveredSegment.state, { label: string; dotClass: string }> = {
+                validada: { label: 'Validada', dotClass: 'bg-secondary' },
+                descartada: { label: 'Descartada', dotClass: 'bg-red-500' },
+                para_despues: { label: 'Para después', dotClass: 'bg-warning' },
+                visitada: { label: 'Visitada', dotClass: 'bg-[var(--l-card-border,#e2e8f0)]' },
+                pendiente: { label: 'Pendiente', dotClass: 'bg-transparent border border-[var(--l-card-border,#e2e8f0)]' },
+                procesando: { label: 'Procesando…', dotClass: 'bg-blue-400' },
+              }
+              const meta = stateMeta[hoveredSegment.state]
+
+              return (
+                <div
+                  role="tooltip"
+                  className="absolute z-50 -translate-x-1/2 bottom-full mb-2 pointer-events-none"
+                  style={{ left: `clamp(8rem, ${centerPct}%, calc(100% - 8rem))` }}
+                >
+                  <div className="relative min-w-[14rem] max-w-xs rounded-md bg-foreground text-white shadow-lg px-3 py-2 text-xs leading-snug">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <span className={`inline-block w-2 h-2 rounded-full ${meta.dotClass}`} aria-hidden />
+                      <span>Factura {hoveredSegment.idx + 1} de {hoveredSegment.total}</span>
+                      <span className="ml-auto opacity-70 font-normal">{meta.label}</span>
+                    </div>
+                    {hoveredSegment.state !== 'procesando' && (
+                      <div className="mt-1.5 space-y-0.5">
+                        <div className="flex gap-1.5">
+                          <span className="opacity-60 shrink-0">{hoveredSegment.contraparteLabel}:</span>
+                          <span className="font-medium truncate">
+                            {hoveredSegment.contraparteName || <span className="opacity-60 italic font-normal">sin identificar</span>}
+                          </span>
+                        </div>
+                        {hoveredSegment.invoiceNumber && (
+                          <div className="flex gap-1.5">
+                            <span className="opacity-60 shrink-0">Nº:</span>
+                            <span className="font-medium truncate">{hoveredSegment.invoiceNumber}</span>
+                          </div>
+                        )}
+                        {hoveredSegment.totalFormatted && (
+                          <div className="flex gap-1.5">
+                            <span className="opacity-60 shrink-0">Total:</span>
+                            <span className="font-medium tabular-nums">{hoveredSegment.totalFormatted}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {hoveredSegment.hasDuplicates && (
+                      <div className="mt-1.5 pt-1.5 border-t border-white/15 flex items-center gap-1.5 text-amber-300">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                        </svg>
+                        <span>Posible duplicada</span>
+                      </div>
+                    )}
+                    {/* Flecha apuntando al segmento */}
+                    <div
+                      className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-[6px] border-x-transparent border-t-[6px] border-t-foreground"
+                      aria-hidden
+                    />
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       </header>
