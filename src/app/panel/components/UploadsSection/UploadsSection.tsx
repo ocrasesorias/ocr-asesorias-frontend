@@ -33,8 +33,7 @@ export function UploadsSection({
   onBulkDelete,
 }: UploadsSectionProps) {
   const { showError, showSuccess } = useToast();
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -95,7 +94,6 @@ export function UploadsSection({
       );
       if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       setSelectedIds(new Set());
-      setIsSelectionMode(false);
     } catch (e) {
       showError(e instanceof Error ? e.message : 'Error generando export');
     } finally {
@@ -120,18 +118,12 @@ export function UploadsSection({
     }
   };
 
-  const exitSelectionMode = () => {
-    setIsSelectionMode(false);
-    setSelectedIds(new Set());
-  };
-
   const handleBulkDelete = async () => {
     if (!onBulkDelete || selectedIds.size === 0) return;
     setIsBulkDeleting(true);
     try {
       await onBulkDelete(Array.from(selectedIds));
       setSelectedIds(new Set());
-      setIsSelectionMode(false);
     } finally {
       setIsBulkDeleting(false);
       setIsBulkDeleteModalOpen(false);
@@ -150,7 +142,7 @@ export function UploadsSection({
             Histórico de subidas
           </h3>
           <p className="text-sm text-foreground-secondary mt-0.5">
-            Selecciona una subida para seguir trabajando
+            Marca varias subidas para exportarlas juntas (solo del mismo tipo)
           </p>
         </div>
         <span
@@ -165,62 +157,61 @@ export function UploadsSection({
 
       {isExpanded && (
       <div className="px-6 pb-6 pt-0">
-      {/* Selection toolbar */}
+      {/* Toolbar permanente: checkbox "Todas" + acciones */}
       {deletableSubidas.length > 0 && (
-        <div className="flex items-center justify-between mb-2">
-          {isSelectionMode ? (
-            <div className="flex items-center gap-3 w-full">
-              <label className="flex items-center gap-2 text-sm text-foreground-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleSelectAll}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                />
-                Todas ({deletableSubidas.length})
-              </label>
-              <div className="flex-1" />
-              {selectedIds.size > 0 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleBulkExport}
-                    disabled={!!exportDisabledReason || isBulkExporting}
-                    title={exportDisabledReason || `Exportar ${exportableInvoiceIds.length} factura${exportableInvoiceIds.length !== 1 ? 's' : ''} (${commonTipo === 'gasto' ? 'gastos' : 'ingresos'})`}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isBulkExporting ? 'Exportando…' : `Exportar ${selectedIds.size}`}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsBulkDeleteModalOpen(true)}
-                    disabled={isBulkExporting}
-                    className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Eliminar {selectedIds.size}
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={exitSelectionMode}
-                disabled={isBulkExporting}
-                className="px-3 py-1.5 text-xs font-medium text-foreground-secondary hover:text-foreground border border-[var(--l-card-border,#e5e7eb)] rounded-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancelar
-              </button>
-            </div>
-          ) : (
-            <div className="flex justify-end w-full">
-              <button
-                type="button"
-                onClick={() => setIsSelectionMode(true)}
-                className="text-xs text-foreground-secondary hover:text-foreground transition-colors"
-              >
-                Seleccionar
-              </button>
-            </div>
-          )}
+        <div className="flex items-center gap-3 mb-3 py-2 px-3 bg-[var(--l-bg,#f9fafb)] border border-[var(--l-card-border,#e5e7eb)] rounded-none">
+          <label className="flex items-center gap-2 text-sm text-foreground-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              aria-label="Seleccionar todas las subidas"
+            />
+            <span className="font-medium text-foreground">
+              {selectedIds.size > 0
+                ? `${selectedIds.size} seleccionada${selectedIds.size !== 1 ? 's' : ''}`
+                : `Selecciona para exportar o eliminar`}
+            </span>
+          </label>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={handleBulkExport}
+            disabled={!!exportDisabledReason || isBulkExporting}
+            title={
+              selectedIds.size === 0
+                ? 'Marca subidas para exportar'
+                : exportDisabledReason || `Exportar ${exportableInvoiceIds.length} factura${exportableInvoiceIds.length !== 1 ? 's' : ''} (${commonTipo === 'gasto' ? 'gastos' : 'ingresos'})`
+            }
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {isBulkExporting
+              ? 'Exportando…'
+              : selectedIds.size > 0
+                ? `Exportar ${selectedIds.size}`
+                : 'Exportar'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsBulkDeleteModalOpen(true)}
+            disabled={selectedIds.size === 0 || isBulkExporting}
+            title={selectedIds.size === 0 ? 'Marca subidas para eliminar' : `Eliminar ${selectedIds.size}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+            </svg>
+            {selectedIds.size > 0 ? `Eliminar ${selectedIds.size}` : 'Eliminar'}
+          </button>
         </div>
       )}
 
@@ -243,7 +234,7 @@ export function UploadsSection({
               onCancelEdit={onCancelEdit}
               onEditingNombreChange={onEditingNombreChange}
               onDelete={() => onDeleteSubida(subida)}
-              isSelectionMode={isSelectionMode}
+              isSelectionMode={!!subida.uploadId}
               isChecked={!!subida.uploadId && selectedIds.has(subida.uploadId)}
               onToggleCheck={() => subida.uploadId && toggleSelect(subida.uploadId)}
             />
