@@ -61,5 +61,20 @@ export interface FacturaData {
 
   /** Clasificación del documento: factura, albarán, nota de entrega u otro */
   tipo_documento?: 'factura' | 'albaran' | 'nota_entrega' | 'otro';
+
+  // ---------------------------------------------------------------------------
+  // M1: Enlace a factura rectificada (Contasol IVS cols AA-AC / IVR cols Y-AA)
+  // Se rellenan cuando la factura actual es rectificativa.
+  // ---------------------------------------------------------------------------
+  numero_rectificado?: string;
+  fecha_rectificada?: string;       // ISO YYYY-MM-DD o DD/MM/AAAA
+  total_rectificado?: string;       // numérico en string (igual que `total`)
+
+  // ---------------------------------------------------------------------------
+  // M5: Bien de inversión (Contasol IVS cols Z, BF, BG)
+  // ---------------------------------------------------------------------------
+  es_bien_inversion?: boolean;
+  fecha_inicio_uso?: string;        // fecha de puesta en uso del bien
+  prorrata_definitiva?: string;     // % 0-100 (numérico en string)
 }
 

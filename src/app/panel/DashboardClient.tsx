@@ -129,6 +129,7 @@ export default function DashboardClient({
     handleConfirmEliminarProveedor,
     handleCancelDeleteProveedor,
     handleBulkDeleteSuppliers,
+    refreshSuppliers,
   } = useSupplierManagement(clienteSeleccionado?.id ?? null, orgId);
   
   // Upload Management
@@ -368,9 +369,11 @@ export default function DashboardClient({
 
             {clienteSeleccionado && (
               <SuppliersSection
+                clientId={clienteSeleccionado.id}
                 clientName={clienteSeleccionado.name || 'Cliente'}
                 suppliers={suppliers}
                 isLoading={isLoadingSuppliers}
+                onImported={() => { void refreshSuppliers() }}
                 mostrarNuevoProveedor={mostrarNuevoProveedor}
                 setMostrarNuevoProveedor={setMostrarNuevoProveedor}
                 nuevoProveedor={nuevoProveedor}

@@ -37,11 +37,22 @@ type InvoiceFieldsRow = {
   retencion_tipo?: string | null
   inversion_sujeto_pasivo?: boolean | null
   iva_lines?: IvaLine[] | null
+  // Campos extendidos Contasol (migración contasol_extended_fields)
+  numero_rectificado?: string | null
+  fecha_rectificada?: string | null
+  total_rectificado?: number | null
+  situacion_inmueble?: number | null
+  referencia_catastral?: string | null
+  pais_proveedor?: string | null
+  es_bien_inversion?: boolean | null
+  fecha_inicio_uso?: string | null
+  prorrata_definitiva?: number | null
 }
 
 type InvoiceWithFieldsRow = {
   id: string
   org_id: string
+  client_id: string | null
   invoice_fields: InvoiceFieldsRow | InvoiceFieldsRow[] | null
 }
 
@@ -519,6 +530,39 @@ function claveOperacionContasolVentas(opts: {
   return 0                                  // Operación habitual
 }
 
+/** Detecta si un CIF es de operador intracomunitario (prefijo ISO 2 letras ≠ ES). */
+function isCifIntracomunitario(cif: string | null | undefined): boolean {
+  const v = (cif || '').trim().toUpperCase()
+  if (v.length < 3) return false
+  const prefix = v.slice(0, 2)
+  if (!/^[A-Z]{2}$/.test(prefix)) return false
+  return prefix !== 'ES'
+}
+
+/** Mapea retencion_tipo del modelo al código numérico de Contasol (col AV IVS / AT IVR).
+ *  Spec p.7/p.40: 1=Profesional dineraria, 5=Arrendamiento dinerario, 7=Empresarial. */
+function contasolTipoRetencion(retencionTipo: string | null | undefined): number {
+  const t = (retencionTipo || '').toUpperCase()
+  if (t === 'ALQUILERES' || t === 'ARRENDAMIENTO') return 5
+  if (t === 'AGRICOLA' || t === 'AGRÍCOLA') return 3
+  if (t === 'EMPRESARIAL') return 7
+  return 1 // PROFESIONAL o desconocido
+}
+
+/** Mapea tipo_exencion (a nivel línea) a causa de exención Contasol (col CD IVR).
+ *  Spec p.45: E1=art.20, E2=art.21, E3=art.22, E4=arts.23-24, E5=art.25, E6=otros. */
+function contasolCausaExencion(lines: IvaLine[]): string {
+  for (const l of lines) {
+    if (l.tipo_exencion === 'exento_art20') return 'E1'
+    if (l.tipo_exencion === 'intracomunitaria') return 'E2'  // entregas intracom = art.21
+  }
+  // Si hay alguna línea exenta sin tipo específico, marcar E6 (otros)
+  const hayExentaSinTipo = lines.some(
+    (l) => (toNum(l.porcentaje_iva) ?? 0) === 0 && l.tipo_exencion && l.tipo_exencion !== 'suplidos'
+  )
+  return hayExentaSinTipo ? 'E6' : ''
+}
+
 type ContasolSplit = {
   conIva: IvaLine[]
   baseExenta: number
@@ -557,8 +601,12 @@ function buildContasolIvsSheet(
   ws: ExcelJS.Worksheet,
   invoices: InvoiceWithFieldsRow[],
   uppercase: boolean,
+  criterioCaja: boolean,
+  /** Map "client_id::TAX_ID" → account_code (subcuenta del proveedor). */
+  supplierAccountByKey: Map<string, string>,
 ) {
-  const NUM_COLS = 73 // A..BU
+  // Spec IVS.xls completo: 109 cols (A..DE). Ampliamos para cubrir slots 4-5 y rectificativa.
+  const NUM_COLS = 109
 
   let codigo = 1
   for (const inv of invoices) {
@@ -569,45 +617,79 @@ function buildContasolIvsSheet(
     if (ivaLinesAll.length === 0) continue
 
     const { conIva, baseExenta, importeSuplidos, isIntracom } = splitIvaLinesContasol(ivaLinesAll)
-    const ivaSlots = conIva.slice(0, 3) // ContaSol sólo permite 3 tipos por registro
+    // Spec permite hasta 5 tipos de IVA (slots 1-3 en cols J-X, slots 4-5 en cols CK-DD).
+    const ivaSlots = conIva.slice(0, 5)
 
     const isRectificativa = (toNum(f.total_amount) ?? 0) < 0 || (toNum(f.base_amount) ?? 0) < 0
     const isISP = Boolean(f.inversion_sujeto_pasivo)
     const fecha = formatDateContasol(f.invoice_date)
+    const cif = (f.supplier_tax_id || '').toUpperCase()
+    const isCifIntracom = isCifIntracomunitario(cif)
 
     const row: (string | number | null)[] = new Array(NUM_COLS).fill(null)
 
     row[colIdx('A')] = codigo++                                                 // Código (índice)
     row[colIdx('B')] = 1                                                        // Libro IVA
     row[colIdx('C')] = fecha                                                    // Fecha
-    // D (Cuenta proveedor): vacío; ContaSol lo resuelve por CIF si PRO.xls está importado
-    row[colIdx('E')] = trimField(f.invoice_number, 12)                          // Factura
+    // D (Cuenta proveedor): resolvemos desde suppliers por (client_id, tax_id) si
+    // el cliente importó su maestro de proveedores; si no, queda vacío.
+    const supplierAccountKey = inv.client_id && cif ? `${inv.client_id}::${cif}` : ''
+    const supplierAccount = supplierAccountKey ? supplierAccountByKey.get(supplierAccountKey) : null
+    if (supplierAccount) row[colIdx('D')] = supplierAccount
+    row[colIdx('E')] = trimField(f.invoice_number, 30)                          // Factura (spec max 30)
     row[colIdx('F')] = applyCase(trimField(f.supplier_name, 100), uppercase)    // Nombre
-    row[colIdx('G')] = trimField((f.supplier_tax_id || '').toUpperCase(), 12)   // CIF
+    row[colIdx('G')] = trimField(cif, 18)                                       // CIF (spec max 18)
     row[colIdx('H')] = isIntracom ? 2 : 0                                       // Tipo op: Interior=0, Importación=1, Intracom=2
     row[colIdx('I')] = 0                                                        // Deducible
 
-    // Hasta 3 tipos de IVA: base (J/K/L), %iva (M/N/O), %rec (P/Q/R), importe iva (S/T/U), importe rec (V/W/X)
-    const baseCols = [colIdx('J'), colIdx('K'), colIdx('L')]
-    const pctIvaCols = [colIdx('M'), colIdx('N'), colIdx('O')]
-    const pctRecCols = [colIdx('P'), colIdx('Q'), colIdx('R')]
-    const impIvaCols = [colIdx('S'), colIdx('T'), colIdx('U')]
-    const impRecCols = [colIdx('V'), colIdx('W'), colIdx('X')]
+    // Slots 1-3: base (J/K/L), %iva (M/N/O), %rec (P/Q/R), importe iva (S/T/U), importe rec (V/W/X)
+    const baseCols123 = [colIdx('J'), colIdx('K'), colIdx('L')]
+    const pctIvaCols123 = [colIdx('M'), colIdx('N'), colIdx('O')]
+    const pctRecCols123 = [colIdx('P'), colIdx('Q'), colIdx('R')]
+    const impIvaCols123 = [colIdx('S'), colIdx('T'), colIdx('U')]
+    const impRecCols123 = [colIdx('V'), colIdx('W'), colIdx('X')]
+    // Slots 4-5: base/%/imp en cols CK..DD (spec p.35-36)
+    // Slot 4: CK base, CL %iva, CM imp iva, CN %rec, CO imp rec
+    // Slot 5: CU base, CV %iva, CW imp iva, CX %rec, CY imp rec
+    const slot4 = { base: colIdx('CK'), pct: colIdx('CL'), imp: colIdx('CM'), pctRec: colIdx('CN'), impRec: colIdx('CO') }
+    const slot5 = { base: colIdx('CU'), pct: colIdx('CV'), imp: colIdx('CW'), pctRec: colIdx('CX'), impRec: colIdx('CY') }
 
     for (let i = 0; i < ivaSlots.length; i++) {
       const l = ivaSlots[i]
-      row[baseCols[i]] = round2(toNum(l.base))
-      row[pctIvaCols[i]] = toNum(l.porcentaje_iva)
-      row[impIvaCols[i]] = round2(toNum(l.cuota_iva))
+      const base = round2(toNum(l.base))
+      const pctIva = toNum(l.porcentaje_iva)
+      const impIva = round2(toNum(l.cuota_iva))
       const pctRec = toNum(l.porcentaje_recargo)
-      if (pctRec != null && pctRec > 0) {
-        row[pctRecCols[i]] = pctRec
-        row[impRecCols[i]] = round2(toNum(l.cuota_recargo))
+      const impRec = pctRec != null && pctRec > 0 ? round2(toNum(l.cuota_recargo)) : null
+
+      if (i < 3) {
+        row[baseCols123[i]] = base
+        row[pctIvaCols123[i]] = pctIva
+        row[impIvaCols123[i]] = impIva
+        if (pctRec != null && pctRec > 0) {
+          row[pctRecCols123[i]] = pctRec
+          row[impRecCols123[i]] = impRec
+        }
+      } else {
+        const slot = i === 3 ? slot4 : slot5
+        row[slot.base] = base
+        row[slot.pct] = pctIva
+        row[slot.imp] = impIva
+        if (pctRec != null && pctRec > 0) {
+          row[slot.pctRec] = pctRec
+          row[slot.impRec] = impRec
+        }
       }
     }
 
     row[colIdx('Y')] = round2(toNum(f.total_amount))                            // Total
-    row[colIdx('Z')] = 0                                                        // Bienes soportados: No
+    // M5: bien de inversión (col Z). Si es bien de inversión: 1; en otro caso: 0.
+    row[colIdx('Z')] = f.es_bien_inversion ? 1 : 0                              // Bienes soportados
+
+    // M1: enlace a factura rectificada (cols AA-AC, spec p.29)
+    if (f.numero_rectificado) row[colIdx('AA')] = trimField(f.numero_rectificado, 30)
+    if (f.fecha_rectificada) row[colIdx('AB')] = formatDateContasol(f.fecha_rectificada)
+    if (f.total_rectificado != null) row[colIdx('AC')] = round2(toNum(f.total_rectificado))
 
     row[colIdx('AS')] = 1                                                       // Incluir en modelo 347
 
@@ -619,7 +701,7 @@ function buildContasolIvsSheet(
       row[colIdx('AU')] = retImp != null
         ? round2(isRectificativa ? -Math.abs(retImp) : retImp)
         : null
-      row[colIdx('AV')] = 1                                                     // Tipo retención: 1=Actividad profesional dineraria
+      row[colIdx('AV')] = contasolTipoRetencion(f.retencion_tipo)               // Tipo retención según modelo
     }
 
     row[colIdx('AX')] = fecha                                                   // Fecha expedición
@@ -627,10 +709,32 @@ function buildContasolIvsSheet(
     row[colIdx('AZ')] = 100                                                     // % deducible
 
     row[colIdx('BB')] = claveOperacionContasolCompras({ isRectificativa, isISP, isIntracom })
-    row[colIdx('BC')] = 1                                                       // Identificación fiscal: NIF
+    row[colIdx('BC')] = isCifIntracom ? 2 : 1                                   // Identificación fiscal: NIF=1, NIF/IVA intracom=2
     row[colIdx('BD')] = 0                                                       // Tipo impuesto: IVA
 
+    // M5: bien de inversión — BF (prorrata definitiva), BG (fecha inicio uso)
+    if (f.es_bien_inversion) {
+      if (f.prorrata_definitiva != null) row[colIdx('BF')] = round2(toNum(f.prorrata_definitiva))
+      if (f.fecha_inicio_uso) row[colIdx('BG')] = formatDateContasol(f.fecha_inicio_uso)
+    }
+
+    // M3: Estado miembro origen del bien (col BS). Solo cuando es intracom.
+    if (isIntracom) {
+      const pais = (f.pais_proveedor || '').toUpperCase()
+      // Si no hay país explícito, intentamos parsearlo del prefijo CIF (VAT ID intracom).
+      const paisFinal = pais || (isCifIntracom ? cif.slice(0, 2) : '')
+      if (paisFinal && /^[A-Z]{2}$/.test(paisFinal)) {
+        row[colIdx('BS')] = paisFinal
+      }
+    }
+
     if (importeSuplidos !== 0) row[colIdx('BT')] = round2(importeSuplidos)      // Importe suplidos
+
+    // Tipo de rectificativa (col CD, spec p.34). 4 = Resto.
+    if (isRectificativa) row[colIdx('CD')] = 4
+
+    // M4: Acogida a criterio de caja (col DE, spec p.36)
+    if (criterioCaja) row[colIdx('DE')] = 1
 
     ws.addRow(row)
   }
@@ -644,8 +748,10 @@ function buildContasolIvrSheet(
   ws: ExcelJS.Worksheet,
   invoices: InvoiceWithFieldsRow[],
   uppercase: boolean,
+  criterioCaja: boolean,
 ) {
-  const NUM_COLS = 64 // A..BL
+  // Spec IVR.xls completo: 103 cols (A..CY). Ampliamos para slots 4-5, rectificativa y exención.
+  const NUM_COLS = 103
 
   let codigo = 1
   for (const inv of invoices) {
@@ -656,11 +762,14 @@ function buildContasolIvrSheet(
     if (ivaLinesAll.length === 0) continue
 
     const { conIva, baseExenta, importeSuplidos, isIntracom } = splitIvaLinesContasol(ivaLinesAll)
-    const ivaSlots = conIva.slice(0, 3)
+    // Spec permite hasta 5 tipos de IVA (slots 1-3 cols I-W, slots 4-5 cols CE-CX).
+    const ivaSlots = conIva.slice(0, 5)
 
     const isRectificativa = (toNum(f.total_amount) ?? 0) < 0 || (toNum(f.base_amount) ?? 0) < 0
     const isISP = Boolean(f.inversion_sujeto_pasivo)
     const fecha = formatDateContasol(f.invoice_date)
+    const cif = (f.supplier_tax_id || '').toUpperCase()
+    const isCifIntracom = isCifIntracomunitario(cif)
 
     const row: (string | number | null)[] = new Array(NUM_COLS).fill(null)
 
@@ -668,31 +777,57 @@ function buildContasolIvrSheet(
     row[colIdx('B')] = 1                                                        // Libro IVA
     row[colIdx('C')] = fecha                                                    // Fecha
     // D (Cuenta cliente): vacío; ContaSol resuelve por CIF vía CLI.xls
-    row[colIdx('E')] = trimField(f.invoice_number, 12)                          // Factura
-    row[colIdx('F')] = applyCase(trimField(f.supplier_name, 40), uppercase)     // Nombre (max 40 en IVR)
-    row[colIdx('G')] = trimField((f.supplier_tax_id || '').toUpperCase(), 12)   // CIF
+    row[colIdx('E')] = trimField(f.invoice_number, 30)                          // Factura (spec max 30)
+    row[colIdx('F')] = applyCase(trimField(f.supplier_name, 40), uppercase)     // Nombre (spec max 40 en IVR)
+    row[colIdx('G')] = trimField(cif, 18)                                       // CIF (spec max 18)
     row[colIdx('H')] = isIntracom ? 1 : 0                                       // Tipo op: General=0, Intracom=1, Export=2, Interior exento=3
 
-    // Slots 1/2/3: bases I/J/K, %iva L/M/N, %rec O/P/Q, importe iva R/S/T, importe rec U/V/W
-    const baseCols = [colIdx('I'), colIdx('J'), colIdx('K')]
-    const pctIvaCols = [colIdx('L'), colIdx('M'), colIdx('N')]
-    const pctRecCols = [colIdx('O'), colIdx('P'), colIdx('Q')]
-    const impIvaCols = [colIdx('R'), colIdx('S'), colIdx('T')]
-    const impRecCols = [colIdx('U'), colIdx('V'), colIdx('W')]
+    // Slots 1-3: bases I/J/K, %iva L/M/N, %rec O/P/Q, importe iva R/S/T, importe rec U/V/W
+    const baseCols123 = [colIdx('I'), colIdx('J'), colIdx('K')]
+    const pctIvaCols123 = [colIdx('L'), colIdx('M'), colIdx('N')]
+    const pctRecCols123 = [colIdx('O'), colIdx('P'), colIdx('Q')]
+    const impIvaCols123 = [colIdx('R'), colIdx('S'), colIdx('T')]
+    const impRecCols123 = [colIdx('U'), colIdx('V'), colIdx('W')]
+    // Slots 4-5: spec p.45-46
+    // Slot 4: CE base, CF %iva, CG imp iva, CH %rec, CI imp rec
+    // Slot 5: CO base, CP %iva, CQ imp iva, CR %rec, CS imp rec
+    const slot4 = { base: colIdx('CE'), pct: colIdx('CF'), imp: colIdx('CG'), pctRec: colIdx('CH'), impRec: colIdx('CI') }
+    const slot5 = { base: colIdx('CO'), pct: colIdx('CP'), imp: colIdx('CQ'), pctRec: colIdx('CR'), impRec: colIdx('CS') }
 
     for (let i = 0; i < ivaSlots.length; i++) {
       const l = ivaSlots[i]
-      row[baseCols[i]] = round2(toNum(l.base))
-      row[pctIvaCols[i]] = toNum(l.porcentaje_iva)
-      row[impIvaCols[i]] = round2(toNum(l.cuota_iva))
+      const base = round2(toNum(l.base))
+      const pctIva = toNum(l.porcentaje_iva)
+      const impIva = round2(toNum(l.cuota_iva))
       const pctRec = toNum(l.porcentaje_recargo)
-      if (pctRec != null && pctRec > 0) {
-        row[pctRecCols[i]] = pctRec
-        row[impRecCols[i]] = round2(toNum(l.cuota_recargo))
+      const impRec = pctRec != null && pctRec > 0 ? round2(toNum(l.cuota_recargo)) : null
+
+      if (i < 3) {
+        row[baseCols123[i]] = base
+        row[pctIvaCols123[i]] = pctIva
+        row[impIvaCols123[i]] = impIva
+        if (pctRec != null && pctRec > 0) {
+          row[pctRecCols123[i]] = pctRec
+          row[impRecCols123[i]] = impRec
+        }
+      } else {
+        const slot = i === 3 ? slot4 : slot5
+        row[slot.base] = base
+        row[slot.pct] = pctIva
+        row[slot.imp] = impIva
+        if (pctRec != null && pctRec > 0) {
+          row[slot.pctRec] = pctRec
+          row[slot.impRec] = impRec
+        }
       }
     }
 
     row[colIdx('X')] = round2(toNum(f.total_amount))                            // Total
+
+    // M1: enlace a factura rectificada (cols Y-AA, spec p.39)
+    if (f.numero_rectificado) row[colIdx('Y')] = trimField(f.numero_rectificado, 30)
+    if (f.fecha_rectificada) row[colIdx('Z')] = formatDateContasol(f.fecha_rectificada)
+    if (f.total_rectificado != null) row[colIdx('AA')] = round2(toNum(f.total_rectificado))
 
     row[colIdx('AQ')] = 1                                                       // Incluir en modelo 347
 
@@ -704,17 +839,44 @@ function buildContasolIvrSheet(
       row[colIdx('AS')] = retImp != null
         ? round2(isRectificativa ? -Math.abs(retImp) : retImp)
         : null
-      row[colIdx('AT')] = 1                                                     // Tipo retención: profesional dineraria
+      row[colIdx('AT')] = contasolTipoRetencion(f.retencion_tipo)               // Tipo retención según modelo
     }
 
     row[colIdx('AV')] = fecha                                                   // Fecha expedición
     if (baseExenta !== 0) row[colIdx('AW')] = round2(baseExenta)                // Base exenta
 
     row[colIdx('AX')] = claveOperacionContasolVentas({ isRectificativa, isISP }) // Clave operación
-    row[colIdx('AY')] = 1                                                       // Identificación fiscal: NIF
+    row[colIdx('AY')] = isCifIntracom ? 2 : 1                                   // Identificación fiscal: NIF=1, NIF/IVA intracom=2
     row[colIdx('AZ')] = 0                                                       // Tipo impuesto: IVA
 
+    // M3: Estado miembro origen del bien (col BJ). Solo cuando es intracom.
+    if (isIntracom) {
+      const pais = (f.pais_proveedor || '').toUpperCase()
+      const paisFinal = pais || (isCifIntracom ? cif.slice(0, 2) : '')
+      if (paisFinal && /^[A-Z]{2}$/.test(paisFinal)) {
+        row[colIdx('BJ')] = paisFinal
+      }
+    }
+
     if (importeSuplidos !== 0) row[colIdx('BK')] = round2(importeSuplidos)      // Importe suplidos
+
+    // M2: Alquileres — situación inmueble (BN) + ref catastral (BO), spec p.43
+    if (f.situacion_inmueble != null) {
+      row[colIdx('BN')] = f.situacion_inmueble
+      if (f.referencia_catastral) {
+        row[colIdx('BO')] = trimField(f.referencia_catastral, 25)
+      }
+    }
+
+    // Tipo de rectificativa (col BX, spec p.44-45). 4 = Resto.
+    if (isRectificativa) row[colIdx('BX')] = 4
+
+    // Causa de exención (col CD, spec p.45). Solo si hay líneas exentas con causa identificable.
+    const causa = contasolCausaExencion(ivaLinesAll)
+    if (causa) row[colIdx('CD')] = causa
+
+    // M4: Acogida a criterio de caja (col CY, spec p.46)
+    if (criterioCaja) row[colIdx('CY')] = 1
 
     ws.addRow(row)
   }
@@ -1032,6 +1194,7 @@ export async function POST(request: Request) {
       .select(`
         id,
         org_id,
+        client_id,
         invoice_fields (
           supplier_name, supplier_tax_id,
           supplier_address, supplier_postal_code, supplier_city, supplier_province,
@@ -1040,7 +1203,11 @@ export async function POST(request: Request) {
           subcuenta_gasto,
           retencion_porcentaje, retencion_importe, retencion_tipo,
           inversion_sujeto_pasivo,
-          iva_lines
+          iva_lines,
+          numero_rectificado, fecha_rectificada, total_rectificado,
+          situacion_inmueble, referencia_catastral,
+          pais_proveedor,
+          es_bien_inversion, fecha_inicio_uso, prorrata_definitiva
         )
       `)
       .in('org_id', orgIds)
@@ -1069,11 +1236,12 @@ export async function POST(request: Request) {
     // Org preferences — fuente de verdad: tabla organizations
     let uppercaseNamesAddresses = true
     let program: 'monitor' | 'contasol' | 'a3' = 'monitor'
+    let criterioCaja = false
     if (usedOrgIds.length === 1) {
       try {
         const { data: orgPref } = await db
           .from('organizations')
-          .select('uppercase_names_addresses, accounting_program')
+          .select('uppercase_names_addresses, accounting_program, criterio_caja')
           .eq('id', usedOrgIds[0])
           .maybeSingle()
         const prefObj = (orgPref as Record<string, unknown> | null) || {}
@@ -1082,6 +1250,7 @@ export async function POST(request: Request) {
         }
         if (prefObj.accounting_program === 'contasol') program = 'contasol'
         else if (prefObj.accounting_program === 'a3') program = 'a3'
+        if (typeof prefObj.criterio_caja === 'boolean') criterioCaja = prefObj.criterio_caja
       } catch (err) { console.error('Error cargando preferencias de organización:', err) }
     }
     // Override manual desde body (sólo útil para tests/debug, no se expone en UI)
@@ -1144,8 +1313,26 @@ export async function POST(request: Request) {
     const ws = wb.addWorksheet('Hoja1')
 
     if (program === 'contasol') {
-      if (isCompras) buildContasolIvsSheet(ws, invoiceRows, uppercaseNamesAddresses)
-      else buildContasolIvrSheet(ws, invoiceRows, uppercaseNamesAddresses)
+      // Construir map de cuentas de proveedor por (client_id, tax_id) para rellenar col D del IVS.
+      // Solo necesario para gastos (IVS); ventas (IVR) usan clientes comerciales — fase F3.
+      const supplierAccountByKey = new Map<string, string>()
+      if (isCompras) {
+        const clientIds = [...new Set(invoiceRows.map((r) => r.client_id).filter(Boolean) as string[])]
+        if (clientIds.length > 0) {
+          const { data: suppliersRows } = await db
+            .from('suppliers')
+            .select('client_id, tax_id, account_code')
+            .in('client_id', clientIds)
+            .not('account_code', 'is', null)
+          for (const s of (suppliersRows as Array<{ client_id: string; tax_id: string | null; account_code: string }> | null) ?? []) {
+            if (!s.tax_id || !s.account_code) continue
+            supplierAccountByKey.set(`${s.client_id}::${s.tax_id.trim().toUpperCase()}`, s.account_code)
+          }
+        }
+      }
+
+      if (isCompras) buildContasolIvsSheet(ws, invoiceRows, uppercaseNamesAddresses, criterioCaja, supplierAccountByKey)
+      else buildContasolIvrSheet(ws, invoiceRows, uppercaseNamesAddresses, criterioCaja)
     } else {
       if (isCompras) buildComprasSheet(ws, invoiceRows, uppercaseNamesAddresses)
       else buildVentasSheet(ws, invoiceRows, uppercaseNamesAddresses)

@@ -53,6 +53,16 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       'retencion_tipo',
       'inversion_sujeto_pasivo',
       'iva_lines',
+      // Campos Contasol extendidos
+      'numero_rectificado',
+      'fecha_rectificada',
+      'total_rectificado',
+      'situacion_inmueble',
+      'referencia_catastral',
+      'pais_proveedor',
+      'es_bien_inversion',
+      'fecha_inicio_uso',
+      'prorrata_definitiva',
     ])
 
     const payload: Record<string, unknown> = { invoice_id: invoiceId, updated_by: user.id }

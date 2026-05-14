@@ -1645,6 +1645,80 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* Datos Contasol avanzados (M1 rectificada + M5 bien inversión). Colapsable. */}
+                <details
+                  className="mt-2 border border-[var(--l-card-border,#e5e7eb)] rounded-none"
+                  open={Boolean(factura.numero_rectificado || factura.es_bien_inversion)}
+                >
+                  <summary className="cursor-pointer select-none px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground-secondary bg-[var(--l-bg,#f9fafb)] hover:bg-[var(--l-card-hover,#f3f4f6)]">
+                    Datos avanzados (ContaSol)
+                  </summary>
+                  <div className="p-2 space-y-2">
+                    {/* M1: Enlace a factura rectificada */}
+                    <div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground-secondary mb-1">
+                        Factura rectificada (si esta es una rectificativa)
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={factura.numero_rectificado ?? ''}
+                          onChange={(e) => handleChange('numero_rectificado', e.target.value)}
+                          placeholder="Nº original"
+                          className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={factura.fecha_rectificada ?? ''}
+                          onChange={(e) => handleChange('fecha_rectificada', e.target.value)}
+                          placeholder="DD/MM/AAAA"
+                          className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                        <input
+                          type="text"
+                          value={factura.total_rectificado ?? ''}
+                          onChange={(e) => handleChange('total_rectificado', e.target.value.replace('€', '').trim())}
+                          placeholder="Total original"
+                          className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+
+                    {/* M5: Bien de inversión */}
+                    <div className="pt-2 border-t border-[var(--l-card-border,#e5e7eb)]">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(factura.es_bien_inversion)}
+                          onChange={(e) => handleChange('es_bien_inversion', e.target.checked)}
+                          className="w-3.5 h-3.5"
+                        />
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground-secondary">
+                          Es bien de inversión
+                        </span>
+                      </label>
+                      {factura.es_bien_inversion && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <input
+                            type="text"
+                            value={factura.fecha_inicio_uso ?? ''}
+                            onChange={(e) => handleChange('fecha_inicio_uso', e.target.value)}
+                            placeholder="Inicio de uso (DD/MM/AAAA)"
+                            className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={factura.prorrata_definitiva ?? ''}
+                            onChange={(e) => handleChange('prorrata_definitiva', e.target.value.replace('%', '').trim())}
+                            placeholder="Prorrata definitiva (%)"
+                            className="w-full min-w-0 px-2 py-1 text-[13px] border border-[var(--l-card-border,#e5e7eb)] rounded-none focus:ring-1 focus:ring-primary focus:border-transparent"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </details>
               </div>
 
               {/* Separación visual para que el scroll no quede “pegado” a la barra fija */}

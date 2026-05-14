@@ -17,7 +17,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const { data: org, error } = await db
       .from('organizations')
-      .select('id, uppercase_names_addresses, working_quarter, accounting_program')
+      .select('id, uppercase_names_addresses, working_quarter, accounting_program, criterio_caja')
       .eq('id', orgId)
       .maybeSingle()
 
@@ -38,8 +38,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         : orgObj?.accounting_program === 'a3'
           ? 'a3'
           : 'monitor'
+    const criterio_caja = typeof orgObj?.criterio_caja === 'boolean' ? orgObj.criterio_caja : false
 
-    return NextResponse.json({ success: true, org_id: orgId, uppercase_names_addresses, working_quarter, accounting_program }, { status: 200 })
+    return NextResponse.json({ success: true, org_id: orgId, uppercase_names_addresses, working_quarter, accounting_program, criterio_caja }, { status: 200 })
   } catch (error) {
     console.error('Error inesperado en GET /api/organizations/[id]/preferences:', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
@@ -74,12 +75,13 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     const accounting_program = accounting_program_raw === undefined
       ? undefined
       : (accounting_program_raw === 'contasol' || accounting_program_raw === 'monitor' || accounting_program_raw === 'a3' ? accounting_program_raw : null)
+    const criterio_caja = typeof bodyObj?.criterio_caja === 'boolean' ? bodyObj.criterio_caja : undefined
 
     if (accounting_program === null) {
       return NextResponse.json({ error: 'accounting_program debe ser "monitor", "contasol" o "a3"' }, { status: 400 })
     }
 
-    if (uppercase_names_addresses === undefined && working_quarter === undefined && accounting_program === undefined) {
+    if (uppercase_names_addresses === undefined && working_quarter === undefined && accounting_program === undefined && criterio_caja === undefined) {
       return NextResponse.json({ error: 'Debe enviar al menos una preferencia' }, { status: 400 })
     }
 
@@ -90,12 +92,13 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     if (uppercase_names_addresses !== undefined) updatePayload.uppercase_names_addresses = uppercase_names_addresses
     if (working_quarter !== undefined) updatePayload.working_quarter = working_quarter
     if (accounting_program !== undefined) updatePayload.accounting_program = accounting_program
+    if (criterio_caja !== undefined) updatePayload.criterio_caja = criterio_caja
 
     const { data: updated, error } = await db
       .from('organizations')
       .update(updatePayload)
       .eq('id', orgId)
-      .select('id, uppercase_names_addresses, working_quarter, accounting_program')
+      .select('id, uppercase_names_addresses, working_quarter, accounting_program, criterio_caja')
       .single()
 
     if (error) {
@@ -116,6 +119,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
             : updatedObj?.accounting_program === 'a3'
               ? 'a3'
               : 'monitor',
+        criterio_caja: typeof updatedObj?.criterio_caja === 'boolean' ? updatedObj.criterio_caja : false,
       },
       { status: 200 }
     )

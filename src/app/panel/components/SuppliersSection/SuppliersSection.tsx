@@ -5,9 +5,11 @@ import type { Supplier } from '@/types/dashboard';
 import { CreateSupplierModal } from './CreateSupplierModal';
 import { EditSupplierModal } from './EditSupplierModal';
 import { DeleteSupplierModal } from './DeleteSupplierModal';
+import { ImportSuppliersModal } from './ImportSuppliersModal';
 import type { SupplierFormState } from '@/hooks/useSupplierManagement';
 
 interface SuppliersSectionProps {
+  clientId: string | null;
   clientName: string;
   suppliers: Supplier[];
   isLoading: boolean;
@@ -18,6 +20,7 @@ interface SuppliersSectionProps {
   isCreating: boolean;
   onCrearProveedor: (e: React.FormEvent) => void;
   onCancelCrearProveedor: () => void;
+  onImported?: () => void;
   isEditModalOpen: boolean;
   proveedorParaEditar: Supplier | null;
   editProveedor: SupplierFormState;
@@ -36,6 +39,7 @@ interface SuppliersSectionProps {
 }
 
 export function SuppliersSection({
+  clientId,
   clientName,
   suppliers,
   isLoading,
@@ -46,6 +50,7 @@ export function SuppliersSection({
   isCreating,
   onCrearProveedor,
   onCancelCrearProveedor,
+  onImported,
   isEditModalOpen,
   proveedorParaEditar,
   editProveedor,
@@ -67,6 +72,7 @@ export function SuppliersSection({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const allSelected = suppliers.length > 0 && suppliers.every(s => selectedIds.has(s.id));
 
@@ -132,13 +138,28 @@ export function SuppliersSection({
             </span>
           </button>
           {isExpanded && (
-            <button
-              type="button"
-              onClick={() => setMostrarNuevoProveedor(true)}
-              className="shrink-0 px-4 text-sm text-primary hover:text-primary-hover font-medium transition-colors"
-            >
-              + Nuevo
-            </button>
+            <div className="shrink-0 flex items-center gap-2 pr-4">
+              {clientId && (
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  className="text-sm text-foreground-secondary hover:text-primary font-medium transition-colors flex items-center gap-1"
+                  title="Importar proveedores desde Excel"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                  Importar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMostrarNuevoProveedor(true)}
+                className="text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+              >
+                + Nuevo
+              </button>
+            </div>
           )}
         </div>
 
@@ -320,6 +341,18 @@ export function SuppliersSection({
         onConfirm={onConfirmEliminarProveedor}
         onClose={onCancelDeleteProveedor}
       />
+
+      {clientId && (
+        <ImportSuppliersModal
+          isOpen={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+          clientId={clientId}
+          clientName={clientName}
+          onImported={() => {
+            onImported?.();
+          }}
+        />
+      )}
     </>
   );
 }

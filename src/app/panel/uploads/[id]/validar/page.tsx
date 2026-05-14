@@ -57,6 +57,16 @@ type InvoiceFieldsRow = {
     cuota_recargo?: number | null
     tipo_exencion?: string | null
   }> | null
+  // Campos Contasol extendidos (migración contasol_extended_fields)
+  numero_rectificado?: string | null
+  fecha_rectificada?: string | null
+  total_rectificado?: string | number | null
+  situacion_inmueble?: number | null
+  referencia_catastral?: string | null
+  pais_proveedor?: string | null
+  es_bien_inversion?: boolean | null
+  fecha_inicio_uso?: string | null
+  prorrata_definitiva?: string | number | null
 }
 
 function coerceInvoiceFieldsRow(value: unknown): InvoiceFieldsRow | null {
@@ -437,6 +447,13 @@ function toFacturaData(
     },
     inversion_sujeto_pasivo: Boolean(f?.inversion_sujeto_pasivo ?? ex?.inversion_sujeto_pasivo),
     tipo_documento: normalizeTipoDocumento(ex?.tipo_documento),
+    // Campos Contasol extendidos
+    numero_rectificado: f?.numero_rectificado ?? '',
+    fecha_rectificada: f?.fecha_rectificada ? String(f.fecha_rectificada) : '',
+    total_rectificado: f?.total_rectificado != null ? String(f.total_rectificado) : '',
+    es_bien_inversion: Boolean(f?.es_bien_inversion),
+    fecha_inicio_uso: f?.fecha_inicio_uso ? String(f.fecha_inicio_uso) : '',
+    prorrata_definitiva: f?.prorrata_definitiva != null ? String(f.prorrata_definitiva) : '',
   }
 }
 
@@ -1408,6 +1425,17 @@ export default function ValidarUploadPage() {
               retencion_tipo: factura.retencion.aplica && factura.retencion.tipo ? factura.retencion.tipo : null,
               inversion_sujeto_pasivo: Boolean(factura.inversion_sujeto_pasivo),
               iva_lines: ivaLines.length > 0 ? ivaLines : null,
+              // Campos Contasol extendidos (M1 rectificada, M5 bien inversión)
+              numero_rectificado: String(factura.numero_rectificado || '').trim() || null,
+              fecha_rectificada: toISODate(factura.fecha_rectificada || '') || null,
+              total_rectificado: toNumber(factura.total_rectificado || '') || null,
+              es_bien_inversion: Boolean(factura.es_bien_inversion),
+              fecha_inicio_uso: factura.es_bien_inversion
+                ? (toISODate(factura.fecha_inicio_uso || '') || null)
+                : null,
+              prorrata_definitiva: factura.es_bien_inversion
+                ? (toNumber(factura.prorrata_definitiva || '') || null)
+                : null,
             }),
           })
         } catch {

@@ -21,6 +21,7 @@ import { Switch } from '@heroui/react';
    const [uppercaseNamesAddresses, setUppercaseNamesAddresses] = useState(true);
    const [workingQuarter, setWorkingQuarter] = useState<string>('');
    const [accountingProgram, setAccountingProgram] = useState<'monitor' | 'contasol' | 'a3'>('monitor');
+   const [criterioCaja, setCriterioCaja] = useState(false);
    const [canEdit, setCanEdit] = useState(true);
  
    useEffect(() => {
@@ -71,6 +72,7 @@ import { Switch } from '@heroui/react';
            setWorkingQuarter(typeof wq === 'string' && /^Q[1-4]$/.test(wq) ? wq : '');
            const ap = prefJson?.accounting_program;
            setAccountingProgram(ap === 'contasol' ? 'contasol' : ap === 'a3' ? 'a3' : 'monitor');
+           setCriterioCaja(typeof prefJson?.criterio_caja === 'boolean' ? prefJson.criterio_caja : false);
          }
        } catch (err) {
          console.error('Error cargando preferencias:', err);
@@ -94,6 +96,7 @@ import { Switch } from '@heroui/react';
            uppercase_names_addresses: uppercaseNamesAddresses,
            working_quarter: workingQuarter || null,
            accounting_program: accountingProgram,
+           criterio_caja: criterioCaja,
          }),
        });
        const data = await resp.json().catch(() => null);
@@ -218,6 +221,35 @@ import { Switch } from '@heroui/react';
                  <option value="contasol">ContaSol</option>
                  <option value="a3">a3CON / a3ECO / a3ASESOR (SUENLACE.DAT)</option>
                </select>
+             </div>
+           </div>
+
+           <div className="mt-8 pt-6 border-t border-[var(--l-card-border,#e5e7eb)]">
+             <div className="flex items-start justify-between gap-6">
+               <div className="min-w-0">
+                 <h2 className="text-lg font-semibold text-foreground">
+                   Régimen especial criterio de caja (RECC)
+                 </h2>
+                 <p className="text-sm text-foreground-secondary mt-2">
+                   Actívalo si tu organización está acogida al régimen especial del criterio de caja. Al exportar a ContaSol se marcará la columna correspondiente (DE en IVS, CY en IVR).
+                 </p>
+                 {!canEdit && (
+                   <p className="text-sm text-amber-600 mt-2">
+                     Solo el propietario puede modificar esta preferencia.
+                   </p>
+                 )}
+               </div>
+               <Switch
+                 isSelected={criterioCaja}
+                 onValueChange={setCriterioCaja}
+                 isDisabled={!canEdit}
+                 color="primary"
+                 size="md"
+                 aria-label="Régimen especial criterio de caja"
+                 classNames={{
+                   wrapper: criterioCaja ? '' : 'bg-slate-300',
+                 }}
+               />
              </div>
            </div>
 

@@ -64,7 +64,19 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             base_amount,
             vat_amount,
             total_amount,
-            vat_rate
+            vat_rate,
+            subcuenta_gasto,
+            retencion_porcentaje,
+            retencion_importe,
+            retencion_tipo,
+            inversion_sujeto_pasivo,
+            iva_lines,
+            numero_rectificado,
+            fecha_rectificada,
+            total_rectificado,
+            es_bien_inversion,
+            fecha_inicio_uso,
+            prorrata_definitiva
           ),
           invoice_extractions (
             raw_json,
