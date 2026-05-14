@@ -1,4 +1,5 @@
 import { GridCell } from "@/components/GridCell";
+import { HeroSessionCTA } from "@/components/HeroSessionCTA";
 import { LandingAuthNav } from "@/components/LandingAuthNav";
 import { LandingThemeProvider } from "@/components/LandingThemeProvider";
 import { LandingThemeToggle } from "@/components/LandingThemeToggle";
@@ -6,16 +7,11 @@ import { MobileNav } from "@/components/MobileNav";
 import { PricingCards } from "@/components/PricingCards";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { StickyHeader } from "@/components/StickyHeader";
-import { createClient } from "@/lib/supabase/server";
 import { isStripeEnabled } from "@/lib/features";
 import Image from "next/image";
 import Link from "next/link";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const hasSession = !!user;
-
+export default function Home() {
   return (
     <LandingThemeProvider>
       <div className="min-h-screen">
@@ -111,93 +107,46 @@ export default async function Home() {
             <GridCell style={{ top: 3712, left: 0 }} delay={0.1} />
             <GridCell style={{ top: 3776, left: 0 }} delay={0.15} />
 
-            {/* Hero */}
+            {/* Hero — NO ScrollReveal: contenido above-the-fold debe pintar inmediato (LCP) */}
             <section className="relative z-10 pt-36 pb-20 sm:pt-40 sm:pb-28">
               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 {/* Badge */}
-                <ScrollReveal direction="up" delayMs={0}>
-                  <div
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-none mb-8"
-                    style={{ backgroundColor: 'var(--l-badge-bg)', border: '1px solid var(--l-badge-border)' }}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-sm text-primary font-medium">
-                      Automatizacion contable con IA
-                    </span>
-                  </div>
-                </ScrollReveal>
+                <div
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-none mb-8"
+                  style={{ backgroundColor: 'var(--l-badge-bg)', border: '1px solid var(--l-badge-border)' }}
+                >
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="text-sm text-primary font-medium">
+                    Automatizacion contable con IA
+                  </span>
+                </div>
 
                 {/* Headline */}
-                <ScrollReveal direction="up" delayMs={150}>
-                  <h1
-                    className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight"
-                    style={{ color: 'var(--l-text)' }}
-                  >
-                    De la factura al Excel contable{" "}
-                    <span className="text-primary">en segundos.</span>
-                  </h1>
-                </ScrollReveal>
+                <h1
+                  className="text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight"
+                  style={{ color: 'var(--l-text)' }}
+                >
+                  De la factura al Excel contable{" "}
+                  <span className="text-primary">en segundos.</span>
+                </h1>
 
                 {/* Subtitle */}
-                <ScrollReveal direction="up" delayMs={300}>
-                  <p
-                    className="text-lg sm:text-xl mt-6 max-w-2xl mx-auto leading-relaxed"
-                    style={{ color: 'var(--l-text-secondary)' }}
-                  >
-                    Automatiza la entrada de facturas y recibe un Excel listo para importar en tu programa contable. Preciso, seguro y con soporte cercano.
-                  </p>
-                </ScrollReveal>
+                <p
+                  className="text-lg sm:text-xl mt-6 max-w-2xl mx-auto leading-relaxed"
+                  style={{ color: 'var(--l-text-secondary)' }}
+                >
+                  Automatiza la entrada de facturas y recibe un Excel listo para importar en tu programa contable. Preciso, seguro y con soporte cercano.
+                </p>
 
-                {/* CTA Buttons */}
-                <ScrollReveal direction="up" delayMs={450}>
-                  <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-                    {hasSession ? (
-                      <Link
-                        href="/panel"
-                        className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-all shadow-lg shadow-secondary/20 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-                      >
-                        Ir al panel
-                      </Link>
-                    ) : isStripeEnabled ? (
-                      <>
-                        <Link
-                          href="/registro"
-                          className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-all shadow-lg shadow-secondary/20 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-                        >
-                          Empieza gratis
-                        </Link>
-                        <Link
-                          href="#como-funciona"
-                          className="landing-outline-btn px-8 py-4 rounded-none text-lg font-semibold text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-                        >
-                          Ver cómo funciona
-                        </Link>
-                      </>
-                    ) : (
-                      <>
-                        <Link
-                          href="/login"
-                          className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-all shadow-lg shadow-secondary/20 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-                        >
-                          Iniciar sesion
-                        </Link>
-                        <Link
-                          href="#como-funciona"
-                          className="landing-outline-btn px-8 py-4 rounded-none text-lg font-semibold text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
-                        >
-                          Ver cómo funciona
-                        </Link>
-                      </>
-                    )}
-                  </div>
-                </ScrollReveal>
+                {/* CTA Buttons — sesión resuelta en cliente para mantener la landing estática */}
+                <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+                  <HeroSessionCTA variant="hero" />
+                </div>
 
                 {/* Trust line */}
-                <ScrollReveal direction="up" delayMs={600}>
-                  <p className="mt-6 text-sm" style={{ color: 'var(--l-text-muted)' }}>
-                    Empieza con <span className="font-semibold" style={{ color: 'var(--l-text-secondary)' }}>25 facturas gratis</span>, sin tarjeta. Compatible con Monitor Informatico.
-                  </p>
-                </ScrollReveal>
+                <p className="mt-6 text-sm" style={{ color: 'var(--l-text-muted)' }}>
+                  Empieza con <span className="font-semibold" style={{ color: 'var(--l-text-secondary)' }}>25 facturas gratis</span>, sin tarjeta. Compatible con Monitor Informatico.
+                </p>
               </div>
             </section>
 
@@ -453,8 +402,8 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* Planes */}
-          {isStripeEnabled && <PricingCards hasSession={hasSession} />}
+          {/* Planes — la landing es estática; PricingCards resuelve sesión en cliente si lo necesita */}
+          {isStripeEnabled && <PricingCards />}
 
           {/* Integraciones */}
           <section id="integraciones" className="py-20">
@@ -481,36 +430,7 @@ export default async function Home() {
                   Empieza hoy y comprueba como cambia tu carga de trabajo.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  {hasSession ? (
-                    <Link
-                      href="/panel"
-                      className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-colors shadow-lg text-center"
-                    >
-                      Ir al panel
-                    </Link>
-                  ) : isStripeEnabled ? (
-                    <>
-                      <Link
-                        href="/registro"
-                        className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-colors shadow-lg text-center"
-                      >
-                        Empieza gratis
-                      </Link>
-                      <Link
-                        href="/login"
-                        className="border-2 border-secondary text-secondary px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary hover:text-white transition-colors text-center"
-                      >
-                        Iniciar sesion
-                      </Link>
-                    </>
-                  ) : (
-                    <Link
-                      href="/login"
-                      className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-colors shadow-lg text-center"
-                    >
-                      Iniciar sesion
-                    </Link>
-                  )}
+                  <HeroSessionCTA variant="footer" />
                 </div>
               </div>
             </ScrollReveal>

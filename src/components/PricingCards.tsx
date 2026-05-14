@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ScrollReveal } from '@/components/ScrollReveal';
+import { createClient } from '@/lib/supabase/client';
 
 const CheckIcon = () => (
   <svg className="w-4 h-4 text-green-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -45,11 +46,30 @@ const PLANS = [
 ];
 
 interface PricingCardsProps {
+  /** Opcional: si se conoce desde fuera, se omite la consulta cliente. */
   hasSession?: boolean;
 }
 
-export function PricingCards({ hasSession = false }: PricingCardsProps) {
+export function PricingCards({ hasSession: hasSessionProp }: PricingCardsProps = {}) {
   const [billingPeriod, setBillingPeriod] = useState<'mensual' | 'anual'>('mensual');
+  const [hasSessionState, setHasSessionState] = useState(false);
+  const hasSession = hasSessionProp ?? hasSessionState;
+
+  useEffect(() => {
+    // Solo resolver sesión en cliente si no se pasó por prop (caso landing estática)
+    if (hasSessionProp !== undefined) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!cancelled) setHasSessionState(!!session);
+      } catch {
+        if (!cancelled) setHasSessionState(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [hasSessionProp]);
 
   return (
     <section id="planes" className="py-20">
