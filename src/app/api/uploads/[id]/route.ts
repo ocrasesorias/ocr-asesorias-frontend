@@ -108,9 +108,48 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Subida no encontrada' }, { status: 404 })
     }
 
+    // Enriquecer cada invoice con los defaults memorizados del proveedor (match por NIF).
+    // El JOIN no se puede hacer en el SELECT porque suppliers no tiene FK con invoices;
+    // el matching es semántico por (client_id, tax_id).
+    const uploadObj = upload as Record<string, unknown>
+    const clientIdForSuppliers = typeof uploadObj.client_id === 'string' ? uploadObj.client_id : null
+    if (clientIdForSuppliers && Array.isArray(uploadObj.invoices)) {
+      const taxIds = new Set<string>()
+      for (const inv of uploadObj.invoices as Array<Record<string, unknown>>) {
+        const f = inv?.invoice_fields
+        const ff = Array.isArray(f) ? f[0] : f
+        const taxRaw = ff && typeof ff === 'object' ? (ff as Record<string, unknown>).supplier_tax_id : null
+        if (typeof taxRaw === 'string' && taxRaw.trim()) taxIds.add(taxRaw.trim().toUpperCase())
+      }
+      if (taxIds.size > 0) {
+        const { data: suppliersRows } = await db
+          .from('suppliers')
+          .select('tax_id, default_expense_account, default_vat_rate, default_retencion_tipo, default_retencion_pct')
+          .eq('client_id', clientIdForSuppliers)
+          .in('tax_id', [...taxIds])
+        const supByTax = new Map<string, Record<string, unknown>>()
+        for (const s of (suppliersRows as Array<Record<string, unknown>> | null) ?? []) {
+          const tid = typeof s.tax_id === 'string' ? s.tax_id.trim().toUpperCase() : ''
+          if (!tid) continue
+          supByTax.set(tid, {
+            default_expense_account: s.default_expense_account ?? null,
+            default_vat_rate: s.default_vat_rate ?? null,
+            default_retencion_tipo: s.default_retencion_tipo ?? null,
+            default_retencion_pct: s.default_retencion_pct ?? null,
+          })
+        }
+        for (const inv of uploadObj.invoices as Array<Record<string, unknown>>) {
+          const f = inv?.invoice_fields
+          const ff = Array.isArray(f) ? f[0] : f
+          const taxRaw = ff && typeof ff === 'object' ? (ff as Record<string, unknown>).supplier_tax_id : null
+          const tid = typeof taxRaw === 'string' ? taxRaw.trim().toUpperCase() : ''
+          inv.supplier_defaults = tid && supByTax.has(tid) ? supByTax.get(tid) : null
+        }
+      }
+    }
+
     // Orden consistente de facturas: ordenamos alfabéticamente por nombre de archivo (numéricamente)
     // para que la extracción y validación siga un orden estricto predecible.
-    const uploadObj = upload as Record<string, unknown>
     const invoicesVal = uploadObj.invoices
     if (Array.isArray(invoicesVal)) {
       uploadObj.invoices = invoicesVal.toSorted((a, b) => {

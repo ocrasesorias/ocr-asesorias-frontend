@@ -122,6 +122,29 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
         const sCity = typeof body.supplier_city === 'string' && body.supplier_city.trim() ? body.supplier_city.trim() : null
         const sProvince = typeof body.supplier_province === 'string' && body.supplier_province.trim() ? body.supplier_province.trim() : null
 
+        // Memoria por proveedor: guardamos los valores que el contable ha validado
+        // para auto-rellenar la próxima factura del mismo proveedor.
+        // Política: sobrescribir siempre con lo último (refleja la decisión más reciente).
+        const sDefaultExpense = typeof payload.subcuenta_gasto === 'string' && (payload.subcuenta_gasto as string).trim()
+          ? (payload.subcuenta_gasto as string).trim()
+          : null
+        // % IVA dominante: el de la línea con mayor base imponible.
+        let sDefaultVatRate: number | null = null
+        if (Array.isArray(body.iva_lines)) {
+          let bestBase = -Infinity
+          for (const l of body.iva_lines as Array<Record<string, unknown>>) {
+            const base = Number(l?.base) || 0
+            const rate = Number(l?.porcentaje_iva)
+            if (Number.isFinite(rate) && base > bestBase) {
+              bestBase = base
+              sDefaultVatRate = rate
+            }
+          }
+        }
+        const sRetPct = Number(body.retencion_porcentaje)
+        const sRetTipo = typeof body.retencion_tipo === 'string' ? body.retencion_tipo.trim() : ''
+        const hasRet = Number.isFinite(sRetPct) && sRetPct > 0 && sRetTipo.length > 0
+
         // 1) Buscar por CIF (match exacto)
         const { data: byTaxId } = await supabase
           .from('suppliers')
@@ -145,13 +168,22 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
           matchByName = byName?.id ?? null
         }
 
-        const updatePayload = {
+        const updatePayload: Record<string, unknown> = {
           name: sName,
           tax_id: sTaxId,
           address: sAddress,
           postal_code: sPostalCode,
           city: sCity,
           province: sProvince,
+          // Memoria: subcuenta de gasto y % IVA siempre se actualizan a lo último.
+          default_expense_account: sDefaultExpense,
+          default_vat_rate: sDefaultVatRate,
+        }
+        // Retención: solo actualizar si tiene valores positivos (no borramos memoria previa
+        // si esta factura concreta no lleva retención por olvido o naturaleza puntual).
+        if (hasRet) {
+          updatePayload.default_retencion_tipo = sRetTipo
+          updatePayload.default_retencion_pct = sRetPct
         }
 
         let saveError: { message: string } | null = null

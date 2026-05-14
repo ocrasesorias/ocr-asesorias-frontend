@@ -29,6 +29,16 @@ type UploadInvoiceRow = {
     created_at: string
   }>
   invoice_fields?: InvoiceFieldsRow | InvoiceFieldsRow[]
+  /** Defaults memorizados del proveedor (matched por NIF). Inyectado por GET /api/uploads/[id]. */
+  supplier_defaults?: SupplierDefaults | null
+}
+
+/** Memoria del proveedor: pre-rellena la próxima factura cuando el NIF coincide. */
+type SupplierDefaults = {
+  default_expense_account: string | null
+  default_vat_rate: number | string | null
+  default_retencion_tipo: string | null
+  default_retencion_pct: number | string | null
 }
 
 type InvoiceFieldsRow = {
@@ -340,10 +350,19 @@ function applyExtractedIvasToLineas(params: {
 function toFacturaData(
   inv: UploadInvoiceRow,
   previewUrl: string,
-  opts?: { clientTaxId?: string | null; defaultSubcuenta?: string; actividad?: string | null }
+  opts?: {
+    clientTaxId?: string | null
+    defaultSubcuenta?: string
+    actividad?: string | null
+    /** Overrides en caliente desde el cache local de validaciones recientes (Map<NIF, defaults>). */
+    supplierDefaultsOverride?: SupplierDefaults | null
+  }
 ): FacturaData {
   const f = Array.isArray(inv.invoice_fields) ? inv.invoice_fields[0] : inv.invoice_fields || undefined
   const ex = getLatestExtraction(inv)
+  // Memoria por proveedor: el override en caliente (validaciones de esta sesión) tiene prioridad
+  // sobre lo que devolvió el GET inicial, que a su vez tiene prioridad sobre la extracción IA.
+  const supplierDefaults: SupplierDefaults | null = opts?.supplierDefaultsOverride ?? inv.supplier_defaults ?? null
   const isPdf =
     (inv.mime_type || '').toLowerCase().includes('pdf') ||
     (inv.original_filename || '').toLowerCase().endsWith('.pdf')
@@ -427,13 +446,36 @@ function toFacturaData(
       fecha: f?.invoice_date ? String(f.invoice_date) : '',
       fechaVencimiento: '',
     },
-    subcuentaGasto: (typeof f?.subcuenta_gasto === 'string' && f.subcuenta_gasto.trim()) ? f.subcuenta_gasto.trim() : (typeof ex?.subcuenta_gasto === 'string' && ex.subcuenta_gasto.trim()) ? (ex.subcuenta_gasto as string).trim() : (opts?.defaultSubcuenta || ''),
-    retencion: {
-      aplica: fHasRetencion || hasRetencion,
-      porcentaje: toRetencionPorcentaje(fRetPct ?? exRetPct),
-      tipo: (f?.retencion_tipo as 'PROFESIONAL' | 'ALQUILERES' | '' | undefined) || defaultRetencionTipo(fHasRetencion || hasRetencion, fRetPct ?? exRetPct),
-      cantidad: fRetImp !== null ? String(Math.abs(fRetImp)) : exRetImp !== null ? String(Math.abs(exRetImp)) : '',
-    },
+    // Prioridad subcuenta: 1) invoice_fields guardado, 2) memoria proveedor, 3) sugerencia IA, 4) fallback cliente
+    subcuentaGasto:
+      (typeof f?.subcuenta_gasto === 'string' && f.subcuenta_gasto.trim())
+        ? f.subcuenta_gasto.trim()
+        : (typeof supplierDefaults?.default_expense_account === 'string' && supplierDefaults.default_expense_account.trim())
+          ? supplierDefaults.default_expense_account.trim()
+          : (typeof ex?.subcuenta_gasto === 'string' && ex.subcuenta_gasto.trim())
+            ? (ex.subcuenta_gasto as string).trim()
+            : (opts?.defaultSubcuenta || ''),
+    retencion: (() => {
+      // Memoria del proveedor: si hay defaults de retención y la factura aún no se editó,
+      // pre-rellenamos con la memoria. La extracción IA queda como último recurso.
+      const memRetTipo = (supplierDefaults?.default_retencion_tipo as 'PROFESIONAL' | 'ALQUILERES' | null) || null
+      const memRetPct = toNumLoose(supplierDefaults?.default_retencion_pct)
+      const useMem = !f && memRetTipo && memRetPct && memRetPct > 0
+      if (useMem) {
+        return {
+          aplica: true,
+          porcentaje: toRetencionPorcentaje(memRetPct),
+          tipo: memRetTipo,
+          cantidad: '',
+        }
+      }
+      return {
+        aplica: fHasRetencion || hasRetencion,
+        porcentaje: toRetencionPorcentaje(fRetPct ?? exRetPct),
+        tipo: (f?.retencion_tipo as 'PROFESIONAL' | 'ALQUILERES' | '' | undefined) || defaultRetencionTipo(fHasRetencion || hasRetencion, fRetPct ?? exRetPct),
+        cantidad: fRetImp !== null ? String(Math.abs(fRetImp)) : exRetImp !== null ? String(Math.abs(exRetImp)) : '',
+      }
+    })(),
     lineas: finalLineas,
     anexosObservaciones: '',
     total: total !== null ? String(total) : '',
@@ -476,6 +518,9 @@ export default function ValidarUploadPage() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [facturaActual, setFacturaActual] = useState(0)
+  // Contador que se incrementa tras cada validación exitosa: hace que ValidarFactura
+  // refresque su lista de proveedores para autocompletado (ve proveedores creados en la sesión).
+  const [suppliersVersion, setSuppliersVersion] = useState(0)
   const [facturas, setFacturas] = useState<FacturaData[]>([])
   const [facturaRevisions, setFacturaRevisions] = useState<Record<string, number>>({})
   const [invoiceRows, setInvoiceRows] = useState<UploadInvoiceRow[]>([])
@@ -1392,7 +1437,7 @@ export default function ValidarUploadPage() {
           const retPct = Number.isFinite(Number(retPctStr)) && Number(retPctStr) > 0 ? Number(retPctStr) : null
           const retImporte = factura.retencion.aplica ? toNumber(factura.retencion.cantidad) : null
 
-          await fetch(`/api/invoices/${invoiceId}/fields`, {
+          const putResp = await fetch(`/api/invoices/${invoiceId}/fields`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1438,6 +1483,50 @@ export default function ValidarUploadPage() {
                 : null,
             }),
           })
+
+          // Memoria por proveedor: tras validar, propagamos los valores que el contable acaba
+          // de elegir a las facturas pendientes del mismo NIF que aún no se han tocado.
+          if (putResp.ok) {
+            // Forzar que el autocomplete de proveedores se recargue (puede haber un proveedor nuevo)
+            setSuppliersVersion((v) => v + 1)
+            const validatedNif = String(factura.proveedor.cif || '').trim().toUpperCase()
+            const validatedSubcuenta = String(factura.subcuentaGasto || '').trim()
+            const validatedRetTipo = factura.retencion.aplica ? factura.retencion.tipo : ''
+            const validatedRetPct = factura.retencion.aplica ? factura.retencion.porcentaje : ''
+            // Datos comerciales del proveedor — solo se propagan si el campo destino está vacío
+            // (no pisar trabajo del contable). El CIF nunca se propaga: identificador inmutable
+            // que define quién recibe la propagación.
+            const validatedNombre = String(factura.proveedor.nombre || '').trim()
+            const validatedDireccion = String(factura.proveedor.direccion || '').trim()
+            const validatedCp = String(factura.proveedor.codigoPostal || '').trim()
+            const validatedPoblacion = String(factura.proveedor.poblacion || '').trim()
+            const validatedProvincia = String(factura.proveedor.provincia || '').trim()
+            if (validatedNif) {
+              setFacturas((prev) => prev.map((f) => {
+                // Saltar la propia factura validada (la identificamos por invoiceId)
+                if (f.archivo?.invoiceId === invoiceId) return f
+                const otherNif = String(f.proveedor?.cif || '').trim().toUpperCase()
+                if (otherNif !== validatedNif) return f
+                // Construir nuevo proveedor solo con los campos vacíos en la otra factura
+                const prov = { ...f.proveedor }
+                if (!prov.nombre?.trim() && validatedNombre) prov.nombre = validatedNombre
+                if (!prov.direccion?.trim() && validatedDireccion) prov.direccion = validatedDireccion
+                if (!prov.codigoPostal?.trim() && validatedCp) prov.codigoPostal = validatedCp
+                if (!prov.poblacion?.trim() && validatedPoblacion) prov.poblacion = validatedPoblacion
+                if (!prov.provincia?.trim() && validatedProvincia) prov.provincia = validatedProvincia
+                // Subcuenta y retención: como antes, solo si la subcuenta está vacía
+                const subcuentaVacia = !String(f.subcuentaGasto || '').trim()
+                return {
+                  ...f,
+                  proveedor: prov,
+                  subcuentaGasto: subcuentaVacia && validatedSubcuenta ? validatedSubcuenta : f.subcuentaGasto,
+                  retencion: subcuentaVacia && validatedRetTipo
+                    ? { ...f.retencion, aplica: true, tipo: validatedRetTipo, porcentaje: validatedRetPct }
+                    : f.retencion,
+                }
+              }))
+            }
+          }
         } catch {
           // noop
         }
@@ -2081,6 +2170,7 @@ export default function ValidarUploadPage() {
                 key={`${currentId || facturaActual}:${currentId ? facturaRevisions[currentId] || 0 : 0}`}
                 empresaNombre={clienteNombre}
                 clientId={clientId}
+                suppliersVersion={suppliersVersion}
                 tipo={tipoFactura}
                 uppercaseNombreDireccion={uppercasePref}
                 workingQuarter={workingQuarter}

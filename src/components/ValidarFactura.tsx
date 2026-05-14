@@ -51,6 +51,8 @@ interface ValidarFacturaProps {
   workingQuarter?: string
   /** ID del cliente de esta subida, para buscar proveedores en base de datos. */
   clientId?: string | null
+  /** Versión que el padre incrementa tras cada validación: dispara recarga de allSuppliers para que el autocomplete vea proveedores recién creados en la misma sesión. */
+  suppliersVersion?: number
   factura: FacturaData;
   /** true si el preview de esta factura ya se intentó y devolvió distinto de 200 (mostrar error en vez de "Cargando..."). */
   previewFailed?: boolean
@@ -84,6 +86,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
   uppercaseNombreDireccion = false,
   workingQuarter = '',
   clientId = null,
+  suppliersVersion = 0,
   factura: facturaInicial,
   previewFailed = false,
   duplicateWarning = null,
@@ -337,7 +340,9 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     return () => { cancelled = true }
   }, [factura.proveedor?.nombre, factura.proveedor?.cif, factura.proveedor?.direccion, clientId])
 
-  // Cargar lista de proveedores para autocomplete (solo gasto)
+  // Cargar lista de proveedores para autocomplete (solo gasto).
+  // Se recarga cuando suppliersVersion cambia: tras cada validación el padre la incrementa
+  // para que el autocomplete vea proveedores creados en la sesión actual.
   useEffect(() => {
     if (tipo !== 'gasto' || !clientId) return
     let cancelled = false
@@ -351,7 +356,7 @@ export const ValidarFactura: React.FC<ValidarFacturaProps> = ({
     }
     fetchSuppliers()
     return () => { cancelled = true }
-  }, [tipo, clientId])
+  }, [tipo, clientId, suppliersVersion])
 
   // Guardrail: la subcuenta actual debe ser coherente con el tipo de factura
   // (7xx en INGRESO, 6xx en GASTO). Si no, la forzamos a un default correcto al montar
