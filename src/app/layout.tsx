@@ -95,8 +95,12 @@ const softwareApplicationSchema = {
   ],
   offers: {
     "@type": "Offer",
+    price: "0",
     priceCurrency: "EUR",
     availability: "https://schema.org/InStock",
+    description:
+      "Prueba gratuita: 25 facturas sin tarjeta. Planes de pago disponibles bajo solicitud.",
+    url: SITE_URL,
   },
 };
 
