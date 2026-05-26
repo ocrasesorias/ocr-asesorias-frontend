@@ -59,21 +59,16 @@ export default async function Image() {
             letterSpacing: "-0.02em",
           }}
         >
-          <div
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://kontascan.com/img/logo.png"
+            alt="KontaScan"
+            width={72}
+            height={72}
             style={{
-              width: 56,
-              height: 56,
               borderRadius: 14,
-              background: "#2563eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 30,
-              fontWeight: 800,
             }}
-          >
-            K
-          </div>
+          />
           KontaScan
         </div>
 
