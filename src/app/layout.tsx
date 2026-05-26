@@ -78,7 +78,7 @@ const softwareApplicationSchema = {
   applicationSubCategory: "AccountingSoftware",
   operatingSystem: "Web",
   description:
-    "Software SaaS de extracción automática de datos de facturas con IA para gestorías y asesorías españolas. Convierte PDFs e imágenes de facturas en Excel listo para importar en software contable (Monitor Informática, A3, Contasol).",
+    "Software SaaS de extracción automática de datos de facturas con IA para gestorías y asesorías españolas. Convierte PDFs e imágenes de facturas en Excel listo para importar en Monitor Informática (próximamente más programas contables).",
   url: SITE_URL,
   inLanguage: "es-ES",
   audience: {
