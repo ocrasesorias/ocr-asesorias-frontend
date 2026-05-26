@@ -49,6 +49,7 @@ export default function Home() {
                   { href: '#como-funciona', label: 'Cómo funciona' },
                   ...(isStripeEnabled ? [{ href: '#planes', label: 'Planes' }] : []),
                   { href: '#faq', label: 'FAQ' },
+                  { href: '/blog', label: 'Blog' },
                   { href: '#contacto', label: 'Contacto' },
                 ].map((link) => (
                   <a
