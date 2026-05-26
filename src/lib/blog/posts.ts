@@ -16,8 +16,8 @@ export const BLOG_POSTS: BlogPostMeta[] = [
       "Cómo importar facturas en Monitor Informática (miConta) desde Excel: guía 2026",
     description:
       "Guía completa para automatizar la importación de facturas en miConta de Monitor Informática. Compara miConversor, importación manual y extracción con IA, con flujo paso a paso y errores frecuentes.",
-    datePublished: "2026-05-26",
-    dateModified: "2026-05-26",
+    datePublished: "2026-05-26T09:00:00+02:00",
+    dateModified: "2026-05-26T09:00:00+02:00",
     category: "Integraciones",
     readingTimeMin: 9,
     keywords: [
@@ -34,8 +34,8 @@ export const BLOG_POSTS: BlogPostMeta[] = [
       "Validación automática de NIF y CIF en facturas: el error que cuesta horas a tu gestoría",
     description:
       "Cómo funciona el algoritmo de validación de NIF (módulo 23) y CIF en España, por qué el OCR tradicional falla y cómo la IA con post-validación detecta los errores antes de la contabilización.",
-    datePublished: "2026-05-26",
-    dateModified: "2026-05-26",
+    datePublished: "2026-05-26T09:00:00+02:00",
+    dateModified: "2026-05-26T09:00:00+02:00",
     category: "Técnico",
     readingTimeMin: 8,
     keywords: [
@@ -52,8 +52,8 @@ export const BLOG_POSTS: BlogPostMeta[] = [
       "Cómo elegir software OCR de facturas para tu gestoría: 7 criterios honestos (2026)",
     description:
       "Checklist práctico para evaluar software OCR de facturas en una gestoría española: precisión real, validación NIF/CIF, integraciones con software contable, RGPD, soporte y escalabilidad.",
-    datePublished: "2026-05-26",
-    dateModified: "2026-05-26",
+    datePublished: "2026-05-26T09:00:00+02:00",
+    dateModified: "2026-05-26T09:00:00+02:00",
     category: "Guía",
     readingTimeMin: 11,
     keywords: [
