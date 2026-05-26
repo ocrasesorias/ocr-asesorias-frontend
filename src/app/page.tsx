@@ -112,14 +112,14 @@ export default function Home() {
             {/* Hero — NO ScrollReveal: contenido above-the-fold debe pintar inmediato (LCP) */}
             <section className="relative z-10 pt-36 pb-20 sm:pt-40 sm:pb-28">
               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                {/* Badge */}
+                {/* Badge — oferta prominente para conversión */}
                 <div
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-none mb-8"
                   style={{ backgroundColor: 'var(--l-badge-bg)', border: '1px solid var(--l-badge-border)' }}
                 >
                   <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                   <span className="text-sm text-primary font-medium">
-                    Automatización contable con IA
+                    25 facturas gratis · Sin tarjeta · Sin permanencia
                   </span>
                 </div>
 
@@ -145,10 +145,22 @@ export default function Home() {
                   <HeroSessionCTA variant="hero" />
                 </div>
 
-                {/* Trust line */}
-                <p className="mt-6 text-sm" style={{ color: 'var(--l-text-muted)' }}>
-                  Empieza con <span className="font-semibold" style={{ color: 'var(--l-text-secondary)' }}>25 facturas gratis</span>, sin tarjeta. Compatible con Monitor Informático.
-                </p>
+                {/* Trust signals — todos verificables, sin claims falsos */}
+                <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm" style={{ color: 'var(--l-text-muted)' }}>
+                  {[
+                    'Compatible con Monitor Informático',
+                    'Cumple RGPD y LOPD',
+                    'Datos en infraestructura europea',
+                    'Validación humana antes de exportar',
+                  ].map((item) => (
+                    <li key={item} className="inline-flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </section>
 
