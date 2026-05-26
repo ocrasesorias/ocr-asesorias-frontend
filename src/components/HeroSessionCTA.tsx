@@ -58,7 +58,7 @@ export function HeroSessionCTA({ variant }: HeroSessionCTAProps) {
             href="/login"
             className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-all shadow-lg shadow-secondary/20 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2"
           >
-            Iniciar sesion
+            Iniciar sesión
           </Link>
         )}
         <Link
@@ -96,7 +96,7 @@ export function HeroSessionCTA({ variant }: HeroSessionCTAProps) {
             href="/login"
             className="border-2 border-secondary text-secondary px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary hover:text-white transition-colors text-center"
           >
-            Iniciar sesion
+            Iniciar sesión
           </Link>
         </>
       ) : (
@@ -104,7 +104,7 @@ export function HeroSessionCTA({ variant }: HeroSessionCTAProps) {
           href="/login"
           className="bg-secondary text-white px-8 py-4 rounded-none text-lg font-semibold hover:bg-secondary-hover transition-colors shadow-lg text-center"
         >
-          Iniciar sesion
+          Iniciar sesión
         </Link>
       )}
     </>

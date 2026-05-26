@@ -7,6 +7,7 @@ const ALL_NAV_LINKS = [
   { href: '#beneficios', label: 'Beneficios' },
   { href: '#como-funciona', label: 'Cómo funciona' },
   { href: '#planes', label: 'Planes' },
+  { href: '#faq', label: 'FAQ' },
   { href: '#contacto', label: 'Contacto' },
 ] as const;
 

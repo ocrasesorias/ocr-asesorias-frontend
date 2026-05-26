@@ -1,3 +1,4 @@
+import { FAQ } from "@/components/FAQ";
 import { GridCell } from "@/components/GridCell";
 import { HeroSessionCTA } from "@/components/HeroSessionCTA";
 import { LandingAuthNav } from "@/components/LandingAuthNav";
@@ -42,11 +43,12 @@ export default function Home() {
                   </span>
                 </Link>
               </div>
-              <nav className="hidden md:flex space-x-8" aria-label="Navegacion principal">
+              <nav className="hidden md:flex space-x-8" aria-label="Navegación principal">
                 {[
                   { href: '#beneficios', label: 'Beneficios' },
-                  { href: '#como-funciona', label: 'Como funciona' },
+                  { href: '#como-funciona', label: 'Cómo funciona' },
                   ...(isStripeEnabled ? [{ href: '#planes', label: 'Planes' }] : []),
+                  { href: '#faq', label: 'FAQ' },
                   { href: '#contacto', label: 'Contacto' },
                 ].map((link) => (
                   <a
@@ -117,7 +119,7 @@ export default function Home() {
                 >
                   <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                   <span className="text-sm text-primary font-medium">
-                    Automatizacion contable con IA
+                    Automatización contable con IA
                   </span>
                 </div>
 
@@ -145,7 +147,7 @@ export default function Home() {
 
                 {/* Trust line */}
                 <p className="mt-6 text-sm" style={{ color: 'var(--l-text-muted)' }}>
-                  Empieza con <span className="font-semibold" style={{ color: 'var(--l-text-secondary)' }}>25 facturas gratis</span>, sin tarjeta. Compatible con Monitor Informatico.
+                  Empieza con <span className="font-semibold" style={{ color: 'var(--l-text-secondary)' }}>25 facturas gratis</span>, sin tarjeta. Compatible con Monitor Informático.
                 </p>
               </div>
             </section>
@@ -159,7 +161,7 @@ export default function Home() {
                       Acceso al futuro de la contabilidad
                     </h2>
                     <p className="text-lg max-w-2xl mx-auto" style={{ color: 'var(--l-text-secondary)' }}>
-                      Ahorra horas de trabajo manual transformando facturas en Excel listos para importar. Centrate en tus clientes, no en el tecleo.
+                      Ahorra horas de trabajo manual transformando facturas en Excel listos para importar. Céntrate en tus clientes, no en el tecleo.
                     </p>
                   </div>
                 </ScrollReveal>
@@ -177,7 +179,7 @@ export default function Home() {
                           Procesa facturas a escala con ayuda de nuestra IA
                         </h3>
                         <p style={{ color: 'var(--l-text-secondary)' }} className="max-w-md">
-                          Sube tus PDFs, la IA extrae los datos y tu los validas en una interfaz pensada para contables.
+                          Sube tus PDFs, la IA extrae los datos y tú los validas en una interfaz pensada para contables.
                         </p>
                       </div>
                       <div
@@ -201,21 +203,21 @@ export default function Home() {
                     <div className="bento-card p-6 sm:p-8 h-full flex flex-col justify-between min-h-[280px]">
                       <div>
                         <span className="inline-block text-xs font-semibold tracking-wider text-primary uppercase mb-3">
-                          Precision
+                          Precisión
                         </span>
                         <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--l-text)' }}>
-                          Precision real
+                          Precisión real
                         </h3>
                         <p className="text-sm" style={{ color: 'var(--l-text-secondary)' }}>
-                          Datos extraidos y validados para reducir errores al minimo.
+                          Datos extraídos y validados para reducir errores al mínimo.
                         </p>
                       </div>
                       <div className="mt-6">
                         <div className="text-6xl sm:text-7xl font-bold text-primary">
-                          99<span className="text-4xl">%</span>
+                          95<span className="text-4xl">%</span>
                         </div>
                         <p className="text-sm mt-1" style={{ color: 'var(--l-text-muted)' }}>
-                          Tasa de extraccion correcta
+                          Tasa de extracción aproximada
                         </p>
                         {/* Verification tags */}
                         <div className="flex flex-wrap gap-2 mt-4">
@@ -241,13 +243,13 @@ export default function Home() {
                     <div className="bento-card p-6 sm:p-8 h-full flex flex-col justify-between min-h-[280px]">
                       <div>
                         <span className="inline-block text-xs font-semibold tracking-wider text-primary uppercase mb-3">
-                          Integracion
+                          Integración
                         </span>
                         <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--l-text)' }}>
-                          Integracion sin friccion
+                          Integración sin fricción
                         </h3>
                         <p className="text-sm" style={{ color: 'var(--l-text-secondary)' }}>
-                          Exporta en el formato que usa tu gestoria: Monitor Informatico y otros.
+                          Exporta en el formato que usa tu gestoría: Monitor Informático y otros.
                         </p>
                       </div>
                       {/* Mini spreadsheet preview */}
@@ -291,7 +293,7 @@ export default function Home() {
                       </div>
                       <div>
                         <div className="text-5xl sm:text-6xl font-bold" style={{ color: 'var(--l-text)' }}>
-                          90<span className="text-3xl text-primary">%</span>
+                          80<span className="text-3xl text-primary">%</span>
                         </div>
                         <p className="text-sm mt-1" style={{ color: 'var(--l-text-muted)' }}>
                           Menos tiempo en entrada manual
@@ -324,7 +326,7 @@ export default function Home() {
                           Seguridad y cumplimiento
                         </h3>
                         <p className="text-sm" style={{ color: 'var(--l-text-secondary)' }}>
-                          Tratamiento de datos seguro y confidencial. Tu informacion, protegida.
+                          Tratamiento de datos seguro y confidencial. Tu información, protegida.
                         </p>
                       </div>
                       <div className="mt-4 flex items-center gap-4">
@@ -364,7 +366,7 @@ export default function Home() {
               <ScrollReveal>
                 <div className="text-center mb-16">
                   <h2 className="text-4xl font-bold mb-4" style={{ color: 'var(--l-text)' }}>
-                    Como funciona en 3 pasos
+                    Cómo funciona en 3 pasos
                   </h2>
                   <p className="text-xl" style={{ color: 'var(--l-text-secondary)' }}>
                     Un proceso simple para automatizar tu contabilidad.
@@ -413,21 +415,24 @@ export default function Home() {
                   Integraciones y formatos
                 </h2>
                 <p className="text-xl max-w-3xl mx-auto mb-6" style={{ color: 'var(--l-text-secondary)' }}>
-                  KontaScan genera Excel en el formato que tu gestoria ya utiliza. Compatible actualmente con Monitor Informatico y trabajando para otros programas contables.
+                  KontaScan genera Excel en el formato que tu gestoría ya utiliza. Compatible actualmente con Monitor Informático y trabajando para otros programas contables.
                 </p>
               </div>
             </ScrollReveal>
           </section>
+
+          {/* FAQ — con FAQPage schema embebido para GEO */}
+          <FAQ />
 
           {/* CTA */}
           <section className="py-20">
             <ScrollReveal>
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 className="text-3xl sm:text-4xl font-bold mb-6" style={{ color: 'var(--l-text)' }}>
-                  Listo para ganar horas cada semana?
+                  ¿Listo para ganar horas cada semana?
                 </h2>
                 <p className="text-lg sm:text-xl mb-8" style={{ color: 'var(--l-text-secondary)' }}>
-                  Empieza hoy y comprueba como cambia tu carga de trabajo.
+                  Empieza hoy y comprueba cómo cambia tu carga de trabajo.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <HeroSessionCTA variant="footer" />
@@ -470,7 +475,7 @@ export default function Home() {
                     <span className="text-xl font-semibold">KontaScan</span>
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--l-text-secondary)' }}>
-                    Automatiza la extraccion de datos de facturas y entrega Excel listos para importar. Precision, seguridad y soporte cercano.
+                    Automatiza la extracción de datos de facturas y entrega Excel listos para importar. Precisión, seguridad y soporte cercano.
                   </p>
                 </div>
                 <div className="flex gap-16">
@@ -490,7 +495,7 @@ export default function Home() {
                     <div className="flex flex-col space-y-2">
                       {[
                         { href: '/privacidad', label: 'Privacidad' },
-                        { href: '/terminos', label: 'Terminos' },
+                        { href: '/terminos', label: 'Términos' },
                         { href: '/aviso-legal', label: 'Aviso Legal' },
                         { href: '/cookies', label: 'Cookies' },
                       ].map((link) => (
