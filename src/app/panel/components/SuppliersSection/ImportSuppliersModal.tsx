@@ -116,7 +116,7 @@ export function ImportSuppliersModal({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="2xl" isDismissable={!isImporting}>
-      <ModalContent>
+      <ModalContent className="bg-[var(--l-card,#ffffff)] border border-[var(--l-card-border,#e5e7eb)]">
         <ModalHeader className="flex flex-col gap-1">
           <span>Importar proveedores</span>
           <span className="text-xs font-normal text-foreground-secondary">
